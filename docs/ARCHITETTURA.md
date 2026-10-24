@@ -1,4 +1,4 @@
-# ARCHITETTURA – Penumbra v1
+# ARCHITETTURA – Penumbra v2
 
 Documento di riferimento completo.  
 Leggendo questo file + il README si può riprendere il lavoro da zero in qualsiasi momento.
@@ -79,64 +79,89 @@ In futuro le modalità (Endless, Storia, PvP) nasceranno aggiungendo **modificat
 
 ### 3.1 Frontend
 - Cartella `docs/` hostata su **GitHub Pages**
-- HTML + CSS + JavaScript vanilla (o con librerie leggere se servono)
+- HTML + CSS + JavaScript vanilla
 - Grafica moderna, animazioni fluide, stile Yu-Gi-Oh Duel Links
 
 ### 3.2 Backend / Dati
 | Servizio   | Uso                                      |
 |------------|------------------------------------------|
 | **Supabase** | Autenticazione utenti + database carte  |
-| **Render**   | Solo se in futuro servono partite online in tempo reale o logica server-side complessa |
+| **Render**   | Solo se in futuro servono partite online |
 
-### 3.3 Struttura cartelle prevista (futura)
+### 3.3 Struttura file attuale (v2)
 
 ```
-/
-├── README.md
-├── docs/
-│   ├── index.html          ← pagina principale del gioco
-│   ├── ARCHITETTURA.md
-│   ├── css/
-│   ├── js/
-│   │   ├── engine/         ← logica di gioco pura
-│   │   ├── ui/             ← interfaccia
-│   │   └── ai/             ← intelligenza artificiale
-│   └── assets/             ← immagini, suoni, font
+docs/
+├── index.html
+├── ARCHITETTURA.md
+├── css/
+│   └── style.css
+└── js/
+    ├── engine.js   ← logica pura (stato, movimento, turni, IA base)
+    └── ui.js       ← rendering griglia + gestione click
 ```
 
----
-
-## 4. Decisioni di design già prese
-
-- Partita base = VS IA (un giocatore umano + un giocatore controllato dall’IA)
-- Le modalità future (Endless, Storia, PvP) saranno **modificatori** della partita base
-- Le carte saranno **parodie** di carte famose (Pokémon, Yu-Gi-Oh, Magic ecc.)
-- Grafica prioritaria: deve sembrare un vero videogioco, non un prototipo grezzo
+### 3.4 Separazione responsabilità
+- **engine.js** → nessuna conoscenza del DOM. Solo regole e stato.
+- **ui.js** → legge lo stato da `Game.getState()` e aggiorna la pagina. Invia comandi all’engine.
 
 ---
 
-## 5. Prossimi passi (dopo v1)
+## 4. Cosa funziona in v2
 
-1. Creare la struttura base del frontend (griglia 4×5 + Magus)
-2. Sistema di turni e Powa
-3. Movimento delle unità
-4. Sistema di attacco melee
-5. Mano di 10 carte + gioco delle carte
-6. IA molto semplice (muove e attacca in modo basico)
-7. Schermata di vittoria / sconfitta
+- Griglia 4×5 visualizzata
+- Due Magus posizionati (player in basso centro, AI in alto centro)
+- Selezione del Magus del giocatore
+- Evidenziazione caselle di movimento valide (ortogonali libere)
+- Movimento del Magus
+- Sistema turni
+- Guadagno Powa all’inizio del turno (max 6)
+- IA molto semplice: muove il proprio Magus verso il basso se possibile e passa
+- Barre vita (ancora non modificabili dal gameplay)
+- Interfaccia responsive e stilizzata
 
 ---
 
-## 6. Note per lo sviluppatore futuro
+## 5. Cosa manca ancora (prossima v3)
 
-- L’utente **non è tecnico**. Non chiedergli di fare modifiche manuali complesse su GitHub.
-- Ogni volta che si consegnano file da caricare:
-  - Creare una cartella `v2`, `v3`…
+1. **Attacco melee**  
+   - Seleziona unità → evidenzia nemici adiacenti → clicca per attaccare  
+   - Applica danno, gestione morte, Cimitero
+
+2. **Mano di carte**  
+   - 10 carte fisse all’inizio  
+   - Visualizzazione in basso  
+   - Giocare Creature / Torri / Armi pagando Powa
+
+3. **IA migliorata**  
+   - Attacca se può  
+   - Gioca carte semplici
+
+4. **Schermata vittoria / sconfitta**
+
+5. **Collegamento Supabase** (carte e utenti) – può arrivare dopo
+
+---
+
+## 6. Decisioni di design già prese
+
+- Partita base = VS IA
+- Modalità future = modificatori della partita base
+- Carte = parodie di Pokémon, Yu-Gi-Oh, Magic ecc.
+- Grafica prioritaria: deve sembrare un vero videogioco
+
+---
+
+## 7. Note per lo sviluppatore futuro
+
+- L’utente **non è tecnico**. Non chiedergli modifiche manuali complesse su GitHub.
+- Ogni consegna di file:
+  - Creare cartella `v3`, `v4`…
   - Mettere dentro README aggiornato + ARCHITETTURA aggiornata + tutti i file da pushare
-- Prima di toccare file critici, rileggerli sempre.
+- Prima di toccare file critici (`engine.js`, `ui.js`) rileggerli sempre.
 
 ---
 
-**Versione documento:** v1  
+**Versione documento:** v2  
 **Data:** 24 ottobre 2026  
-**Stato:** Solo documentazione – nessun codice ancora scritto  
+**Stato:** Griglia + movimento Magus + turni + Powa funzionanti  
