@@ -553,3 +553,36 @@ html, body {
   .card-name { font-size: 0.55rem; }
   .hand { gap: 6px; }
 }
+
+/* ===== v5: Torri ===== */
+.card.card-tower {
+  border-color: rgba(100, 180, 255, 0.5);
+  background: linear-gradient(160deg, #1a2838 0%, #121820 100%);
+}
+
+.card.card-tower .card-stats .passive {
+  color: #64b4ff;
+  font-size: 0.65rem;
+}
+
+.unit.tower {
+  width: 72%;
+  height: 72%;
+  border-radius: 12%;
+  font-size: clamp(1rem, 3.2vw, 1.4rem);
+  background: radial-gradient(circle at 30% 30%, #7eb8da, #2a5a7a);
+  border: 2px solid #a8d4f0;
+  box-shadow: 0 0 14px rgba(100, 180, 255, 0.4);
+}
+
+.unit.tower.player {
+  background: radial-gradient(circle at 30% 30%, #7ed4c8, #1a6a60);
+  border-color: #a8f0e4;
+  box-shadow: 0 0 14px rgba(78, 205, 196, 0.4);
+}
+
+.unit.tower.ai {
+  background: radial-gradient(circle at 30% 30%, #c4a0e8, #5a2a8a);
+  border-color: #e0c8f8;
+  box-shadow: 0 0 14px rgba(155, 89, 182, 0.4);
+}

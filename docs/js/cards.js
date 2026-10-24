@@ -1,10 +1,11 @@
 /**
- * Penumbra – Definizione carte (v4)
- * Carte base egizie, parodie leggere.
- * Tutti i giocatori partono con lo stesso mazzo di 10 carte.
+ * Penumbra – Definizione carte (v5)
+ * Creature + Torri.
+ * Mano iniziale: 10 carte (8 creature + 2 torri).
  */
 
 const CARD_POOL = [
+  // --- Creature ---
   {
     id: 'scarab',
     name: 'Scarabeo Guerriero',
@@ -93,27 +94,33 @@ const CARD_POOL = [
     symbol: '⚔️',
     desc: 'Fanteria del sole'
   },
+
+  // --- Torri ---
   {
-    id: 'gatto',
-    name: 'Gatto di Bastet',
-    type: 'creature',
-    cost: 1,
-    atk: 1,
-    hp: 3,
-    hands: 1,
-    symbol: '🐈',
-    desc: 'Agile e furbo'
+    id: 'obelisco',
+    name: 'Obelisco Guardiano',
+    type: 'tower',
+    cost: 2,
+    atk: 0,
+    hp: 6,
+    hands: 0,
+    symbol: '🏛️',
+    passive: 'aura_atk',
+    passiveValue: 1,
+    desc: 'Alleati adiacenti +1 ATK'
   },
   {
-    id: 'ibis',
-    name: 'Ibis Saggio',
-    type: 'creature',
+    id: 'pilastro',
+    name: 'Pilastro del Nilo',
+    type: 'tower',
     cost: 3,
-    atk: 2,
-    hp: 5,
-    hands: 1,
-    symbol: '🐦',
-    desc: 'Conoscenza antica'
+    atk: 0,
+    hp: 8,
+    hands: 0,
+    symbol: '🗿',
+    passive: 'aura_atk',
+    passiveValue: 1,
+    desc: 'Alleati adiacenti +1 ATK • Molto resistente'
   }
 ];
 

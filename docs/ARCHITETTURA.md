@@ -1,17 +1,15 @@
-# ARCHITETTURA – Penumbra v4
+# ARCHITETTURA – Penumbra v5
 
-Documento di riferimento completo.  
-Leggendo questo file + il README si può riprendere il lavoro da zero.
+Documento di riferimento completo.
 
 ---
 
 ## 1. Visione
 
 Card game tattico a turni, ambientazione egizia.  
-Ispirazioni: Mage Wars Arena (griglia + mano completa) + Yu-Gi-Oh Duel Links (grafica).
+Ispirazioni: Mage Wars Arena + Yu-Gi-Oh Duel Links.
 
-Partita base = VS IA.  
-Modalità future = modificatori della partita base.
+Partita base = VS IA. Modalità future = modificatori.
 
 ---
 
@@ -21,41 +19,46 @@ Modalità future = modificatori della partita base.
 - 4×5, movimento 1 passo ortogonale, niente sovrapposizione
 
 ### Magus
-- 20 HP, 1 ATK, sempre sulla griglia
+- 20 HP, 1 ATK
 
 ### Azioni per turno
-- Ogni unità può fare **una sola azione** (muovere **oppure** attaccare)
-- Flag `acted`
+- Ogni unità mobile fa **una sola azione** (muovere **oppure** attaccare)
+- Le **Torri non agiscono** (non si selezionano per muovere/attaccare)
 
 ### Combattimento
-- Solo melee (adiacente ortogonale)
-- Danno = ATK → a 0 HP l’unità va nel Cimitero
+- Solo melee
+- Danno = ATK base + bonus aura dalle Torri alleate adiacenti
 
 ### Powa
-- Inizio turno 1: 1 Powa ciascuno
-- All’inizio del proprio turno: +Powa pari al numero del turno (max 6)
-- Non si perde mai
+- Turno 1: 1 Powa
+- All’inizio del turno: +Powa = numero turno (max 6)
+- Non si perde
 
 ### Mano
-- 10 carte dall’inizio, **non si pesca**
-- Stesso mazzo base per player e IA (per ora)
+- 10 carte dall’inizio (8 Creature + 2 Torri)
+- Non si pesca
 
-### Evocazione Creature
-- Costo in Powa
-- Solo su casella **vuota adiacente al proprio Magus**
-- La Creatura evocata ha `acted = true` (non agisce nello stesso turno)
+### Evocazione
+- Creature e Torri: costo Powa, casella vuota adiacente al Magus
+- Appena evocate hanno `acted = true`
+
+### Torri
+- `type: 'tower'`, `atk: 0`
+- Non si muovono
+- Possono essere attaccate e distrutte
+- Passive attuale: `aura_atk` → alleati adiacenti +1 ATK (valore in `passiveValue`)
 
 ### Vittoria
 - Solo Magus avversario a 0 HP
 
 ---
 
-## 3. Tipi di carte (implementati / previsti)
+## 3. Tipi di carte
 
-| Tipo        | Stato v4      | Note                                      |
+| Tipo        | Stato v5      | Note                                      |
 |-------------|---------------|-------------------------------------------|
-| Creature    | ✅ Implementato | ATK + HP, si muovono e attaccano          |
-| Torri       | ❌ Futuro     | Solo HP + abilità passive, non si muovono |
+| Creature    | ✅            | ATK + HP, si muovono e attaccano          |
+| Torri       | ✅            | Solo HP + aura, non si muovono            |
 | Armi        | ❌ Futuro     | Equipaggiamento, occupano “mani”          |
 | Maledizioni | ❌ Futuro     | Solo nel proprio turno, “in aria”         |
 | Trappole    | ❌ Futuro     | Solo nel turno avversario, “in aria”      |
@@ -69,51 +72,47 @@ docs/
 ├── index.html
 ├── css/style.css
 └── js/
-    ├── cards.js    ← pool carte + createStartingHand()
-    ├── engine.js   ← stato e regole pure
-    └── ui.js       ← DOM e input
+    ├── cards.js
+    ├── engine.js
+    └── ui.js
 ```
 
-- **engine.js** non tocca il DOM
-- **ui.js** legge `Game.getState()` e chiama metodi del Game
+- `getEffectiveAtk(r,c)` calcola ATK + aura delle torri adiacenti
+- `summonCard` gestisce sia creature che torri
 
 ### Stack
 - Frontend: GitHub Pages (`docs/`)
-- Futuro: Supabase (utenti + carte), Render (se serve backend)
+- Futuro: Supabase, Render
 
 ---
 
-## 5. Cosa funziona in v4
+## 5. Cosa funziona in v5
 
-- Griglia, movimento, attacco melee
-- Mano di 10 carte visualizzata
-- Selezione carta → evidenziazione caselle verdi
-- Evocazione Creature pagando Powa
-- Creature con ATK/HP diversi, si muovono e attaccano
-- IA che evoca creature e combatte con tutte le sue unità
-- Vittoria/sconfitta + Rigioca
-- Un’azione per unità per turno
+- Tutto della v4
+- Torri evocabili (Obelisco, Pilastro)
+- Aura +ATK agli alleati adiacenti
+- IA evoca e usa le torri
+- UI distingue carte torre e unità torre
 
 ---
 
-## 6. Prossimi passi (v5)
+## 6. Prossimi passi (v6)
 
-1. Torri (immobili, solo HP + passiva semplice)
-2. Armi (equipaggiamento che aumenta ATK)
-3. Maledizioni / Trappole base
-4. Bilanciamento numeri e costi
-5. Feedback visivo più ricco (animazioni danno, evocazione)
+1. Armi (equip su creature con mani libere)
+2. Maledizioni / Trappole base
+3. Bilanciamento costi e stats
+4. Animazioni danno / evocazione
 
 ---
 
 ## 7. Note per lo sviluppatore
 
-- L’utente non è tecnico → file pronti da caricare, istruzioni chiare
-- Ogni consegna = cartella `vN` con README + ARCHITETTURA + tutti i file
-- Prima di modificare `engine.js` / `ui.js` rileggerli sempre
+- Utente non tecnico → file pronti, istruzioni chiare
+- Ogni consegna = cartella `vN` con README + ARCHITETTURA + file
+- Rileggere sempre engine.js / ui.js prima di modifiche
 
 ---
 
-**Versione:** v4  
+**Versione:** v5  
 **Data:** 24 ottobre 2026  
-**Stato:** Mano + evocazione Creature funzionanti  
+**Stato:** Torri + aura +ATK funzionanti  

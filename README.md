@@ -15,46 +15,34 @@ L’obiettivo è **ridurre a 0 i punti vita** del Magus avversario.
 
 ---
 
-## Stato attuale – v4
+## Stato attuale – v5
 
-**Ora puoi giocare le carte!**
+**Novità: Torri!**
 
-Cosa puoi fare:
-- Vedi la **mano di 10 carte** in basso
-- Clicca una carta (se hai abbastanza Powa) → caselle **verdi** = dove puoi evocarla
-- Evoca Creature accanto al tuo Magus
-- Le Creature possono muovere e attaccare (dal turno successivo)
-- L’IA evoca anche lei e combatte con le sue creature
-- Movimento (giallo), Attacco (rosso), Evocazione (verde)
+- Puoi evocare **Torri** (Obelisco Guardiano, Pilastro del Nilo)
+- Le Torri **non si muovono** e non attaccano
+- Hanno tanti HP e danno **+1 ATK** a tutti gli alleati adiacenti
+- In mano vedi 8 Creature + 2 Torri
+- L’IA usa anche le Torri
+
+| Azione     | Colore  | Cosa fa                                      |
+|------------|---------|----------------------------------------------|
+| Movimento  | Giallo  | 1 passo ortogonale                           |
+| Attacco    | Rosso   | Danni in melee (include bonus dalle Torri)   |
+| Evocazione | Verde   | Piazza Creatura o Torre accanto al Magus     |
 
 ---
 
 ## Regole rapide
 
-| Azione        | Colore casella | Cosa fa                          |
-|---------------|----------------|----------------------------------|
-| Movimento     | Giallo         | Sposta di 1 passo ortogonale     |
-| Attacco       | Rosso          | Infligge ATK danni in melee      |
-| Evocazione    | Verde          | Piazza una Creatura (costa Powa) |
-
-- Ogni unità fa **una sola azione per turno**
-- Le Creature appena evocate non agiscono nello stesso turno
-- Si evoca **solo** su caselle adiacenti al proprio Magus
+- Ogni unità (tranne le Torri) fa **una sola azione per turno**
+- Creature appena evocate non agiscono nello stesso turno
+- Torri: solo HP + aura +ATK, si possono attaccare e distruggere
 - Vittoria = Magus avversario a 0 HP
 
 ---
 
-## Stack tecnico
-
-| Parte       | Tecnologia     |
-|-------------|----------------|
-| Frontend    | HTML + CSS + JS (GitHub Pages su `docs/`) |
-| Carte/Utenti| Supabase (prossimamente) |
-| Backend     | Render (solo se servirà) |
-
----
-
-## Struttura file (v4)
+## Struttura file (v5)
 
 ```
 docs/
@@ -62,39 +50,39 @@ docs/
 ├── ARCHITETTURA.md
 ├── css/style.css
 └── js/
-    ├── cards.js    ← definizione delle 10 carte
-    ├── engine.js   ← logica di gioco
-    └── ui.js       ← interfaccia
+    ├── cards.js    ← Creature + Torri
+    ├── engine.js
+    └── ui.js
 ```
 
 ---
 
 ## Roadmap
 
-- **v1** Documentazione → FATTA  
-- **v2** Griglia + movimento → FATTA  
-- **v3** Attacco melee → FATTA  
-- **v4** Mano + Creature → FATTA  
-- **v5** (prossima) Torri / Armi / Maledizioni / bilanciamento  
+- v1 Documentazione → FATTA  
+- v2 Griglia + movimento → FATTA  
+- v3 Attacco melee → FATTA  
+- v4 Mano + Creature → FATTA  
+- v5 Torri + aura → FATTA  
+- **v6** (prossima) Armi / Maledizioni / bilanciamento  
 
 ---
 
 ## Come caricare su GitHub
 
-| File locale                     | Dove metterlo sul repository |
+| File locale                     | Dove metterlo                |
 |---------------------------------|------------------------------|
-| `v4/README.md`                  | → root (`README.md`)         |
-| `v4/docs/ARCHITETTURA.md`       | → `docs/ARCHITETTURA.md`     |
-| `v4/docs/index.html`            | → `docs/index.html`          |
-| `v4/docs/css/style.css`         | → `docs/css/style.css`       |
-| `v4/docs/js/cards.js`           | → `docs/js/cards.js`         |
-| `v4/docs/js/engine.js`          | → `docs/js/engine.js`        |
-| `v4/docs/js/ui.js`              | → `docs/js/ui.js`            |
+| `v5/README.md`                  | → root (`README.md`)         |
+| `v5/docs/ARCHITETTURA.md`       | → `docs/ARCHITETTURA.md`     |
+| `v5/docs/index.html`            | → `docs/index.html`          |
+| `v5/docs/css/style.css`         | → `docs/css/style.css`       |
+| `v5/docs/js/cards.js`           | → `docs/js/cards.js`         |
+| `v5/docs/js/engine.js`          | → `docs/js/engine.js`        |
+| `v5/docs/js/ui.js`              | → `docs/js/ui.js`            |
 
-Dopo il caricamento:  
 **https://pharaohshadow.github.io/Penumbra/**
 
 ---
 
-**Versione:** v4 – Mano di carte + evocazione Creature  
+**Versione:** v5 – Torri + aura +ATK  
 **Data:** 24 ottobre 2026  

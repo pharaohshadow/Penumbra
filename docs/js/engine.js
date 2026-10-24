@@ -1,6 +1,6 @@
 /**
- * Penumbra – Game Engine (v4)
- * Novità v4: mano di 10 carte, evocazione Creature pagando Powa.
+ * Penumbra – Game Engine (v5)
+ * Novità v5: Torri (immobili, solo HP, aura +ATK agli alleati adiacenti).
  */
 
 const ROWS = 4;
@@ -16,18 +16,13 @@ const Game = {
 
   units: {},
   cemetery: [],
+  hands: { player: [], ai: [] },
 
-  // Mani
-  hands: {
-    player: [],
-    ai: []
-  },
-
-  selected: null,          // { r, c } unità selezionata
-  selectedCardIndex: null, // indice carta in mano selezionata
+  selected: null,
+  selectedCardIndex: null,
   possibleMoves: [],
   possibleAttacks: [],
-  possibleSummons: [],     // caselle dove si può piazzare la carta
+  possibleSummons: [],
 
   init() {
     this.turn = 1;
@@ -43,7 +38,6 @@ const Game = {
     this.gameOver = false;
     this.winner = null;
 
-    // Magus
     this.units['3-2'] = {
       owner: 'player', type: 'magus', id: 'player-magus',
       hp: 20, maxHp: 20, atk: 1, acted: false, symbol: '𓁹'
@@ -53,12 +47,11 @@ const Game = {
       hp: 20, maxHp: 20, atk: 1, acted: false, symbol: '𓀀'
     };
 
-    // Mani iniziali (10 carte ciascuno)
     this.hands.player = createStartingHand();
     this.hands.ai = createStartingHand();
   },
 
-  // ---- Utilità griglia ----
+  // ---- Utilità ----
   key(r, c) { return `${r}-${c}`; },
   isInside(r, c) { return r >= 0 && r < ROWS && c >= 0 && c < COLS; },
   isEmpty(r, c) { return !this.units[this.key(r, c)]; },
@@ -71,7 +64,6 @@ const Game = {
       .filter(p => this.isInside(p.r, p.c));
   },
 
-  // Trova la posizione del Magus di un giocatore
   findMagus(owner) {
     for (const [k, u] of Object.entries(this.units)) {
       if (u.owner === owner && u.type === 'magus') {
@@ -80,6 +72,26 @@ const Game = {
       }
     }
     return null;
+  },
+
+  /** Bonus ATK da torri alleate adiacenti (passive aura_atk) */
+  getAuraAtkBonus(r, c, owner) {
+    let bonus = 0;
+    for (const pos of this.getOrthogonal(r, c)) {
+      const u = this.getUnit(pos.r, pos.c);
+      if (u && u.owner === owner && u.type === 'tower' && u.passive === 'aura_atk') {
+        bonus += (u.passiveValue || 1);
+      }
+    }
+    return bonus;
+  },
+
+  /** ATK effettivo di un’unità (base + aura) */
+  getEffectiveAtk(r, c) {
+    const unit = this.getUnit(r, c);
+    if (!unit) return 0;
+    if (unit.type === 'tower') return 0;
+    return unit.atk + this.getAuraAtkBonus(r, c, unit.owner);
   },
 
   // ---- Selezione unità ----
@@ -91,6 +103,7 @@ const Game = {
     if (!unit || unit.owner !== this.currentPlayer) return false;
     if (this.currentPlayer !== 'player') return false;
     if (unit.acted) return false;
+    if (unit.type === 'tower') return false; // le torri non agiscono
 
     this.selected = { r, c };
     const adj = this.getOrthogonal(r, c);
@@ -129,7 +142,7 @@ const Game = {
     const keyFrom = this.key(fromR, fromC);
     const keyTo = this.key(toR, toC);
     const unit = this.units[keyFrom];
-    if (!unit) return false;
+    if (!unit || unit.type === 'tower') return false;
 
     unit.acted = true;
     delete this.units[keyFrom];
@@ -143,13 +156,14 @@ const Game = {
     if (this.gameOver || !this.canAttack(toR, toC)) return false;
     const attacker = this.getUnit(fromR, fromC);
     const defender = this.getUnit(toR, toC);
-    if (!attacker || !defender) return false;
+    if (!attacker || !defender || attacker.type === 'tower') return false;
 
-    defender.hp -= attacker.atk;
+    const damage = this.getEffectiveAtk(fromR, fromC);
+    defender.hp -= damage;
     attacker.acted = true;
 
     const result = {
-      damage: attacker.atk,
+      damage,
       defenderHpLeft: Math.max(0, defender.hp),
       killed: false
     };
@@ -182,7 +196,7 @@ const Game = {
     else if (!aiAlive) { this.gameOver = true; this.winner = 'player'; }
   },
 
-  // ---- Carte e evocazione ----
+  // ---- Carte e evocazione (Creature + Torri) ----
   selectCard(index) {
     if (this.gameOver || this.currentPlayer !== 'player') return false;
     this.deselect();
@@ -191,12 +205,11 @@ const Game = {
     if (index < 0 || index >= hand.length) return false;
 
     const card = hand[index];
-    if (card.type !== 'creature') return false; // solo creature per ora
+    if (card.type !== 'creature' && card.type !== 'tower') return false;
     if (this.powa.player < card.cost) return false;
 
     this.selectedCardIndex = index;
 
-    // Caselle di evocazione: vuote e adiacenti al proprio Magus
     const magus = this.findMagus('player');
     if (!magus) {
       this.possibleSummons = [];
@@ -209,37 +222,35 @@ const Game = {
     return true;
   },
 
-  summonCreature(r, c) {
+  summonCard(r, c) {
     if (this.gameOver || this.selectedCardIndex === null) return false;
     if (!this.canSummonTo(r, c)) return false;
 
     const hand = this.hands.player;
     const card = hand[this.selectedCardIndex];
     if (!card || this.powa.player < card.cost) return false;
+    if (card.type !== 'creature' && card.type !== 'tower') return false;
 
-    // Paga Powa
     this.powa.player -= card.cost;
 
-    // Crea unità
     const unit = {
       owner: 'player',
-      type: 'creature',
+      type: card.type,
       id: card.id + '-' + Date.now(),
       name: card.name,
       hp: card.hp,
       maxHp: card.hp,
-      atk: card.atk,
-      hands: card.hands || 1,
-      acted: true, // appena evocata non può agire nello stesso turno
+      atk: card.atk || 0,
+      hands: card.hands || 0,
+      acted: true,
       symbol: card.symbol || '👾',
-      cardId: card.id
+      cardId: card.id,
+      passive: card.passive || null,
+      passiveValue: card.passiveValue || 0
     };
 
     this.units[this.key(r, c)] = unit;
-
-    // Rimuovi dalla mano
     hand.splice(this.selectedCardIndex, 1);
-
     this.clearCardSelection();
     return true;
   },
@@ -269,17 +280,14 @@ const Game = {
     }
   },
 
-  // IA v4: prova a evocare una creatura economica, poi attacca o muove
+  // IA v5
   aiTurn() {
     if (this.gameOver) return;
-
-    // 1. Prova a evocare una creatura se ha Powa
     this.aiTrySummon();
 
-    // 2. Azioni di tutte le unità AI (Magus + creature)
     const aiUnits = [];
     for (const [k, u] of Object.entries(this.units)) {
-      if (u.owner === 'ai' && !u.acted) {
+      if (u.owner === 'ai' && !u.acted && u.type !== 'tower') {
         const [r, c] = k.split('-').map(Number);
         aiUnits.push({ r, c, unit: u });
       }
@@ -297,10 +305,12 @@ const Game = {
     const hand = this.hands.ai;
     if (!hand.length) return;
 
-    // Prendi la creatura più economica che può permettersi
     const affordable = hand
       .map((card, idx) => ({ card, idx }))
-      .filter(({ card }) => card.type === 'creature' && card.cost <= this.powa.ai)
+      .filter(({ card }) =>
+        (card.type === 'creature' || card.type === 'tower') &&
+        card.cost <= this.powa.ai
+      )
       .sort((a, b) => a.card.cost - b.card.cost);
 
     if (!affordable.length) return;
@@ -313,23 +323,24 @@ const Game = {
       .filter(p => this.isEmpty(p.r, p.c));
     if (!spots.length) return;
 
-    // Preferisci caselle più in basso (verso il player)
     spots.sort((a, b) => b.r - a.r);
     const pos = spots[0];
 
     this.powa.ai -= card.cost;
     this.units[this.key(pos.r, pos.c)] = {
       owner: 'ai',
-      type: 'creature',
+      type: card.type,
       id: card.id + '-ai-' + Date.now(),
       name: card.name,
       hp: card.hp,
       maxHp: card.hp,
-      atk: card.atk,
-      hands: card.hands || 1,
+      atk: card.atk || 0,
+      hands: card.hands || 0,
       acted: true,
       symbol: card.symbol || '👾',
-      cardId: card.id
+      cardId: card.id,
+      passive: card.passive || null,
+      passiveValue: card.passiveValue || 0
     };
     hand.splice(idx, 1);
   },
@@ -337,13 +348,12 @@ const Game = {
   aiActUnit(r, c, unit) {
     const adj = this.getOrthogonal(r, c);
 
-    // Attacca se possibile
     const enemies = adj.filter(p => {
       const t = this.getUnit(p.r, p.c);
       return t && t.owner === 'player';
     });
+
     if (enemies.length > 0) {
-      // Preferisci attaccare il Magus se presente
       enemies.sort((a, b) => {
         const ua = this.getUnit(a.r, a.c);
         const ub = this.getUnit(b.r, b.c);
@@ -353,14 +363,14 @@ const Game = {
       });
       const target = enemies[0];
       const defender = this.getUnit(target.r, target.c);
-      defender.hp -= unit.atk;
+      const damage = this.getEffectiveAtk(r, c);
+      defender.hp -= damage;
       unit.acted = true;
       if (defender.hp <= 0) this.killUnit(target.r, target.c);
       this.checkWin();
       return;
     }
 
-    // Altrimenti muovi verso il basso
     const moves = adj.filter(p => this.isEmpty(p.r, p.c));
     if (moves.length > 0) {
       moves.sort((a, b) => b.r - a.r);
@@ -381,7 +391,6 @@ const Game = {
     this.resetActed('player');
   },
 
-  // ---- Stato UI ----
   getState() {
     let playerHp = 0, playerMaxHp = 20;
     let aiHp = 0, aiMaxHp = 20;
@@ -394,12 +403,22 @@ const Game = {
       }
     }
 
+    // Aggiungi atk effettivo per la UI
+    const unitsWithBonus = {};
+    for (const [k, u] of Object.entries(this.units)) {
+      const [r, c] = k.split('-').map(Number);
+      unitsWithBonus[k] = {
+        ...u,
+        effectiveAtk: this.getEffectiveAtk(r, c)
+      };
+    }
+
     return {
       turn: this.turn,
       currentPlayer: this.currentPlayer,
       powa: this.powa.player,
       maxPowa: this.maxPowa,
-      units: { ...this.units },
+      units: unitsWithBonus,
       selected: this.selected,
       selectedCardIndex: this.selectedCardIndex,
       possibleMoves: [...this.possibleMoves],

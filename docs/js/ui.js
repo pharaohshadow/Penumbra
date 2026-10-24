@@ -112,9 +112,13 @@ const UI = {
     // Se abbiamo una carta selezionata → prova evocazione
     if (Game.selectedCardIndex !== null) {
       if (Game.canSummonTo(r, c)) {
-        Game.summonCreature(r, c);
+        const card = Game.hands.player[Game.selectedCardIndex];
+        const isTower = card && card.type === 'tower';
+        Game.summonCard(r, c);
         this.render();
-        this.showHint('Creatura evocata! Può agire dal prossimo turno');
+        this.showHint(isTower
+          ? 'Torre piazzata! Non si muove, dà bonus agli alleati vicini'
+          : 'Creatura evocata! Può agire dal prossimo turno');
       } else {
         Game.clearCardSelection();
         this.render();
@@ -125,8 +129,8 @@ const UI = {
 
     const unit = Game.getUnit(r, c);
 
-    // Seleziona unità nostra
-    if (unit && unit.owner === 'player' && !unit.acted) {
+    // Seleziona unità nostra (non torri, non già agite)
+    if (unit && unit.owner === 'player' && !unit.acted && unit.type !== 'tower') {
       Game.selectUnit(r, c);
       this.render();
       const hasAtk = Game.possibleAttacks.length > 0;
@@ -190,26 +194,28 @@ const UI = {
     state.hand.forEach((card, idx) => {
       const el = document.createElement('div');
       el.className = 'card';
+      if (card.type === 'tower') el.classList.add('card-tower');
       el.dataset.index = idx;
 
       const canPlay = state.currentPlayer === 'player' &&
                       !state.gameOver &&
                       card.cost <= state.powa &&
-                      card.type === 'creature';
+                      (card.type === 'creature' || card.type === 'tower');
 
       if (!canPlay) el.classList.add('disabled');
       if (state.selectedCardIndex === idx) el.classList.add('selected');
+
+      const statsHtml = card.type === 'tower'
+        ? `<span class="hp">❤ ${card.hp}</span><span class="passive">+ATK</span>`
+        : `<span class="atk">⚔ ${card.atk}</span><span class="hp">❤ ${card.hp}</span>`;
 
       el.innerHTML = `
         <div class="card-cost">◆ ${card.cost}</div>
         <div class="card-symbol">${card.symbol}</div>
         <div class="card-name">${card.name}</div>
-        <div class="card-stats">
-          <span class="atk">⚔ ${card.atk}</span>
-          <span class="hp">❤ ${card.hp}</span>
-        </div>
+        <div class="card-stats">${statsHtml}</div>
       `;
-      el.title = `${card.name}\nCosto: ${card.cost} Powa\nATK ${card.atk} / HP ${card.hp}\n${card.desc || ''}`;
+      el.title = `${card.name} (${card.type})\nCosto: ${card.cost} Powa\n${card.desc || ''}`;
       this.handEl.appendChild(el);
     });
   },
@@ -261,16 +267,23 @@ const UI = {
       const el = document.createElement('div');
       el.className = `unit ${unit.owner}`;
       if (unit.type === 'creature') el.classList.add('creature');
+      if (unit.type === 'tower') el.classList.add('tower');
       if (unit.acted) el.classList.add('acted');
       if (state.selected && state.selected.r === r && state.selected.c === c) {
         el.classList.add('selected');
       }
 
+      const atkShow = unit.type === 'tower' ? 0 : (unit.effectiveAtk ?? unit.atk);
+      const bonus = (unit.effectiveAtk != null && unit.effectiveAtk > unit.atk)
+        ? ` (+${unit.effectiveAtk - unit.atk})` : '';
+
       el.innerHTML = `
         <span class="unit-symbol">${unit.symbol || (unit.owner === 'player' ? '𓁹' : '𓀀')}</span>
         <span class="unit-hp">${unit.hp}</span>
       `;
-      el.title = `${unit.name || (unit.owner === 'player' ? 'Il tuo Magus' : 'Faraone Oscuro')} — ATK ${unit.atk} / HP ${unit.hp}`;
+      el.title = unit.type === 'tower'
+        ? `${unit.name} (Torre) — HP ${unit.hp} • Alleati adiacenti +ATK`
+        : `${unit.name || (unit.owner === 'player' ? 'Il tuo Magus' : 'Faraone Oscuro')} — ATK ${atkShow}${bonus} / HP ${unit.hp}`;
       cell.appendChild(el);
     }
 
