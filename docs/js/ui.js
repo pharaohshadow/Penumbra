@@ -1,6 +1,6 @@
 /**
- * Penumbra – UI (v4)
- * Novità: mano di carte, selezione carta, evocazione.
+ * Penumbra – UI (v8)
+ * Novità: animazioni (danni flottanti, shake, evocazione, attacco, trappola).
  */
 
 const UI = {
@@ -15,6 +15,57 @@ const UI = {
     this.bindEvents();
     Game.init();
     this.render();
+  },
+
+  // ---- Animazioni ----
+  animUnit(r, c, className, ms = 450) {
+    const cell = this.cells[r] && this.cells[r][c];
+    if (!cell) return;
+    const unit = cell.querySelector('.unit');
+    if (!unit) return;
+    unit.classList.remove(className);
+    void unit.offsetWidth;
+    unit.classList.add(className);
+    setTimeout(() => unit.classList.remove(className), ms);
+  },
+
+  animCell(r, c, className = 'anim-flash', ms = 450) {
+    const cell = this.cells[r] && this.cells[r][c];
+    if (!cell) return;
+    cell.classList.remove(className);
+    void cell.offsetWidth;
+    cell.classList.add(className);
+    setTimeout(() => cell.classList.remove(className), ms);
+  },
+
+  showDamage(r, c, amount, kind = '') {
+    const cell = this.cells[r] && this.cells[r][c];
+    if (!cell || !amount) return;
+    const el = document.createElement('div');
+    el.className = 'damage-float' + (kind ? ' ' + kind : '');
+    el.textContent = '-' + amount;
+    cell.appendChild(el);
+    setTimeout(() => el.remove(), 950);
+  },
+
+  animTrapBadge() {
+    const badge = document.getElementById('trap-badge');
+    if (!badge) return;
+    badge.classList.remove('anim-trap');
+    void badge.offsetWidth;
+    badge.classList.add('anim-trap');
+    setTimeout(() => badge.classList.remove('anim-trap'), 600);
+  },
+
+  animHpBar(who) {
+    const bar = document.querySelector(
+      who === 'player' ? '.human-panel .hp-bar' : '.ai-panel .hp-bar'
+    );
+    if (!bar) return;
+    bar.classList.remove('anim-hit');
+    void bar.offsetWidth;
+    bar.classList.add('anim-hit');
+    setTimeout(() => bar.classList.remove('anim-hit'), 400);
   },
 
   buildGrid() {
@@ -60,11 +111,19 @@ const UI = {
         return;
       }
       this.showHint('Turno dell\'IA…');
+      // Piccolo delay per far vedere le mosse IA con animazioni leggere
       setTimeout(() => {
         this.render();
+        // Flash leggero su unità AI appena agite
+        for (const [key, unit] of Object.entries(Game.units)) {
+          if (unit.owner === 'ai' && unit.acted) {
+            const [r, c] = key.split('-').map(Number);
+            this.animUnit(r, c, 'anim-attack', 300);
+          }
+        }
         if (Game.gameOver) this.showGameOver();
         else this.showHint('Clicca una carta o un\'unità');
-      }, 550);
+      }, 400);
     });
 
     document.getElementById('btn-close-message').addEventListener('click', () => {
@@ -91,9 +150,9 @@ const UI = {
 
     if (ok) {
       if (card && card.type === 'trap') {
-        // Posa subito
         Game.setTrap();
         this.render();
+        this.animTrapBadge();
         this.showHint('Trappola posata! Scatta quando un nemico attacca');
         return;
       }
@@ -147,15 +206,24 @@ const UI = {
       if (Game.canCurse(r, c)) {
         const result = Game.castCurse(r, c);
         this.render();
+        if (result) {
+          this.showDamage(r, c, result.damage);
+          this.animUnit(r, c, 'anim-shake');
+          this.animCell(r, c);
+          const target = Game.getUnit(r, c);
+          // se morto non c'è più unità: anim già fatta sul render
+          if (result.killed) this.animHpBar('ai');
+        }
         if (result?.killed) this.showHint(`Maledizione fatale! (${result.damage} danni)`);
         else if (result) this.showHint(`${result.name}: ${result.damage} danni`);
-        if (Game.gameOver) setTimeout(() => this.showGameOver(), 400);
+        if (Game.gameOver) setTimeout(() => this.showGameOver(), 450);
         return;
       }
 
       if (Game.canEquipTo(r, c)) {
         Game.equipWeapon(r, c);
         this.render();
+        this.animUnit(r, c, 'anim-attack', 350);
         this.showHint('Arma equipaggiata! ATK aumentato');
         return;
       }
@@ -164,6 +232,7 @@ const UI = {
         const isTower = card && card.type === 'tower';
         Game.summonCard(r, c);
         this.render();
+        this.animUnit(r, c, 'anim-summon');
         this.showHint(isTower
           ? 'Torre piazzata! Non si muove, dà bonus agli alleati vicini'
           : 'Creatura evocata! Può agire dal prossimo turno');
@@ -198,6 +267,16 @@ const UI = {
       if (Game.canAttack(r, c)) {
         const result = Game.attackUnit(fr, fc, r, c);
         this.render();
+        // Anim attaccante + difensore
+        this.animUnit(fr, fc, 'anim-attack', 350);
+        this.animUnit(r, c, 'anim-shake');
+        this.animCell(r, c);
+        if (result) this.showDamage(r, c, result.damage);
+        if (result?.trapTriggered) {
+          this.showDamage(fr, fc, result.trapTriggered.damage, 'trap');
+          this.animUnit(fr, fc, 'anim-shake');
+          this.animTrapBadge();
+        }
         let msg = result?.killed
           ? `Colpo fatale! (${result.damage} danni)`
           : (result ? `Inflitti ${result.damage} danni` : '');
@@ -205,13 +284,14 @@ const UI = {
           msg += ` • Trappola: ${result.trapTriggered.damage} danni all'attaccante!`;
         }
         if (msg) this.showHint(msg);
-        if (Game.gameOver) setTimeout(() => this.showGameOver(), 400);
+        if (Game.gameOver) setTimeout(() => this.showGameOver(), 500);
         return;
       }
 
       if (Game.canMoveTo(r, c)) {
         Game.moveUnit(fr, fc, r, c);
         this.render();
+        this.animUnit(r, c, 'anim-summon', 300);
         this.showHint('Unità mossa');
         return;
       }

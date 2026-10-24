@@ -1,4 +1,4 @@
-# ARCHITETTURA – Penumbra v7
+# ARCHITETTURA – Penumbra v8
 
 Documento di riferimento completo.
 
@@ -6,73 +6,62 @@ Documento di riferimento completo.
 
 ## 1. Visione
 
-Card game tattico a turni, ambientazione egizia. Partita base = VS IA.
+Card game tattico a turni, ambientazione egizia.  
+Partita base = VS IA. Grafica e feedback stile Duel Links.
 
 ---
 
-## 2. Regole complete
+## 2. Regole
 
-### Griglia / Magus / Powa / Movimento / Combattimento
-- Come v6 (4×5, 20 HP Magus, Powa max 6, melee, 1 azione/turno)
-
-### Tipi di carte (tutti implementati)
-
-| Tipo        | Quando          | Come                                      |
-|-------------|-----------------|-------------------------------------------|
-| Creature    | Tuo turno       | Evoca su casella adiacente al Magus       |
-| Torri       | Tuo turno       | Evoca; immobile; aura +ATK                |
-| Armi        | Tuo turno       | Equip su unità con mani libere            |
-| Maledizioni | **Solo tuo turno** | Target nemico → danno immediato        |
-| Trappole    | Si posano nel tuo turno | Scattano quando un **nemico attacca** |
-
-### Maledizione
-- Costo Powa, scegli un nemico sulla griglia
-- Infligge `damage` HP
-- “In aria” (non resta sulla griglia)
-
-### Trappola
-- Costo Powa, si posa senza target (`traps.player[]` / `traps.ai[]`)
-- Alla prima volta che un’unità **avversaria attacca**, la trappola scatta:
-  - danno all’attaccante
-  - trappola consumata
-- Visibile come contatore 🪤
-
-### Vittoria
-- Magus avversario a 0 HP
+Come v7 (Creature, Torri, Armi, Maledizioni, Trappole, griglia 4×5, Powa, melee).
 
 ---
 
-## 3. Architettura
+## 3. Animazioni (v8)
+
+Implementate solo in **UI** (CSS + `ui.js`), senza cambiare le regole.
+
+| Evento           | Effetto                                      |
+|------------------|----------------------------------------------|
+| Evocazione / move| `anim-summon` (scale pop)                    |
+| Attacco          | `anim-attack` sull’attaccante                |
+| Danno subito     | `anim-shake` + numero flottante `−N`         |
+| Casella colpita  | `anim-flash`                                 |
+| Trappola posata / scattata | flash sul badge 🪤                  |
+| Equip arma       | pulse sull’unità                             |
+
+Metodi UI:
+- `animUnit(r, c, className)`
+- `animCell(r, c)`
+- `showDamage(r, c, amount, kind?)`
+- `animTrapBadge()`
+- `animHpBar(who)`
+
+---
+
+## 4. Struttura file
 
 ```
-docs/js/
-├── cards.js
-├── engine.js   ← castCurse, setTrap, triggerTrap
-└── ui.js
+docs/
+├── index.html
+├── css/style.css   ← keyframes + classi anim-*
+└── js/
+    ├── cards.js
+    ├── engine.js   ← invariato rispetto a v7
+    └── ui.js       ← helper animazioni + chiamate dopo le azioni
 ```
 
 ---
 
-## 4. Cosa funziona in v7
+## 5. Prossimi passi
 
-- Tutti i 5 tipi di carte
-- Maledizione con target viola
-- Trappole posate + trigger automatico in attacco
-- IA usa curse/trap/equip/summon
-- Badge trappole in UI
-
----
-
-## 5. Prossimi passi (v8+)
-
-1. Bilanciamento numeri e costi
-2. Più carte per tipo
-3. Animazioni / feedback visivo
-4. Modalità (Endless, Storia, PvP)
-5. Supabase (utenti / mazzi)
+1. Bilanciamento / più carte
+2. Modalità (Endless, Storia, PvP)
+3. Suoni
+4. Supabase (utenti / mazzi)
 
 ---
 
-**Versione:** v7  
+**Versione:** v8  
 **Data:** 24 ottobre 2026  
-**Stato:** Maledizioni + Trappole funzionanti – set carte completo  
+**Stato:** Animazioni di combattimento e evocazione attive  
