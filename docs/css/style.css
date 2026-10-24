@@ -619,3 +619,35 @@ html, body {
   justify-content: center;
   border: 1px solid rgba(255,180,80,0.6);
 }
+
+/* ===== v7: Maledizioni e Trappole ===== */
+.card.card-curse {
+  border-color: rgba(180, 80, 220, 0.55);
+  background: linear-gradient(160deg, #2a1a30 0%, #180e20 100%);
+}
+
+.card.card-trap {
+  border-color: rgba(220, 120, 60, 0.55);
+  background: linear-gradient(160deg, #2a2010 0%, #1a1408 100%);
+}
+
+.cell.curse-highlight {
+  background: rgba(180, 80, 220, 0.35);
+  border-color: #b450dc;
+  box-shadow: 0 0 14px rgba(180, 80, 220, 0.45);
+  cursor: pointer;
+}
+
+.cell.curse-highlight:hover {
+  background: rgba(180, 80, 220, 0.55);
+  transform: scale(1.04);
+}
+
+.trap-badge {
+  background: rgba(220, 120, 60, 0.2);
+  border: 1px solid rgba(220, 120, 60, 0.45);
+  border-radius: 16px;
+  padding: 4px 12px;
+  font-size: 0.9rem;
+  color: #f0b070;
+}

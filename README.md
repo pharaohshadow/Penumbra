@@ -5,30 +5,34 @@ Partite veloci (~5 minuti) – Browser – Grafica stile Yu-Gi-Oh Duel Links
 
 ---
 
-## Stato attuale – v6
+## Stato attuale – v7
 
-**Novità: Armi!**
+**Novità: Maledizioni e Trappole!**
 
-- **Khopesh Dorata** (+2 ATK, 1 Powa) e **Scettro di Ra** (+3 ATK, 2 Powa)
-- Si equipaggiano su Creature o Magus che hanno **mani libere**
-- Caselle **blu** = unità che possono ricevere l’arma
-- Il Magus ha 2 mani; alcune creature ne hanno 1 o 2
-- L’IA equipaggia le armi automaticamente
+| Carta | Tipo | Effetto |
+|-------|------|---------|
+| **Maledizione dell’Ankh** | Maledizione | 4 danni a un nemico a scelta (solo nel tuo turno) |
+| **Trappola dello Scarabeo** | Trappola | Si posa ora; quando un nemico attacca, subisce 3 danni |
 
-| Azione     | Colore  | Cosa fa                                |
-|------------|---------|----------------------------------------|
-| Movimento  | Giallo  | 1 passo ortogonale                     |
-| Attacco    | Rosso   | Danni (base + armi + aura torri)       |
-| Evocazione | Verde   | Piazza Creatura o Torre                |
-| Equip      | Blu     | Assegna un’Arma a un’unità             |
+- Caselle **viola** = bersagli della maledizione  
+- Badge 🪤 in basso = quante trappole hai posato  
+- L’IA usa maledizioni e trappole  
+
+### Colori caselle
+
+| Colore  | Azione        |
+|---------|---------------|
+| Giallo  | Movimento     |
+| Rosso   | Attacco       |
+| Verde   | Evocazione    |
+| Blu     | Equip arma    |
+| Viola   | Maledizione   |
 
 ---
 
 ## Mano (10 carte)
 
-- 6 Creature  
-- 2 Torri  
-- 2 Armi  
+5 Creature · 1 Torre · 2 Armi · 1 Maledizione · 1 Trappola
 
 ---
 
@@ -36,17 +40,17 @@ Partite veloci (~5 minuti) – Browser – Grafica stile Yu-Gi-Oh Duel Links
 
 | File locale                     | Dove metterlo                |
 |---------------------------------|------------------------------|
-| `v6/README.md`                  | → root (`README.md`)         |
-| `v6/docs/ARCHITETTURA.md`       | → `docs/ARCHITETTURA.md`     |
-| `v6/docs/index.html`            | → `docs/index.html`          |
-| `v6/docs/css/style.css`         | → `docs/css/style.css`       |
-| `v6/docs/js/cards.js`           | → `docs/js/cards.js`         |
-| `v6/docs/js/engine.js`          | → `docs/js/engine.js`        |
-| `v6/docs/js/ui.js`              | → `docs/js/ui.js`            |
+| `v7/README.md`                  | → root (`README.md`)         |
+| `v7/docs/ARCHITETTURA.md`       | → `docs/ARCHITETTURA.md`     |
+| `v7/docs/index.html`            | → `docs/index.html`          |
+| `v7/docs/css/style.css`         | → `docs/css/style.css`       |
+| `v7/docs/js/cards.js`           | → `docs/js/cards.js`         |
+| `v7/docs/js/engine.js`          | → `docs/js/engine.js`        |
+| `v7/docs/js/ui.js`              | → `docs/js/ui.js`            |
 
 **https://pharaohshadow.github.io/Penumbra/**
 
 ---
 
-**Versione:** v6 – Armi equipaggiabili  
+**Versione:** v7 – Maledizioni + Trappole  
 **Data:** 24 ottobre 2026  

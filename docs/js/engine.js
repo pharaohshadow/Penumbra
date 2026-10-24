@@ -1,6 +1,6 @@
 /**
- * Penumbra – Game Engine (v6)
- * Novità v6: Armi (equipaggiamento su creature/Magus con mani libere).
+ * Penumbra – Game Engine (v7)
+ * Novità v7: Maledizioni (danno immediato) e Trappole (scattano all’attacco nemico).
  */
 
 const ROWS = 4;
@@ -18,12 +18,16 @@ const Game = {
   cemetery: [],
   hands: { player: [], ai: [] },
 
+  // Trappole posate (non sulla griglia)
+  traps: { player: [], ai: [] },
+
   selected: null,
   selectedCardIndex: null,
   possibleMoves: [],
   possibleAttacks: [],
   possibleSummons: [],
-  possibleEquips: [], // caselle con unità che possono ricevere l'arma
+  possibleEquips: [],
+  possibleCurseTargets: [], // nemici per maledizione
 
   init() {
     this.turn = 1;
@@ -31,16 +35,17 @@ const Game = {
     this.powa = { player: 1, ai: 1 };
     this.units = {};
     this.cemetery = [];
+    this.traps = { player: [], ai: [] };
     this.selected = null;
     this.selectedCardIndex = null;
     this.possibleMoves = [];
     this.possibleAttacks = [];
     this.possibleSummons = [];
     this.possibleEquips = [];
+    this.possibleCurseTargets = [];
     this.gameOver = false;
     this.winner = null;
 
-    // Magus con 2 mani (può equipaggiare armi)
     this.units['3-2'] = {
       owner: 'player', type: 'magus', id: 'player-magus',
       hp: 20, maxHp: 20, atk: 1, hands: 2, acted: false, symbol: '𓁹',
@@ -56,7 +61,6 @@ const Game = {
     this.hands.ai = createStartingHand();
   },
 
-  // ---- Utilità ----
   key(r, c) { return `${r}-${c}`; },
   isInside(r, c) { return r >= 0 && r < ROWS && c >= 0 && c < COLS; },
   isEmpty(r, c) { return !this.units[this.key(r, c)]; },
@@ -64,9 +68,7 @@ const Game = {
 
   getOrthogonal(r, c) {
     const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-    return dirs
-      .map(([dr,dc]) => ({ r: r+dr, c: c+dc }))
-      .filter(p => this.isInside(p.r, p.c));
+    return dirs.map(([dr,dc]) => ({ r: r+dr, c: c+dc })).filter(p => this.isInside(p.r, p.c));
   },
 
   findMagus(owner) {
@@ -79,17 +81,14 @@ const Game = {
     return null;
   },
 
-  /** Mani usate dalle armi equipaggiate */
   getUsedHands(unit) {
     if (!unit.weapons || !unit.weapons.length) return 0;
-    return unit.weapons.reduce((sum, w) => sum + (w.handsRequired || 1), 0);
+    return unit.weapons.reduce((s, w) => s + (w.handsRequired || 1), 0);
   },
-
   getFreeHands(unit) {
     return Math.max(0, (unit.hands || 0) - this.getUsedHands(unit));
   },
 
-  /** Bonus ATK da torri alleate adiacenti */
   getAuraAtkBonus(r, c, owner) {
     let bonus = 0;
     for (const pos of this.getOrthogonal(r, c)) {
@@ -101,17 +100,14 @@ const Game = {
     return bonus;
   },
 
-  /** Bonus ATK dalle armi equipaggiate */
   getWeaponAtkBonus(unit) {
     if (!unit.weapons || !unit.weapons.length) return 0;
-    return unit.weapons.reduce((sum, w) => sum + (w.atkBonus || 0), 0);
+    return unit.weapons.reduce((s, w) => s + (w.atkBonus || 0), 0);
   },
 
-  /** ATK effettivo = base + armi + aura torri */
   getEffectiveAtk(r, c) {
     const unit = this.getUnit(r, c);
-    if (!unit) return 0;
-    if (unit.type === 'tower') return 0;
+    if (!unit || unit.type === 'tower') return 0;
     return unit.atk + this.getWeaponAtkBonus(unit) + this.getAuraAtkBonus(r, c, unit.owner);
   },
 
@@ -119,12 +115,10 @@ const Game = {
   selectUnit(r, c) {
     if (this.gameOver) return false;
     this.clearCardSelection();
-
     const unit = this.getUnit(r, c);
     if (!unit || unit.owner !== this.currentPlayer) return false;
     if (this.currentPlayer !== 'player') return false;
-    if (unit.acted) return false;
-    if (unit.type === 'tower') return false;
+    if (unit.acted || unit.type === 'tower') return false;
 
     this.selected = { r, c };
     const adj = this.getOrthogonal(r, c);
@@ -146,20 +140,14 @@ const Game = {
     this.selectedCardIndex = null;
     this.possibleSummons = [];
     this.possibleEquips = [];
+    this.possibleCurseTargets = [];
   },
 
-  canMoveTo(r, c) {
-    return this.possibleMoves.some(m => m.r === r && m.c === c);
-  },
-  canAttack(r, c) {
-    return this.possibleAttacks.some(a => a.r === r && a.c === c);
-  },
-  canSummonTo(r, c) {
-    return this.possibleSummons.some(s => s.r === r && s.c === c);
-  },
-  canEquipTo(r, c) {
-    return this.possibleEquips.some(e => e.r === r && e.c === c);
-  },
+  canMoveTo(r, c) { return this.possibleMoves.some(m => m.r === r && m.c === c); },
+  canAttack(r, c) { return this.possibleAttacks.some(a => a.r === r && a.c === c); },
+  canSummonTo(r, c) { return this.possibleSummons.some(s => s.r === r && s.c === c); },
+  canEquipTo(r, c) { return this.possibleEquips.some(e => e.r === r && e.c === c); },
+  canCurse(r, c) { return this.possibleCurseTargets.some(t => t.r === r && t.c === c); },
 
   // ---- Movimento ----
   moveUnit(fromR, fromC, toR, toC) {
@@ -168,7 +156,6 @@ const Game = {
     const keyTo = this.key(toR, toC);
     const unit = this.units[keyFrom];
     if (!unit || unit.type === 'tower') return false;
-
     unit.acted = true;
     delete this.units[keyFrom];
     this.units[keyTo] = unit;
@@ -176,7 +163,7 @@ const Game = {
     return true;
   },
 
-  // ---- Attacco ----
+  // ---- Attacco (con trigger trappole) ----
   attackUnit(fromR, fromC, toR, toC) {
     if (this.gameOver || !this.canAttack(toR, toC)) return false;
     const attacker = this.getUnit(fromR, fromC);
@@ -190,7 +177,8 @@ const Game = {
     const result = {
       damage,
       defenderHpLeft: Math.max(0, defender.hp),
-      killed: false
+      killed: false,
+      trapTriggered: null
     };
 
     if (defender.hp <= 0) {
@@ -198,9 +186,29 @@ const Game = {
       result.killed = true;
     }
 
+    // Trappole del difensore: scattano sull’attaccante
+    const trapResult = this.triggerTrap(defender.owner, fromR, fromC);
+    if (trapResult) result.trapTriggered = trapResult;
+
     this.deselect();
     this.checkWin();
     return result;
+  },
+
+  /** Attiva la prima trappola del proprietario contro l’attaccante */
+  triggerTrap(trapOwner, attackerR, attackerC) {
+    const list = this.traps[trapOwner];
+    if (!list || !list.length) return null;
+
+    const trap = list.shift(); // consuma la prima
+    const attacker = this.getUnit(attackerR, attackerC);
+    if (!attacker) return { name: trap.name, damage: trap.damage, killed: false };
+
+    attacker.hp -= trap.damage;
+    const killed = attacker.hp <= 0;
+    if (killed) this.killUnit(attackerR, attackerC);
+
+    return { name: trap.name, damage: trap.damage, killed };
   },
 
   killUnit(r, c) {
@@ -221,20 +229,20 @@ const Game = {
     else if (!aiAlive) { this.gameOver = true; this.winner = 'player'; }
   },
 
-  // ---- Carte: Creature / Torri / Armi ----
+  // ---- Carte ----
   selectCard(index) {
     if (this.gameOver || this.currentPlayer !== 'player') return false;
     this.deselect();
 
     const hand = this.hands.player;
     if (index < 0 || index >= hand.length) return false;
-
     const card = hand[index];
     if (this.powa.player < card.cost) return false;
 
     this.selectedCardIndex = index;
     this.possibleSummons = [];
     this.possibleEquips = [];
+    this.possibleCurseTargets = [];
 
     if (card.type === 'creature' || card.type === 'tower') {
       const magus = this.findMagus('player');
@@ -245,10 +253,8 @@ const Game = {
     }
 
     if (card.type === 'weapon') {
-      // Unità alleate con abbastanza mani libere
       for (const [k, u] of Object.entries(this.units)) {
-        if (u.owner !== 'player') continue;
-        if (u.type === 'tower') continue;
+        if (u.owner !== 'player' || u.type === 'tower') continue;
         if (this.getFreeHands(u) >= (card.handsRequired || 1)) {
           const [r, c] = k.split('-').map(Number);
           this.possibleEquips.push({ r, c });
@@ -257,38 +263,40 @@ const Game = {
       return this.possibleEquips.length > 0;
     }
 
+    if (card.type === 'curse') {
+      // Tutti i nemici sulla griglia
+      for (const [k, u] of Object.entries(this.units)) {
+        if (u.owner === 'player') continue;
+        const [r, c] = k.split('-').map(Number);
+        this.possibleCurseTargets.push({ r, c });
+      }
+      return this.possibleCurseTargets.length > 0;
+    }
+
+    if (card.type === 'trap') {
+      // Si posa subito, senza target
+      return true;
+    }
+
     return false;
   },
 
   summonCard(r, c) {
     if (this.gameOver || this.selectedCardIndex === null) return false;
     if (!this.canSummonTo(r, c)) return false;
-
     const hand = this.hands.player;
     const card = hand[this.selectedCardIndex];
     if (!card || this.powa.player < card.cost) return false;
     if (card.type !== 'creature' && card.type !== 'tower') return false;
 
     this.powa.player -= card.cost;
-
-    const unit = {
-      owner: 'player',
-      type: card.type,
-      id: card.id + '-' + Date.now(),
-      name: card.name,
-      hp: card.hp,
-      maxHp: card.hp,
-      atk: card.atk || 0,
-      hands: card.hands || 0,
-      acted: true,
-      symbol: card.symbol || '👾',
-      cardId: card.id,
-      passive: card.passive || null,
-      passiveValue: card.passiveValue || 0,
+    this.units[this.key(r, c)] = {
+      owner: 'player', type: card.type, id: card.id + '-' + Date.now(),
+      name: card.name, hp: card.hp, maxHp: card.hp, atk: card.atk || 0,
+      hands: card.hands || 0, acted: true, symbol: card.symbol || '👾',
+      cardId: card.id, passive: card.passive || null, passiveValue: card.passiveValue || 0,
       weapons: []
     };
-
-    this.units[this.key(r, c)] = unit;
     hand.splice(this.selectedCardIndex, 1);
     this.clearCardSelection();
     return true;
@@ -297,27 +305,62 @@ const Game = {
   equipWeapon(r, c) {
     if (this.gameOver || this.selectedCardIndex === null) return false;
     if (!this.canEquipTo(r, c)) return false;
-
     const hand = this.hands.player;
     const card = hand[this.selectedCardIndex];
-    if (!card || card.type !== 'weapon') return false;
-    if (this.powa.player < card.cost) return false;
-
+    if (!card || card.type !== 'weapon' || this.powa.player < card.cost) return false;
     const unit = this.getUnit(r, c);
     if (!unit || unit.owner !== 'player') return false;
     if (this.getFreeHands(unit) < (card.handsRequired || 1)) return false;
 
     this.powa.player -= card.cost;
-
     if (!unit.weapons) unit.weapons = [];
     unit.weapons.push({
-      id: card.id,
-      name: card.name,
-      atkBonus: card.atkBonus || 0,
-      handsRequired: card.handsRequired || 1,
-      symbol: card.symbol
+      id: card.id, name: card.name, atkBonus: card.atkBonus || 0,
+      handsRequired: card.handsRequired || 1, symbol: card.symbol
     });
+    hand.splice(this.selectedCardIndex, 1);
+    this.clearCardSelection();
+    return true;
+  },
 
+  /** Lancia maledizione su un nemico */
+  castCurse(r, c) {
+    if (this.gameOver || this.selectedCardIndex === null) return false;
+    if (!this.canCurse(r, c)) return false;
+    const hand = this.hands.player;
+    const card = hand[this.selectedCardIndex];
+    if (!card || card.type !== 'curse' || this.powa.player < card.cost) return false;
+
+    const target = this.getUnit(r, c);
+    if (!target || target.owner === 'player') return false;
+
+    this.powa.player -= card.cost;
+    const dmg = card.damage || 3;
+    target.hp -= dmg;
+
+    const result = { damage: dmg, killed: false, name: card.name };
+    if (target.hp <= 0) {
+      this.killUnit(r, c);
+      result.killed = true;
+    }
+
+    hand.splice(this.selectedCardIndex, 1);
+    this.clearCardSelection();
+    this.checkWin();
+    return result;
+  },
+
+  /** Posa una trappola (nessun target) */
+  setTrap() {
+    if (this.gameOver || this.selectedCardIndex === null) return false;
+    const hand = this.hands.player;
+    const card = hand[this.selectedCardIndex];
+    if (!card || card.type !== 'trap' || this.powa.player < card.cost) return false;
+
+    this.powa.player -= card.cost;
+    this.traps.player.push({
+      id: card.id, name: card.name, damage: card.damage || 2, symbol: card.symbol
+    });
     hand.splice(this.selectedCardIndex, 1);
     this.clearCardSelection();
     return true;
@@ -339,7 +382,6 @@ const Game = {
     if (this.gameOver) return;
     this.deselect();
     this.clearCardSelection();
-
     if (this.currentPlayer === 'player') {
       this.currentPlayer = 'ai';
       this.gainPowa('ai');
@@ -348,9 +390,11 @@ const Game = {
     }
   },
 
-  // IA v6
+  // ---- IA ----
   aiTurn() {
     if (this.gameOver) return;
+    this.aiTrySetTrap();
+    this.aiTryCurse();
     this.aiTryEquip();
     this.aiTrySummon();
 
@@ -361,36 +405,64 @@ const Game = {
         aiUnits.push({ r, c, unit: u });
       }
     }
-
     for (const { r, c, unit } of aiUnits) {
       if (this.gameOver) break;
       this.aiActUnit(r, c, unit);
     }
-
     this.finishAiTurn();
+  },
+
+  aiTrySetTrap() {
+    const hand = this.hands.ai;
+    const idx = hand.findIndex(c => c.type === 'trap' && c.cost <= this.powa.ai);
+    if (idx < 0) return;
+    const card = hand[idx];
+    this.powa.ai -= card.cost;
+    this.traps.ai.push({
+      id: card.id, name: card.name, damage: card.damage || 2, symbol: card.symbol
+    });
+    hand.splice(idx, 1);
+  },
+
+  aiTryCurse() {
+    const hand = this.hands.ai;
+    const idx = hand.findIndex(c => c.type === 'curse' && c.cost <= this.powa.ai);
+    if (idx < 0) return;
+    // Mira al Magus player se vivo, altrimenti prima unità
+    let targetKey = null;
+    for (const [k, u] of Object.entries(this.units)) {
+      if (u.owner === 'player' && u.type === 'magus') { targetKey = k; break; }
+    }
+    if (!targetKey) {
+      for (const [k, u] of Object.entries(this.units)) {
+        if (u.owner === 'player') { targetKey = k; break; }
+      }
+    }
+    if (!targetKey) return;
+
+    const card = hand[idx];
+    const [r, c] = targetKey.split('-').map(Number);
+    const target = this.getUnit(r, c);
+    this.powa.ai -= card.cost;
+    target.hp -= (card.damage || 3);
+    if (target.hp <= 0) this.killUnit(r, c);
+    hand.splice(idx, 1);
+    this.checkWin();
   },
 
   aiTryEquip() {
     const hand = this.hands.ai;
-    const weapons = hand
-      .map((card, idx) => ({ card, idx }))
+    const weapons = hand.map((card, idx) => ({ card, idx }))
       .filter(({ card }) => card.type === 'weapon' && card.cost <= this.powa.ai);
-
-    if (!weapons.length) return;
-
-    // Equipaggia la prima arma disponibile sulla prima unità con mani libere
     for (const { card, idx } of weapons) {
-      for (const [k, u] of Object.entries(this.units)) {
+      for (const u of Object.values(this.units)) {
         if (u.owner !== 'ai' || u.type === 'tower') continue;
         if (this.getFreeHands(u) >= (card.handsRequired || 1)) {
           this.powa.ai -= card.cost;
           if (!u.weapons) u.weapons = [];
           u.weapons.push({
-            id: card.id,
-            name: card.name,
-            atkBonus: card.atkBonus || 0,
-            handsRequired: card.handsRequired || 1,
-            symbol: card.symbol
+            id: card.id, name: card.name, atkBonus: card.atkBonus || 0,
+            handsRequired: card.handsRequired || 1, symbol: card.symbol
           });
           hand.splice(idx, 1);
           return;
@@ -401,44 +473,25 @@ const Game = {
 
   aiTrySummon() {
     const hand = this.hands.ai;
-    if (!hand.length) return;
-
-    const affordable = hand
-      .map((card, idx) => ({ card, idx }))
+    const affordable = hand.map((card, idx) => ({ card, idx }))
       .filter(({ card }) =>
-        (card.type === 'creature' || card.type === 'tower') &&
-        card.cost <= this.powa.ai
+        (card.type === 'creature' || card.type === 'tower') && card.cost <= this.powa.ai
       )
       .sort((a, b) => a.card.cost - b.card.cost);
-
     if (!affordable.length) return;
-
     const { card, idx } = affordable[0];
     const magus = this.findMagus('ai');
     if (!magus) return;
-
-    const spots = this.getOrthogonal(magus.r, magus.c)
-      .filter(p => this.isEmpty(p.r, p.c));
+    const spots = this.getOrthogonal(magus.r, magus.c).filter(p => this.isEmpty(p.r, p.c));
     if (!spots.length) return;
-
     spots.sort((a, b) => b.r - a.r);
     const pos = spots[0];
-
     this.powa.ai -= card.cost;
     this.units[this.key(pos.r, pos.c)] = {
-      owner: 'ai',
-      type: card.type,
-      id: card.id + '-ai-' + Date.now(),
-      name: card.name,
-      hp: card.hp,
-      maxHp: card.hp,
-      atk: card.atk || 0,
-      hands: card.hands || 0,
-      acted: true,
-      symbol: card.symbol || '👾',
-      cardId: card.id,
-      passive: card.passive || null,
-      passiveValue: card.passiveValue || 0,
+      owner: 'ai', type: card.type, id: card.id + '-ai-' + Date.now(),
+      name: card.name, hp: card.hp, maxHp: card.hp, atk: card.atk || 0,
+      hands: card.hands || 0, acted: true, symbol: card.symbol || '👾',
+      cardId: card.id, passive: card.passive || null, passiveValue: card.passiveValue || 0,
       weapons: []
     };
     hand.splice(idx, 1);
@@ -446,16 +499,13 @@ const Game = {
 
   aiActUnit(r, c, unit) {
     const adj = this.getOrthogonal(r, c);
-
     const enemies = adj.filter(p => {
       const t = this.getUnit(p.r, p.c);
       return t && t.owner === 'player';
     });
-
     if (enemies.length > 0) {
       enemies.sort((a, b) => {
-        const ua = this.getUnit(a.r, a.c);
-        const ub = this.getUnit(b.r, b.c);
+        const ua = this.getUnit(a.r, a.c), ub = this.getUnit(b.r, b.c);
         if (ua.type === 'magus') return -1;
         if (ub.type === 'magus') return 1;
         return 0;
@@ -466,10 +516,11 @@ const Game = {
       defender.hp -= damage;
       unit.acted = true;
       if (defender.hp <= 0) this.killUnit(target.r, target.c);
+      // Trappola del player
+      this.triggerTrap('player', r, c);
       this.checkWin();
       return;
     }
-
     const moves = adj.filter(p => this.isEmpty(p.r, p.c));
     if (moves.length > 0) {
       moves.sort((a, b) => b.r - a.r);
@@ -491,17 +542,11 @@ const Game = {
   },
 
   getState() {
-    let playerHp = 0, playerMaxHp = 20;
-    let aiHp = 0, aiMaxHp = 20;
+    let playerHp = 0, playerMaxHp = 20, aiHp = 0, aiMaxHp = 20;
     for (const u of Object.values(this.units)) {
-      if (u.type === 'magus' && u.owner === 'player') {
-        playerHp = u.hp; playerMaxHp = u.maxHp;
-      }
-      if (u.type === 'magus' && u.owner === 'ai') {
-        aiHp = u.hp; aiMaxHp = u.maxHp;
-      }
+      if (u.type === 'magus' && u.owner === 'player') { playerHp = u.hp; playerMaxHp = u.maxHp; }
+      if (u.type === 'magus' && u.owner === 'ai') { aiHp = u.hp; aiMaxHp = u.maxHp; }
     }
-
     const unitsWithBonus = {};
     for (const [k, u] of Object.entries(this.units)) {
       const [r, c] = k.split('-').map(Number);
@@ -511,7 +556,6 @@ const Game = {
         freeHands: this.getFreeHands(u)
       };
     }
-
     return {
       turn: this.turn,
       currentPlayer: this.currentPlayer,
@@ -524,7 +568,10 @@ const Game = {
       possibleAttacks: [...this.possibleAttacks],
       possibleSummons: [...this.possibleSummons],
       possibleEquips: [...this.possibleEquips],
+      possibleCurseTargets: [...this.possibleCurseTargets],
       hand: this.hands.player.map(c => ({ ...c })),
+      trapsPlayer: this.traps.player.length,
+      trapsAi: this.traps.ai.length,
       playerHp, playerMaxHp, aiHp, aiMaxHp,
       gameOver: this.gameOver,
       winner: this.winner,

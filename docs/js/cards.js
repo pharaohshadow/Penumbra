@@ -1,7 +1,7 @@
 /**
- * Penumbra – Definizione carte (v6)
- * Creature + Torri + Armi.
- * Mano iniziale: 10 carte (6 creature + 2 torri + 2 armi).
+ * Penumbra – Definizione carte (v7)
+ * Creature + Torri + Armi + Maledizioni + Trappole.
+ * Mano: 10 carte (5 creature + 1 torre + 2 armi + 1 maledizione + 1 trappola).
  */
 
 const CARD_POOL = [
@@ -51,17 +51,6 @@ const CARD_POOL = [
     desc: 'Difficile da abbattere'
   },
   {
-    id: 'falco',
-    name: 'Falco di Horus',
-    type: 'creature',
-    cost: 2,
-    atk: 3,
-    hp: 2,
-    hands: 1,
-    symbol: '🦅',
-    desc: 'Attacco dall’alto'
-  },
-  {
     id: 'sfinge',
     name: 'Sfinge Minore',
     type: 'creature',
@@ -73,7 +62,7 @@ const CARD_POOL = [
     desc: 'Potenza e mistero • 2 mani'
   },
 
-  // --- Torri ---
+  // --- Torre ---
   {
     id: 'obelisco',
     name: 'Obelisco Guardiano',
@@ -86,19 +75,6 @@ const CARD_POOL = [
     passive: 'aura_atk',
     passiveValue: 1,
     desc: 'Alleati adiacenti +1 ATK'
-  },
-  {
-    id: 'pilastro',
-    name: 'Pilastro del Nilo',
-    type: 'tower',
-    cost: 3,
-    atk: 0,
-    hp: 8,
-    hands: 0,
-    symbol: '🗿',
-    passive: 'aura_atk',
-    passiveValue: 1,
-    desc: 'Alleati adiacenti +1 ATK • Molto resistente'
   },
 
   // --- Armi ---
@@ -121,10 +97,31 @@ const CARD_POOL = [
     handsRequired: 1,
     symbol: '🔱',
     desc: '+3 ATK • Richiede 1 mano'
+  },
+
+  // --- Maledizione (solo nel proprio turno, effetto immediato) ---
+  {
+    id: 'maledizione-ankh',
+    name: 'Maledizione dell’Ankh',
+    type: 'curse',
+    cost: 2,
+    damage: 4,
+    symbol: '💀',
+    desc: 'Infligge 4 danni a un nemico a scelta'
+  },
+
+  // --- Trappola (si posa nel proprio turno, scatta quando l’avversario attacca) ---
+  {
+    id: 'trappola-scarabeo',
+    name: 'Trappola dello Scarabeo',
+    type: 'trap',
+    cost: 1,
+    damage: 3,
+    symbol: '🪤',
+    desc: 'Quando un nemico attacca: 3 danni all’attaccante'
   }
 ];
 
-/** Crea una copia della mano iniziale (10 carte) */
 function createStartingHand() {
   return CARD_POOL.map(c => ({ ...c }));
 }

@@ -90,6 +90,23 @@ const UI = {
     this.render();
 
     if (ok) {
+      if (card && card.type === 'trap') {
+        // Posa subito
+        Game.setTrap();
+        this.render();
+        this.showHint('Trappola posata! Scatta quando un nemico attacca');
+        return;
+      }
+      if (card && card.type === 'curse') {
+        if (Game.possibleCurseTargets.length > 0) {
+          this.showHint('Clicca un nemico (viola) per maledirlo');
+        } else {
+          this.showHint('Nessun nemico da maledire');
+          Game.clearCardSelection();
+          this.render();
+        }
+        return;
+      }
       if (card && card.type === 'weapon') {
         if (Game.possibleEquips.length > 0) {
           this.showHint('Clicca un\'unità blu per equipaggiare l\'arma');
@@ -98,7 +115,9 @@ const UI = {
           Game.clearCardSelection();
           this.render();
         }
-      } else if (Game.possibleSummons.length > 0) {
+        return;
+      }
+      if (Game.possibleSummons.length > 0) {
         this.showHint('Clicca una casella verde accanto al Magus per evocare');
       } else {
         this.showHint('Nessuna casella libera accanto al Magus');
@@ -110,6 +129,8 @@ const UI = {
         this.showHint(`Powa insufficiente (serve ${card.cost})`);
       } else if (card && card.type === 'weapon') {
         this.showHint('Nessuna unità con mani libere per questa arma');
+      } else if (card && card.type === 'curse') {
+        this.showHint('Nessun nemico da maledire');
       } else {
         this.showHint('Non puoi giocare questa carta ora');
       }
@@ -119,9 +140,18 @@ const UI = {
   onCellClick(r, c) {
     if (Game.currentPlayer !== 'player' || Game.gameOver) return;
 
-    // Se abbiamo una carta selezionata → evocazione o equip
+    // Se abbiamo una carta selezionata → evocazione / equip / maledizione
     if (Game.selectedCardIndex !== null) {
       const card = Game.hands.player[Game.selectedCardIndex];
+
+      if (Game.canCurse(r, c)) {
+        const result = Game.castCurse(r, c);
+        this.render();
+        if (result?.killed) this.showHint(`Maledizione fatale! (${result.damage} danni)`);
+        else if (result) this.showHint(`${result.name}: ${result.damage} danni`);
+        if (Game.gameOver) setTimeout(() => this.showGameOver(), 400);
+        return;
+      }
 
       if (Game.canEquipTo(r, c)) {
         Game.equipWeapon(r, c);
@@ -168,8 +198,13 @@ const UI = {
       if (Game.canAttack(r, c)) {
         const result = Game.attackUnit(fr, fc, r, c);
         this.render();
-        if (result?.killed) this.showHint(`Colpo fatale! (${result.damage} danni)`);
-        else if (result) this.showHint(`Inflitti ${result.damage} danni`);
+        let msg = result?.killed
+          ? `Colpo fatale! (${result.damage} danni)`
+          : (result ? `Inflitti ${result.damage} danni` : '');
+        if (result?.trapTriggered) {
+          msg += ` • Trappola: ${result.trapTriggered.damage} danni all'attaccante!`;
+        }
+        if (msg) this.showHint(msg);
         if (Game.gameOver) setTimeout(() => this.showGameOver(), 400);
         return;
       }
@@ -217,7 +252,7 @@ const UI = {
       if (card.type === 'weapon') el.classList.add('card-weapon');
       el.dataset.index = idx;
 
-      const playableTypes = ['creature', 'tower', 'weapon'];
+      const playableTypes = ['creature', 'tower', 'weapon', 'curse', 'trap'];
       const canPlay = state.currentPlayer === 'player' &&
                       !state.gameOver &&
                       card.cost <= state.powa &&
@@ -225,12 +260,16 @@ const UI = {
 
       if (!canPlay) el.classList.add('disabled');
       if (state.selectedCardIndex === idx) el.classList.add('selected');
+      if (card.type === 'curse') el.classList.add('card-curse');
+      if (card.type === 'trap') el.classList.add('card-trap');
 
       let statsHtml;
       if (card.type === 'tower') {
         statsHtml = `<span class="hp">❤ ${card.hp}</span><span class="passive">+ATK</span>`;
       } else if (card.type === 'weapon') {
         statsHtml = `<span class="atk">⚔ +${card.atkBonus}</span>`;
+      } else if (card.type === 'curse' || card.type === 'trap') {
+        statsHtml = `<span class="atk">⚔ ${card.damage}</span>`;
       } else {
         statsHtml = `<span class="atk">⚔ ${card.atk}</span><span class="hp">❤ ${card.hp}</span>`;
       }
@@ -267,12 +306,15 @@ const UI = {
     document.getElementById('btn-end-turn').disabled =
       state.currentPlayer !== 'player' || state.gameOver;
 
+    const trapBadge = document.getElementById('trap-count');
+    if (trapBadge) trapBadge.textContent = state.trapsPlayer || 0;
+
     // Griglia
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const cell = this.cells[r][c];
         cell.innerHTML = '';
-        cell.classList.remove('highlight', 'attack-highlight', 'summon-highlight', 'equip-highlight');
+        cell.classList.remove('highlight', 'attack-highlight', 'summon-highlight', 'equip-highlight', 'curse-highlight');
       }
     }
 
@@ -287,6 +329,9 @@ const UI = {
     }
     for (const e of (state.possibleEquips || [])) {
       this.cells[e.r][e.c].classList.add('equip-highlight');
+    }
+    for (const t of (state.possibleCurseTargets || [])) {
+      this.cells[t.r][t.c].classList.add('curse-highlight');
     }
 
     // Unità

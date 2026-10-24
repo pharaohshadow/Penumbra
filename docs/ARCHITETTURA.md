@@ -1,4 +1,4 @@
-# ARCHITETTURA – Penumbra v6
+# ARCHITETTURA – Penumbra v7
 
 Documento di riferimento completo.
 
@@ -6,94 +6,73 @@ Documento di riferimento completo.
 
 ## 1. Visione
 
-Card game tattico a turni, ambientazione egizia.  
-Partita base = VS IA.
+Card game tattico a turni, ambientazione egizia. Partita base = VS IA.
 
 ---
 
 ## 2. Regole complete
 
-### Griglia
-- 4×5, movimento 1 passo ortogonale
+### Griglia / Magus / Powa / Movimento / Combattimento
+- Come v6 (4×5, 20 HP Magus, Powa max 6, melee, 1 azione/turno)
 
-### Magus
-- 20 HP, 1 ATK, **2 mani**
+### Tipi di carte (tutti implementati)
 
-### Azioni
-- Un’azione per unità mobile per turno (muovere **oppure** attaccare)
-- Torri non agiscono
+| Tipo        | Quando          | Come                                      |
+|-------------|-----------------|-------------------------------------------|
+| Creature    | Tuo turno       | Evoca su casella adiacente al Magus       |
+| Torri       | Tuo turno       | Evoca; immobile; aura +ATK                |
+| Armi        | Tuo turno       | Equip su unità con mani libere            |
+| Maledizioni | **Solo tuo turno** | Target nemico → danno immediato        |
+| Trappole    | Si posano nel tuo turno | Scattano quando un **nemico attacca** |
 
-### Combattimento
-- Melee only
-- Danno = ATK base + **armi equipaggiate** + **aura torri adiacenti**
+### Maledizione
+- Costo Powa, scegli un nemico sulla griglia
+- Infligge `damage` HP
+- “In aria” (non resta sulla griglia)
 
-### Powa
-- Turno 1: 1 | Guadagno = numero turno (max 6) | Non si perde
-
-### Mano
-- 10 carte (6 Creature + 2 Torri + 2 Armi), non si pesca
-
-### Evocazione (Creature / Torri)
-- Casella vuota adiacente al Magus
-
-### Armi
-- type: `weapon`
-- `atkBonus`, `handsRequired`
-- Si equipaggiano su unità alleate (creature o Magus) con mani libere sufficienti
-- Non finiscono sulla griglia: si attaccano all’unità (`unit.weapons[]`)
-- Quando l’unità muore, le armi vanno perse (nel cimitero con l’unità)
-
-### Torri
-- Immobili, aura `aura_atk` (+1 ATK agli alleati adiacenti)
+### Trappola
+- Costo Powa, si posa senza target (`traps.player[]` / `traps.ai[]`)
+- Alla prima volta che un’unità **avversaria attacca**, la trappola scatta:
+  - danno all’attaccante
+  - trappola consumata
+- Visibile come contatore 🪤
 
 ### Vittoria
 - Magus avversario a 0 HP
 
 ---
 
-## 3. Tipi di carte
-
-| Tipo        | Stato | Note                                      |
-|-------------|-------|-------------------------------------------|
-| Creature    | ✅    | ATK + HP + mani                           |
-| Torri       | ✅    | Solo HP + aura                            |
-| Armi        | ✅    | Equip, +ATK, richiedono mani              |
-| Maledizioni | ❌    | Futuro – solo nel proprio turno           |
-| Trappole    | ❌    | Futuro – solo nel turno avversario        |
-
----
-
-## 4. Architettura
+## 3. Architettura
 
 ```
 docs/js/
-├── cards.js    ← pool carte
-├── engine.js   ← logica (equipWeapon, getWeaponAtkBonus, getFreeHands)
-└── ui.js       ← evidenziazione blu per equip
+├── cards.js
+├── engine.js   ← castCurse, setTrap, triggerTrap
+└── ui.js
 ```
 
 ---
 
-## 5. Cosa funziona in v6
+## 4. Cosa funziona in v7
 
-- Tutto delle v precedenti
-- Armi giocabili e equipaggiabili
-- Mani libere / usate
-- ATK effettivo = base + armi + aura
-- IA equipaggia armi e combatte
-- UI: caselle blu, icone arma sulle unità
-
----
-
-## 6. Prossimi passi (v7)
-
-1. Maledizioni / Trappole
-2. Bilanciamento
-3. Animazioni
-4. (Opzionale) Supabase per salvare mazzi
+- Tutti i 5 tipi di carte
+- Maledizione con target viola
+- Trappole posate + trigger automatico in attacco
+- IA usa curse/trap/equip/summon
+- Badge trappole in UI
 
 ---
 
-**Versione:** v6  
+## 5. Prossimi passi (v8+)
+
+1. Bilanciamento numeri e costi
+2. Più carte per tipo
+3. Animazioni / feedback visivo
+4. Modalità (Endless, Storia, PvP)
+5. Supabase (utenti / mazzi)
+
+---
+
+**Versione:** v7  
 **Data:** 24 ottobre 2026  
-**Stato:** Armi equipaggiabili funzionanti  
+**Stato:** Maledizioni + Trappole funzionanti – set carte completo  
