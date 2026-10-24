@@ -374,3 +374,55 @@ html, body {
   .bottom-bar { padding: 12px 14px; flex-direction: column; gap: 10px; }
   .hint { order: -1; text-align: center; }
 }
+
+/* ===== v3: Attacco e stati unità ===== */
+.cell.attack-highlight {
+  background: rgba(231, 76, 60, 0.35);
+  border-color: var(--red);
+  box-shadow: 0 0 14px rgba(231, 76, 60, 0.45);
+  cursor: pointer;
+}
+
+.cell.attack-highlight:hover {
+  background: rgba(231, 76, 60, 0.55);
+  transform: scale(1.04);
+}
+
+.unit.acted {
+  opacity: 0.55;
+  filter: grayscale(0.4);
+}
+
+.unit .unit-symbol {
+  font-size: inherit;
+  line-height: 1;
+}
+
+.unit .unit-hp {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.15);
+  min-width: 16px;
+  text-align: center;
+}
+
+.unit {
+  flex-direction: column;
+}
+
+.btn.hidden {
+  display: none !important;
+}
+
+#btn-restart {
+  background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+  color: #1a1408;
+  margin-top: 12px;
+}

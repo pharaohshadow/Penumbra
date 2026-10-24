@@ -1,4 +1,4 @@
-# ARCHITETTURA – Penumbra v2
+# ARCHITETTURA – Penumbra v3
 
 Documento di riferimento completo.  
 Leggendo questo file + il README si può riprendere il lavoro da zero in qualsiasi momento.
@@ -26,16 +26,14 @@ In futuro le modalità (Endless, Storia, PvP) nasceranno aggiungendo **modificat
 - Dimensioni: **4 righe × 5 colonne**
 - Orientamento: più larga che alta
 - Nessuna unità può occupare la stessa casella
-- Movimento: **1 solo passo ortogonale** (su, giù, sinistra, destra) per tutti i pezzi
+- Movimento: **1 solo passo ortogonale**
 
-### 2.2 Il Magus (pedina del giocatore)
-- È sempre presente sulla griglia
-- 20 Punti Vita
-- 1 di Attacco
-- Può muoversi e attaccare come le altre creature
-- Se i suoi Punti Vita arrivano a 0 → sconfitta
+### 2.2 Il Magus
+- 20 Punti Vita – 1 di Attacco
+- Può muoversi e attaccare
+- Ogni unità può fare **una sola azione per turno** (muovere **oppure** attaccare)
 
-### 2.3 Tipi di carte
+### 2.3 Tipi di carte (ancora non implementati nel codice)
 
 #### Permanenti
 | Tipo       | Caratteristiche                                      |
@@ -44,31 +42,28 @@ In futuro le modalità (Endless, Storia, PvP) nasceranno aggiungendo **modificat
 | Torri      | Solo Vita + abilità passive. Non si muovono          |
 | Armi       | Equipaggiamento. Occupano un certo numero di “mani”  |
 
-- Le creature hanno un numero di **mani** (può variare)
-- Se non ci sono mani libere non si può equipaggiare un’altra arma
-
 #### Non permanenti
 | Tipo       | Quando si gioca              | Dove si gioca |
 |------------|------------------------------|---------------|
 | Maledizioni| Solo nel proprio turno       | “In aria”     |
 | Trappole   | Solo nel turno dell’avversario| “In aria”    |
 
-### 2.4 Sistema Powa (mana)
-- Turno 1: entrambi i giocatori partono con **1 Powa**
-- All’inizio del proprio turno il giocatore guadagna Powa pari al **numero del turno**
+### 2.4 Sistema Powa
+- Turno 1: entrambi partono con **1 Powa**
+- All’inizio del proprio turno guadagni Powa pari al **numero del turno**
 - Massimo **6 Powa** in riserva
 - Il Powa non speso **non viene mai perso**
 
 ### 2.5 Mano
-- Ogni giocatore inizia con **esattamente 10 carte**
-- Non esiste la pesca durante la partita
+- Ogni giocatore inizia con **10 carte**
+- Non esiste la pesca
 
 ### 2.6 Combattimento
 - Solo **melee** (caselle adiacenti ortogonali)
-- Il danno inflitto = valore di Attacco dell’attaccante
-- Quando una creatura (o torre) muore:
+- Danno = valore di Attacco dell’attaccante
+- Quando un’unità muore:
   1. Va nel **Cimitero**
-  2. Si attiva eventuali effetti **“on death”**
+  2. Si attivano eventuali effetti **“on death”** (futuro)
 
 ### 2.7 Condizione di vittoria
 - Unica: ridurre a **0** i Punti Vita del Magus avversario
@@ -80,7 +75,7 @@ In futuro le modalità (Endless, Storia, PvP) nasceranno aggiungendo **modificat
 ### 3.1 Frontend
 - Cartella `docs/` hostata su **GitHub Pages**
 - HTML + CSS + JavaScript vanilla
-- Grafica moderna, animazioni fluide, stile Yu-Gi-Oh Duel Links
+- Grafica moderna stile Yu-Gi-Oh Duel Links
 
 ### 3.2 Backend / Dati
 | Servizio   | Uso                                      |
@@ -88,7 +83,7 @@ In futuro le modalità (Endless, Storia, PvP) nasceranno aggiungendo **modificat
 | **Supabase** | Autenticazione utenti + database carte  |
 | **Render**   | Solo se in futuro servono partite online |
 
-### 3.3 Struttura file attuale (v2)
+### 3.3 Struttura file attuale (v3)
 
 ```
 docs/
@@ -97,49 +92,41 @@ docs/
 ├── css/
 │   └── style.css
 └── js/
-    ├── engine.js   ← logica pura (stato, movimento, turni, IA base)
-    └── ui.js       ← rendering griglia + gestione click
+    ├── engine.js   ← logica pura (stato, movimento, attacco, turni, IA, vittoria)
+    └── ui.js       ← rendering + gestione click
 ```
 
 ### 3.4 Separazione responsabilità
 - **engine.js** → nessuna conoscenza del DOM. Solo regole e stato.
-- **ui.js** → legge lo stato da `Game.getState()` e aggiorna la pagina. Invia comandi all’engine.
+- **ui.js** → legge `Game.getState()` e aggiorna la pagina. Invia comandi all’engine.
 
 ---
 
-## 4. Cosa funziona in v2
+## 4. Cosa funziona in v3
 
-- Griglia 4×5 visualizzata
-- Due Magus posizionati (player in basso centro, AI in alto centro)
-- Selezione del Magus del giocatore
-- Evidenziazione caselle di movimento valide (ortogonali libere)
-- Movimento del Magus
-- Sistema turni
-- Guadagno Powa all’inizio del turno (max 6)
-- IA molto semplice: muove il proprio Magus verso il basso se possibile e passa
-- Barre vita (ancora non modificabili dal gameplay)
-- Interfaccia responsive e stilizzata
+- Griglia 4×5
+- Due Magus con HP e ATK
+- Selezione unità (solo se non ha ancora agito)
+- Evidenziazione **gialla** = caselle di movimento
+- Evidenziazione **rossa** = caselle di attacco
+- Movimento (1 passo ortogonale)
+- Attacco melee → applica danno
+- Morte → unità rimossa e messa nel Cimitero
+- Controllo vittoria/sconfitta
+- Schermata fine partita + pulsante Rigioca
+- IA: attacca se adiacente, altrimenti si avvicina
+- Ogni unità può fare una sola azione per turno (`acted`)
+- Sistema turni + Powa
 
 ---
 
-## 5. Cosa manca ancora (prossima v3)
+## 5. Cosa manca ancora (prossima v4)
 
-1. **Attacco melee**  
-   - Seleziona unità → evidenzia nemici adiacenti → clicca per attaccare  
-   - Applica danno, gestione morte, Cimitero
-
-2. **Mano di carte**  
-   - 10 carte fisse all’inizio  
-   - Visualizzazione in basso  
-   - Giocare Creature / Torri / Armi pagando Powa
-
-3. **IA migliorata**  
-   - Attacca se può  
-   - Gioca carte semplici
-
-4. **Schermata vittoria / sconfitta**
-
-5. **Collegamento Supabase** (carte e utenti) – può arrivare dopo
+1. **Mano di 10 carte** visualizzata in basso
+2. **Giocare la prima Creatura** (pagando Powa, piazzandola su casella adiacente al Magus)
+3. Creature con ATK/HP diversi
+4. IA che gioca anche creature semplici
+5. Effetti “on death” base
 
 ---
 
@@ -149,6 +136,7 @@ docs/
 - Modalità future = modificatori della partita base
 - Carte = parodie di Pokémon, Yu-Gi-Oh, Magic ecc.
 - Grafica prioritaria: deve sembrare un vero videogioco
+- Un’azione per unità per turno (muovere **oppure** attaccare)
 
 ---
 
@@ -156,12 +144,12 @@ docs/
 
 - L’utente **non è tecnico**. Non chiedergli modifiche manuali complesse su GitHub.
 - Ogni consegna di file:
-  - Creare cartella `v3`, `v4`…
+  - Creare cartella `v4`, `v5`…
   - Mettere dentro README aggiornato + ARCHITETTURA aggiornata + tutti i file da pushare
 - Prima di toccare file critici (`engine.js`, `ui.js`) rileggerli sempre.
 
 ---
 
-**Versione documento:** v2  
+**Versione documento:** v3  
 **Data:** 24 ottobre 2026  
-**Stato:** Griglia + movimento Magus + turni + Powa funzionanti  
+**Stato:** Attacco melee + danni + vittoria/sconfitta funzionanti  
