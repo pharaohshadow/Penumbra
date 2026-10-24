@@ -426,3 +426,130 @@ html, body {
   color: #1a1408;
   margin-top: 12px;
 }
+
+/* ===== v4: Mano di carte e evocazione ===== */
+.hand-section {
+  padding: 8px 16px 4px;
+  background: rgba(0,0,0,0.35);
+  border-top: 1px solid rgba(212,168,75,0.2);
+  overflow-x: auto;
+}
+
+.hand {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  min-height: 110px;
+  padding: 6px 0;
+}
+
+.card {
+  flex: 0 0 88px;
+  width: 88px;
+  height: 110px;
+  background: linear-gradient(160deg, #1e2638 0%, #141820 100%);
+  border: 2px solid rgba(212,168,75,0.45);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 4px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.card:hover:not(.disabled) {
+  transform: translateY(-8px);
+  border-color: var(--gold);
+  box-shadow: 0 8px 20px rgba(212,168,75,0.35);
+}
+
+.card.selected {
+  transform: translateY(-10px);
+  border-color: var(--cyan);
+  box-shadow: 0 0 18px rgba(78,205,196,0.5);
+}
+
+.card.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.card-cost {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: rgba(212,168,75,0.2);
+  border: 1px solid rgba(212,168,75,0.5);
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--gold-light);
+  padding: 1px 5px;
+}
+
+.card-symbol {
+  font-size: 1.8rem;
+  margin-top: 14px;
+  line-height: 1;
+}
+
+.card-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.62rem;
+  text-align: center;
+  margin-top: 4px;
+  color: var(--text);
+  line-height: 1.15;
+  max-height: 2.3em;
+  overflow: hidden;
+}
+
+.card-stats {
+  margin-top: auto;
+  display: flex;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.card-stats .atk { color: #f5a623; }
+.card-stats .hp { color: #e74c3c; }
+
+/* Caselle di evocazione (verde) */
+.cell.summon-highlight {
+  background: rgba(46, 204, 113, 0.3);
+  border-color: #2ecc71;
+  box-shadow: 0 0 14px rgba(46, 204, 113, 0.4);
+  cursor: pointer;
+}
+
+.cell.summon-highlight:hover {
+  background: rgba(46, 204, 113, 0.5);
+  transform: scale(1.04);
+}
+
+/* Creature più piccole del Magus */
+.unit.creature {
+  width: 70%;
+  height: 70%;
+  font-size: clamp(0.95rem, 3vw, 1.3rem);
+}
+
+.unit.creature .unit-hp {
+  font-size: 0.6rem;
+}
+
+@media (max-width: 600px) {
+  .card {
+    flex: 0 0 72px;
+    width: 72px;
+    height: 96px;
+  }
+  .card-symbol { font-size: 1.4rem; }
+  .card-name { font-size: 0.55rem; }
+  .hand { gap: 6px; }
+}

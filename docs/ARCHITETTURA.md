@@ -1,155 +1,119 @@
-# ARCHITETTURA – Penumbra v3
+# ARCHITETTURA – Penumbra v4
 
 Documento di riferimento completo.  
-Leggendo questo file + il README si può riprendere il lavoro da zero in qualsiasi momento.
+Leggendo questo file + il README si può riprendere il lavoro da zero.
 
 ---
 
-## 1. Visione del gioco
+## 1. Visione
 
-Penumbra è un **card game tattico a turni** ambientato nell’Egitto antico.
+Card game tattico a turni, ambientazione egizia.  
+Ispirazioni: Mage Wars Arena (griglia + mano completa) + Yu-Gi-Oh Duel Links (grafica).
 
-Ispirazioni principali:
-- **Mage Wars Arena** → griglia + tutte le carte già in mano + movimento
-- **Yu-Gi-Oh Duel Links** → aspetto grafico figo e fluido
-- **Scacchi** → importanza del posizionamento
-
-Partite corte (circa 5 minuti).  
-Prima implementazione: **partita base contro IA**.  
-In futuro le modalità (Endless, Storia, PvP) nasceranno aggiungendo **modificatori** alla partita base.
+Partita base = VS IA.  
+Modalità future = modificatori della partita base.
 
 ---
 
-## 2. Regole complete (fonte di verità)
+## 2. Regole complete
 
-### 2.1 Griglia
-- Dimensioni: **4 righe × 5 colonne**
-- Orientamento: più larga che alta
-- Nessuna unità può occupare la stessa casella
-- Movimento: **1 solo passo ortogonale**
+### Griglia
+- 4×5, movimento 1 passo ortogonale, niente sovrapposizione
 
-### 2.2 Il Magus
-- 20 Punti Vita – 1 di Attacco
-- Può muoversi e attaccare
-- Ogni unità può fare **una sola azione per turno** (muovere **oppure** attaccare)
+### Magus
+- 20 HP, 1 ATK, sempre sulla griglia
 
-### 2.3 Tipi di carte (ancora non implementati nel codice)
+### Azioni per turno
+- Ogni unità può fare **una sola azione** (muovere **oppure** attaccare)
+- Flag `acted`
 
-#### Permanenti
-| Tipo       | Caratteristiche                                      |
-|------------|------------------------------------------------------|
-| Creature   | Attacco + Vita. Sottocategorie: Mostri / Mostrissimi |
-| Torri      | Solo Vita + abilità passive. Non si muovono          |
-| Armi       | Equipaggiamento. Occupano un certo numero di “mani”  |
+### Combattimento
+- Solo melee (adiacente ortogonale)
+- Danno = ATK → a 0 HP l’unità va nel Cimitero
 
-#### Non permanenti
-| Tipo       | Quando si gioca              | Dove si gioca |
-|------------|------------------------------|---------------|
-| Maledizioni| Solo nel proprio turno       | “In aria”     |
-| Trappole   | Solo nel turno dell’avversario| “In aria”    |
+### Powa
+- Inizio turno 1: 1 Powa ciascuno
+- All’inizio del proprio turno: +Powa pari al numero del turno (max 6)
+- Non si perde mai
 
-### 2.4 Sistema Powa
-- Turno 1: entrambi partono con **1 Powa**
-- All’inizio del proprio turno guadagni Powa pari al **numero del turno**
-- Massimo **6 Powa** in riserva
-- Il Powa non speso **non viene mai perso**
+### Mano
+- 10 carte dall’inizio, **non si pesca**
+- Stesso mazzo base per player e IA (per ora)
 
-### 2.5 Mano
-- Ogni giocatore inizia con **10 carte**
-- Non esiste la pesca
+### Evocazione Creature
+- Costo in Powa
+- Solo su casella **vuota adiacente al proprio Magus**
+- La Creatura evocata ha `acted = true` (non agisce nello stesso turno)
 
-### 2.6 Combattimento
-- Solo **melee** (caselle adiacenti ortogonali)
-- Danno = valore di Attacco dell’attaccante
-- Quando un’unità muore:
-  1. Va nel **Cimitero**
-  2. Si attivano eventuali effetti **“on death”** (futuro)
-
-### 2.7 Condizione di vittoria
-- Unica: ridurre a **0** i Punti Vita del Magus avversario
+### Vittoria
+- Solo Magus avversario a 0 HP
 
 ---
 
-## 3. Architettura tecnica
+## 3. Tipi di carte (implementati / previsti)
 
-### 3.1 Frontend
-- Cartella `docs/` hostata su **GitHub Pages**
-- HTML + CSS + JavaScript vanilla
-- Grafica moderna stile Yu-Gi-Oh Duel Links
+| Tipo        | Stato v4      | Note                                      |
+|-------------|---------------|-------------------------------------------|
+| Creature    | ✅ Implementato | ATK + HP, si muovono e attaccano          |
+| Torri       | ❌ Futuro     | Solo HP + abilità passive, non si muovono |
+| Armi        | ❌ Futuro     | Equipaggiamento, occupano “mani”          |
+| Maledizioni | ❌ Futuro     | Solo nel proprio turno, “in aria”         |
+| Trappole    | ❌ Futuro     | Solo nel turno avversario, “in aria”      |
 
-### 3.2 Backend / Dati
-| Servizio   | Uso                                      |
-|------------|------------------------------------------|
-| **Supabase** | Autenticazione utenti + database carte  |
-| **Render**   | Solo se in futuro servono partite online |
+---
 
-### 3.3 Struttura file attuale (v3)
+## 4. Architettura tecnica
 
 ```
 docs/
 ├── index.html
-├── ARCHITETTURA.md
-├── css/
-│   └── style.css
+├── css/style.css
 └── js/
-    ├── engine.js   ← logica pura (stato, movimento, attacco, turni, IA, vittoria)
-    └── ui.js       ← rendering + gestione click
+    ├── cards.js    ← pool carte + createStartingHand()
+    ├── engine.js   ← stato e regole pure
+    └── ui.js       ← DOM e input
 ```
 
-### 3.4 Separazione responsabilità
-- **engine.js** → nessuna conoscenza del DOM. Solo regole e stato.
-- **ui.js** → legge `Game.getState()` e aggiorna la pagina. Invia comandi all’engine.
+- **engine.js** non tocca il DOM
+- **ui.js** legge `Game.getState()` e chiama metodi del Game
+
+### Stack
+- Frontend: GitHub Pages (`docs/`)
+- Futuro: Supabase (utenti + carte), Render (se serve backend)
 
 ---
 
-## 4. Cosa funziona in v3
+## 5. Cosa funziona in v4
 
-- Griglia 4×5
-- Due Magus con HP e ATK
-- Selezione unità (solo se non ha ancora agito)
-- Evidenziazione **gialla** = caselle di movimento
-- Evidenziazione **rossa** = caselle di attacco
-- Movimento (1 passo ortogonale)
-- Attacco melee → applica danno
-- Morte → unità rimossa e messa nel Cimitero
-- Controllo vittoria/sconfitta
-- Schermata fine partita + pulsante Rigioca
-- IA: attacca se adiacente, altrimenti si avvicina
-- Ogni unità può fare una sola azione per turno (`acted`)
-- Sistema turni + Powa
+- Griglia, movimento, attacco melee
+- Mano di 10 carte visualizzata
+- Selezione carta → evidenziazione caselle verdi
+- Evocazione Creature pagando Powa
+- Creature con ATK/HP diversi, si muovono e attaccano
+- IA che evoca creature e combatte con tutte le sue unità
+- Vittoria/sconfitta + Rigioca
+- Un’azione per unità per turno
 
 ---
 
-## 5. Cosa manca ancora (prossima v4)
+## 6. Prossimi passi (v5)
 
-1. **Mano di 10 carte** visualizzata in basso
-2. **Giocare la prima Creatura** (pagando Powa, piazzandola su casella adiacente al Magus)
-3. Creature con ATK/HP diversi
-4. IA che gioca anche creature semplici
-5. Effetti “on death” base
-
----
-
-## 6. Decisioni di design già prese
-
-- Partita base = VS IA
-- Modalità future = modificatori della partita base
-- Carte = parodie di Pokémon, Yu-Gi-Oh, Magic ecc.
-- Grafica prioritaria: deve sembrare un vero videogioco
-- Un’azione per unità per turno (muovere **oppure** attaccare)
+1. Torri (immobili, solo HP + passiva semplice)
+2. Armi (equipaggiamento che aumenta ATK)
+3. Maledizioni / Trappole base
+4. Bilanciamento numeri e costi
+5. Feedback visivo più ricco (animazioni danno, evocazione)
 
 ---
 
-## 7. Note per lo sviluppatore futuro
+## 7. Note per lo sviluppatore
 
-- L’utente **non è tecnico**. Non chiedergli modifiche manuali complesse su GitHub.
-- Ogni consegna di file:
-  - Creare cartella `v4`, `v5`…
-  - Mettere dentro README aggiornato + ARCHITETTURA aggiornata + tutti i file da pushare
-- Prima di toccare file critici (`engine.js`, `ui.js`) rileggerli sempre.
+- L’utente non è tecnico → file pronti da caricare, istruzioni chiare
+- Ogni consegna = cartella `vN` con README + ARCHITETTURA + tutti i file
+- Prima di modificare `engine.js` / `ui.js` rileggerli sempre
 
 ---
 
-**Versione documento:** v3  
+**Versione:** v4  
 **Data:** 24 ottobre 2026  
-**Stato:** Attacco melee + danni + vittoria/sconfitta funzionanti  
+**Stato:** Mano + evocazione Creature funzionanti  

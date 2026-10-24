@@ -1,15 +1,16 @@
 /**
- * Penumbra – UI (v3)
- * Rendering e input. Usa il motore in engine.js
- * Novità v3: evidenziazione attacchi (rosso), danni, vittoria/sconfitta.
+ * Penumbra – UI (v4)
+ * Novità: mano di carte, selezione carta, evocazione.
  */
 
 const UI = {
   gridEl: null,
+  handEl: null,
   cells: [],
 
   init() {
     this.gridEl = document.getElementById('grid');
+    this.handEl = document.getElementById('hand');
     this.buildGrid();
     this.bindEvents();
     Game.init();
@@ -19,7 +20,6 @@ const UI = {
   buildGrid() {
     this.gridEl.innerHTML = '';
     this.cells = [];
-
     for (let r = 0; r < ROWS; r++) {
       const row = [];
       for (let c = 0; c < COLS; c++) {
@@ -43,101 +43,126 @@ const UI = {
       this.onCellClick(r, c);
     });
 
+    // Click sulle carte in mano
+    this.handEl.addEventListener('click', (e) => {
+      const cardEl = e.target.closest('.card');
+      if (!cardEl) return;
+      const idx = parseInt(cardEl.dataset.index, 10);
+      this.onCardClick(idx);
+    });
+
     document.getElementById('btn-end-turn').addEventListener('click', () => {
       if (Game.currentPlayer !== 'player' || Game.gameOver) return;
       Game.endTurn();
       this.render();
-
       if (Game.gameOver) {
         this.showGameOver();
         return;
       }
-
       this.showHint('Turno dell\'IA…');
       setTimeout(() => {
         this.render();
-        if (Game.gameOver) {
-          this.showGameOver();
-        } else {
-          this.showHint('Clicca il tuo Magus per muovere o attaccare');
-        }
-      }, 500);
+        if (Game.gameOver) this.showGameOver();
+        else this.showHint('Clicca una carta o un\'unità');
+      }, 550);
     });
 
     document.getElementById('btn-close-message').addEventListener('click', () => {
       document.getElementById('message-overlay').classList.add('hidden');
-      // Se era game over, si può ricominciare in futuro
     });
 
-    // Pulsante Rigioca (appare a fine partita)
     const btnRestart = document.getElementById('btn-restart');
     if (btnRestart) {
       btnRestart.addEventListener('click', () => {
         document.getElementById('message-overlay').classList.add('hidden');
         Game.init();
         this.render();
-        this.showHint('Clicca il tuo Magus per muovere o attaccare');
+        this.showHint('Clicca una carta o un\'unità');
       });
+    }
+  },
+
+  onCardClick(index) {
+    if (Game.currentPlayer !== 'player' || Game.gameOver) return;
+
+    const ok = Game.selectCard(index);
+    this.render();
+
+    if (ok) {
+      if (Game.possibleSummons.length > 0) {
+        this.showHint('Clicca una casella verde accanto al Magus per evocare');
+      } else {
+        this.showHint('Nessuna casella libera accanto al Magus');
+        Game.clearCardSelection();
+        this.render();
+      }
+    } else {
+      const card = Game.hands.player[index];
+      if (card && Game.powa.player < card.cost) {
+        this.showHint(`Powa insufficiente (serve ${card.cost})`);
+      } else {
+        this.showHint('Non puoi giocare questa carta ora');
+      }
     }
   },
 
   onCellClick(r, c) {
     if (Game.currentPlayer !== 'player' || Game.gameOver) return;
 
+    // Se abbiamo una carta selezionata → prova evocazione
+    if (Game.selectedCardIndex !== null) {
+      if (Game.canSummonTo(r, c)) {
+        Game.summonCreature(r, c);
+        this.render();
+        this.showHint('Creatura evocata! Può agire dal prossimo turno');
+      } else {
+        Game.clearCardSelection();
+        this.render();
+        this.showHint('Clicca una carta o un\'unità');
+      }
+      return;
+    }
+
     const unit = Game.getUnit(r, c);
 
-    // 1. Clic su una nostra unità non ancora agita → seleziona
+    // Seleziona unità nostra
     if (unit && unit.owner === 'player' && !unit.acted) {
       Game.selectUnit(r, c);
       this.render();
       const hasAtk = Game.possibleAttacks.length > 0;
       const hasMov = Game.possibleMoves.length > 0;
-      if (hasAtk && hasMov) {
-        this.showHint('Caselle gialle = muovi • Caselle rosse = attacca');
-      } else if (hasAtk) {
-        this.showHint('Clicca una casella rossa per attaccare');
-      } else if (hasMov) {
-        this.showHint('Clicca una casella gialla per muoverti');
-      } else {
-        this.showHint('Nessuna azione possibile con questa unità');
-      }
+      if (hasAtk && hasMov) this.showHint('Giallo = muovi • Rosso = attacca');
+      else if (hasAtk) this.showHint('Clicca una casella rossa per attaccare');
+      else if (hasMov) this.showHint('Clicca una casella gialla per muoverti');
+      else this.showHint('Nessuna azione possibile');
       return;
     }
 
-    // 2. Abbiamo una selezione → prova attacco o movimento
+    // Azione con unità selezionata
     if (Game.selected) {
       const { r: fr, c: fc } = Game.selected;
 
-      // Attacco
       if (Game.canAttack(r, c)) {
         const result = Game.attackUnit(fr, fc, r, c);
         this.render();
-
-        if (result && result.killed) {
-          this.showHint(`Colpo fatale! (${result.damage} danni)`);
-        } else if (result) {
-          this.showHint(`Inflitti ${result.damage} danni`);
-        }
-
-        if (Game.gameOver) {
-          setTimeout(() => this.showGameOver(), 400);
-        }
+        if (result?.killed) this.showHint(`Colpo fatale! (${result.damage} danni)`);
+        else if (result) this.showHint(`Inflitti ${result.damage} danni`);
+        if (Game.gameOver) setTimeout(() => this.showGameOver(), 400);
         return;
       }
 
-      // Movimento
       if (Game.canMoveTo(r, c)) {
         Game.moveUnit(fr, fc, r, c);
         this.render();
-        this.showHint('Unità mossa. Puoi selezionare un\'altra o Fine Turno');
+        this.showHint('Unità mossa');
         return;
       }
     }
 
-    // 3. Click a vuoto → deseleziona
     Game.deselect();
+    Game.clearCardSelection();
     this.render();
-    this.showHint('Clicca il tuo Magus per muovere o attaccare');
+    this.showHint('Clicca una carta o un\'unità');
   },
 
   showHint(text) {
@@ -150,16 +175,43 @@ const UI = {
     const btnClose = document.getElementById('btn-close-message');
     const btnRestart = document.getElementById('btn-restart');
 
-    if (Game.winner === 'player') {
-      text.textContent = 'VITTORIA!\nHai sconfitto il Faraone Oscuro';
-    } else {
-      text.textContent = 'SCONFITTA\nIl Faraone Oscuro ti ha battuto';
-    }
+    text.textContent = Game.winner === 'player'
+      ? 'VITTORIA!\nHai sconfitto il Faraone Oscuro'
+      : 'SCONFITTA\nIl Faraone Oscuro ti ha battuto';
 
     btnClose.classList.add('hidden');
     if (btnRestart) btnRestart.classList.remove('hidden');
-
     overlay.classList.remove('hidden');
+  },
+
+  renderHand(state) {
+    this.handEl.innerHTML = '';
+
+    state.hand.forEach((card, idx) => {
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.dataset.index = idx;
+
+      const canPlay = state.currentPlayer === 'player' &&
+                      !state.gameOver &&
+                      card.cost <= state.powa &&
+                      card.type === 'creature';
+
+      if (!canPlay) el.classList.add('disabled');
+      if (state.selectedCardIndex === idx) el.classList.add('selected');
+
+      el.innerHTML = `
+        <div class="card-cost">◆ ${card.cost}</div>
+        <div class="card-symbol">${card.symbol}</div>
+        <div class="card-name">${card.name}</div>
+        <div class="card-stats">
+          <span class="atk">⚔ ${card.atk}</span>
+          <span class="hp">❤ ${card.hp}</span>
+        </div>
+      `;
+      el.title = `${card.name}\nCosto: ${card.cost} Powa\nATK ${card.atk} / HP ${card.hp}\n${card.desc || ''}`;
+      this.handEl.appendChild(el);
+    });
   },
 
   render() {
@@ -180,48 +232,50 @@ const UI = {
     document.getElementById('ai-hp-fill').style.width = Math.max(0, aiPct) + '%';
     document.getElementById('ai-hp-text').textContent = `${state.aiHp} / ${state.aiMaxHp}`;
 
-    // Bottone Fine Turno
-    const btn = document.getElementById('btn-end-turn');
-    btn.disabled = state.currentPlayer !== 'player' || state.gameOver;
+    document.getElementById('btn-end-turn').disabled =
+      state.currentPlayer !== 'player' || state.gameOver;
 
-    // Pulisci griglia
+    // Griglia
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const cell = this.cells[r][c];
         cell.innerHTML = '';
-        cell.classList.remove('highlight', 'attack-highlight');
+        cell.classList.remove('highlight', 'attack-highlight', 'summon-highlight');
       }
     }
 
-    // Evidenzia mosse (giallo)
     for (const m of state.possibleMoves) {
       this.cells[m.r][m.c].classList.add('highlight');
     }
-
-    // Evidenzia attacchi (rosso)
     for (const a of state.possibleAttacks) {
       this.cells[a.r][a.c].classList.add('attack-highlight');
     }
+    for (const s of state.possibleSummons) {
+      this.cells[s.r][s.c].classList.add('summon-highlight');
+    }
 
-    // Disegna unità
+    // Unità
     for (const [key, unit] of Object.entries(state.units)) {
       const [r, c] = key.split('-').map(Number);
       const cell = this.cells[r][c];
       const el = document.createElement('div');
       el.className = `unit ${unit.owner}`;
+      if (unit.type === 'creature') el.classList.add('creature');
       if (unit.acted) el.classList.add('acted');
       if (state.selected && state.selected.r === r && state.selected.c === c) {
         el.classList.add('selected');
       }
 
-      // Simbolo + piccolo indicatore HP
       el.innerHTML = `
-        <span class="unit-symbol">${unit.owner === 'player' ? '𓁹' : '𓀀'}</span>
+        <span class="unit-symbol">${unit.symbol || (unit.owner === 'player' ? '𓁹' : '𓀀')}</span>
         <span class="unit-hp">${unit.hp}</span>
       `;
-      el.title = `${unit.owner === 'player' ? 'Il tuo Magus' : 'Faraone Oscuro'} — ATK ${unit.atk} / HP ${unit.hp}`;
+      el.title = `${unit.name || (unit.owner === 'player' ? 'Il tuo Magus' : 'Faraone Oscuro')} — ATK ${unit.atk} / HP ${unit.hp}`;
       cell.appendChild(el);
     }
+
+    // Mano
+    this.renderHand(state);
   }
 };
 
