@@ -5,31 +5,18 @@ Partite veloci (~5 minuti) – Browser – Grafica stile Yu-Gi-Oh Duel Links
 
 ---
 
-## Stato attuale – v8
+## Stato attuale – v9
 
-**Novità: Animazioni**
+**Novità: layout visualizzazione**
 
-- **Danni flottanti** (−N) quando colpisci o vieni colpito
-- **Shake** sull’unità che subisce danno
-- **Pulse** sull’unità che attacca
-- **Evocazione** con pop scale
-- **Flash** sulla casella del combattimento
-- **Trappola** che illumina il badge 🪤
-- Feedback più leggibile e “da videogioco”
+| Dispositivo | Come si vede |
+|-------------|--------------|
+| **Cellulare** | Schermo intero (colonna unica, safe-area per notch) |
+| **PC / tablet largo** | Schermo diviso in **3 colonne** → il gioco sta **solo al centro** (stesso layout del telefono) |
 
-Il gameplay è lo stesso della v7 (tutti i tipi di carte).
+Le colonne laterali su PC sono pannelli decorativi scuri: non servono a giocare, inquadrano la colonna centrale.
 
----
-
-## Colori caselle
-
-| Colore  | Azione        |
-|---------|---------------|
-| Giallo  | Movimento     |
-| Rosso   | Attacco       |
-| Verde   | Evocazione    |
-| Blu     | Equip arma    |
-| Viola   | Maledizione   |
+Gameplay e animazioni = v8.
 
 ---
 
@@ -37,17 +24,17 @@ Il gameplay è lo stesso della v7 (tutti i tipi di carte).
 
 | File locale                     | Dove metterlo                |
 |---------------------------------|------------------------------|
-| `v8/README.md`                  | → root (`README.md`)         |
-| `v8/docs/ARCHITETTURA.md`       | → `docs/ARCHITETTURA.md`     |
-| `v8/docs/index.html`            | → `docs/index.html`          |
-| `v8/docs/css/style.css`         | → `docs/css/style.css`       |
-| `v8/docs/js/cards.js`           | → `docs/js/cards.js`         |
-| `v8/docs/js/engine.js`          | → `docs/js/engine.js`        |
-| `v8/docs/js/ui.js`              | → `docs/js/ui.js`            |
+| `v9/README.md`                  | → root (`README.md`)         |
+| `v9/docs/ARCHITETTURA.md`       | → `docs/ARCHITETTURA.md`     |
+| `v9/docs/index.html`            | → `docs/index.html`          |
+| `v9/docs/css/style.css`         | → `docs/css/style.css`       |
+| `v9/docs/js/cards.js`           | → `docs/js/cards.js`         |
+| `v9/docs/js/engine.js`          | → `docs/js/engine.js`        |
+| `v9/docs/js/ui.js`              | → `docs/js/ui.js`            |
 
 **https://pharaohshadow.github.io/Penumbra/**
 
 ---
 
-**Versione:** v8 – Animazioni  
+**Versione:** v9 – Layout mobile full + PC a 3 colonne  
 **Data:** 24 ottobre 2026  

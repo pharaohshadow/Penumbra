@@ -1,4 +1,4 @@
-# ARCHITETTURA – Penumbra v8
+# ARCHITETTURA – Penumbra v9
 
 Documento di riferimento completo.
 
@@ -7,35 +7,42 @@ Documento di riferimento completo.
 ## 1. Visione
 
 Card game tattico a turni, ambientazione egizia.  
-Partita base = VS IA. Grafica e feedback stile Duel Links.
+Partita base = VS IA.
 
 ---
 
-## 2. Regole
+## 2. Regole e gameplay
 
-Come v7 (Creature, Torri, Armi, Maledizioni, Trappole, griglia 4×5, Powa, melee).
+Come v7/v8 (Creature, Torri, Armi, Maledizioni, Trappole, animazioni).
 
 ---
 
-## 3. Animazioni (v8)
+## 3. Layout visualizzazione (v9)
 
-Implementate solo in **UI** (CSS + `ui.js`), senza cambiare le regole.
+### Struttura HTML
 
-| Evento           | Effetto                                      |
-|------------------|----------------------------------------------|
-| Evocazione / move| `anim-summon` (scale pop)                    |
-| Attacco          | `anim-attack` sull’attaccante                |
-| Danno subito     | `anim-shake` + numero flottante `−N`         |
-| Casella colpita  | `anim-flash`                                 |
-| Trappola posata / scattata | flash sul badge 🪤                  |
-| Equip arma       | pulse sull’unità                             |
+```
+.page-shell
+  ├── .side-panel.side-left   (solo PC)
+  ├── #app.game-column        (il gioco)
+  └── .side-panel.side-right  (solo PC)
+```
 
-Metodi UI:
-- `animUnit(r, c, className)`
-- `animCell(r, c)`
-- `showDamage(r, c, amount, kind?)`
-- `animTrapBadge()`
-- `animHpBar(who)`
+### Comportamento
+
+| Viewport | Comportamento |
+|----------|----------------|
+| **&lt; 768px** (mobile) | Solo `#app`, larghezza 100%, altezza 100dvh, safe-area |
+| **≥ 768px** (PC) | 3 colonne: laterali flessibili + centro fisso ~420px |
+| **≥ 1100px** | Centro ~440px |
+
+La colonna centrale su PC è **identica** all’esperienza mobile: stesso UI, stessa griglia, stessa mano.
+
+### CSS chiave
+
+- `100dvh` per altezza viewport moderna
+- `env(safe-area-inset-*)` per notch / home bar
+- `.side-panel { display: none }` di default, `display: block` da 768px
 
 ---
 
@@ -43,25 +50,22 @@ Metodi UI:
 
 ```
 docs/
-├── index.html
-├── css/style.css   ← keyframes + classi anim-*
-└── js/
-    ├── cards.js
-    ├── engine.js   ← invariato rispetto a v7
-    └── ui.js       ← helper animazioni + chiamate dopo le azioni
+├── index.html      ← page-shell + side panels
+├── css/style.css   ← layout 3 colonne
+└── js/             ← invariato rispetto a v8
 ```
 
 ---
 
 ## 5. Prossimi passi
 
-1. Bilanciamento / più carte
-2. Modalità (Endless, Storia, PvP)
-3. Suoni
-4. Supabase (utenti / mazzi)
+1. Bilanciamento / più carte  
+2. Modalità (Endless, Storia, PvP)  
+3. Suoni  
+4. Supabase  
 
 ---
 
-**Versione:** v8  
+**Versione:** v9  
 **Data:** 24 ottobre 2026  
-**Stato:** Animazioni di combattimento e evocazione attive  
+**Stato:** Layout mobile full-screen + PC a 3 colonne  
