@@ -586,3 +586,36 @@ html, body {
   border-color: #e0c8f8;
   box-shadow: 0 0 14px rgba(155, 89, 182, 0.4);
 }
+
+/* ===== v6: Armi ===== */
+.card.card-weapon {
+  border-color: rgba(255, 180, 80, 0.55);
+  background: linear-gradient(160deg, #2a2218 0%, #1a1610 100%);
+}
+
+.cell.equip-highlight {
+  background: rgba(80, 160, 255, 0.35);
+  border-color: #50a0ff;
+  box-shadow: 0 0 14px rgba(80, 160, 255, 0.45);
+  cursor: pointer;
+}
+
+.cell.equip-highlight:hover {
+  background: rgba(80, 160, 255, 0.55);
+  transform: scale(1.04);
+}
+
+.unit .unit-weapon {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  font-size: 0.7rem;
+  background: rgba(0,0,0,0.7);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,180,80,0.6);
+}

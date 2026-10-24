@@ -1,7 +1,7 @@
 /**
- * Penumbra – Definizione carte (v5)
- * Creature + Torri.
- * Mano iniziale: 10 carte (8 creature + 2 torri).
+ * Penumbra – Definizione carte (v6)
+ * Creature + Torri + Armi.
+ * Mano iniziale: 10 carte (6 creature + 2 torri + 2 armi).
  */
 
 const CARD_POOL = [
@@ -37,7 +37,7 @@ const CARD_POOL = [
     hp: 4,
     hands: 2,
     symbol: '🐕',
-    desc: 'Difensore fedele'
+    desc: 'Difensore fedele • 2 mani'
   },
   {
     id: 'mummia',
@@ -70,29 +70,7 @@ const CARD_POOL = [
     hp: 4,
     hands: 2,
     symbol: '🦁',
-    desc: 'Potenza e mistero'
-  },
-  {
-    id: 'scorpione',
-    name: 'Scorpione Dorato',
-    type: 'creature',
-    cost: 1,
-    atk: 2,
-    hp: 1,
-    hands: 1,
-    symbol: '🦂',
-    desc: 'Punta letale'
-  },
-  {
-    id: 'soldato',
-    name: 'Soldato di Ra',
-    type: 'creature',
-    cost: 2,
-    atk: 2,
-    hp: 3,
-    hands: 1,
-    symbol: '⚔️',
-    desc: 'Fanteria del sole'
+    desc: 'Potenza e mistero • 2 mani'
   },
 
   // --- Torri ---
@@ -121,6 +99,28 @@ const CARD_POOL = [
     passive: 'aura_atk',
     passiveValue: 1,
     desc: 'Alleati adiacenti +1 ATK • Molto resistente'
+  },
+
+  // --- Armi ---
+  {
+    id: 'khopesh',
+    name: 'Khopesh Dorata',
+    type: 'weapon',
+    cost: 1,
+    atkBonus: 2,
+    handsRequired: 1,
+    symbol: '🗡️',
+    desc: '+2 ATK • Richiede 1 mano'
+  },
+  {
+    id: 'scettro',
+    name: 'Scettro di Ra',
+    type: 'weapon',
+    cost: 2,
+    atkBonus: 3,
+    handsRequired: 1,
+    symbol: '🔱',
+    desc: '+3 ATK • Richiede 1 mano'
   }
 ];
 

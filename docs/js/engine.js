@@ -1,6 +1,6 @@
 /**
- * Penumbra – Game Engine (v5)
- * Novità v5: Torri (immobili, solo HP, aura +ATK agli alleati adiacenti).
+ * Penumbra – Game Engine (v6)
+ * Novità v6: Armi (equipaggiamento su creature/Magus con mani libere).
  */
 
 const ROWS = 4;
@@ -23,6 +23,7 @@ const Game = {
   possibleMoves: [],
   possibleAttacks: [],
   possibleSummons: [],
+  possibleEquips: [], // caselle con unità che possono ricevere l'arma
 
   init() {
     this.turn = 1;
@@ -35,16 +36,20 @@ const Game = {
     this.possibleMoves = [];
     this.possibleAttacks = [];
     this.possibleSummons = [];
+    this.possibleEquips = [];
     this.gameOver = false;
     this.winner = null;
 
+    // Magus con 2 mani (può equipaggiare armi)
     this.units['3-2'] = {
       owner: 'player', type: 'magus', id: 'player-magus',
-      hp: 20, maxHp: 20, atk: 1, acted: false, symbol: '𓁹'
+      hp: 20, maxHp: 20, atk: 1, hands: 2, acted: false, symbol: '𓁹',
+      weapons: []
     };
     this.units['0-2'] = {
       owner: 'ai', type: 'magus', id: 'ai-magus',
-      hp: 20, maxHp: 20, atk: 1, acted: false, symbol: '𓀀'
+      hp: 20, maxHp: 20, atk: 1, hands: 2, acted: false, symbol: '𓀀',
+      weapons: []
     };
 
     this.hands.player = createStartingHand();
@@ -74,7 +79,17 @@ const Game = {
     return null;
   },
 
-  /** Bonus ATK da torri alleate adiacenti (passive aura_atk) */
+  /** Mani usate dalle armi equipaggiate */
+  getUsedHands(unit) {
+    if (!unit.weapons || !unit.weapons.length) return 0;
+    return unit.weapons.reduce((sum, w) => sum + (w.handsRequired || 1), 0);
+  },
+
+  getFreeHands(unit) {
+    return Math.max(0, (unit.hands || 0) - this.getUsedHands(unit));
+  },
+
+  /** Bonus ATK da torri alleate adiacenti */
   getAuraAtkBonus(r, c, owner) {
     let bonus = 0;
     for (const pos of this.getOrthogonal(r, c)) {
@@ -86,12 +101,18 @@ const Game = {
     return bonus;
   },
 
-  /** ATK effettivo di un’unità (base + aura) */
+  /** Bonus ATK dalle armi equipaggiate */
+  getWeaponAtkBonus(unit) {
+    if (!unit.weapons || !unit.weapons.length) return 0;
+    return unit.weapons.reduce((sum, w) => sum + (w.atkBonus || 0), 0);
+  },
+
+  /** ATK effettivo = base + armi + aura torri */
   getEffectiveAtk(r, c) {
     const unit = this.getUnit(r, c);
     if (!unit) return 0;
     if (unit.type === 'tower') return 0;
-    return unit.atk + this.getAuraAtkBonus(r, c, unit.owner);
+    return unit.atk + this.getWeaponAtkBonus(unit) + this.getAuraAtkBonus(r, c, unit.owner);
   },
 
   // ---- Selezione unità ----
@@ -103,7 +124,7 @@ const Game = {
     if (!unit || unit.owner !== this.currentPlayer) return false;
     if (this.currentPlayer !== 'player') return false;
     if (unit.acted) return false;
-    if (unit.type === 'tower') return false; // le torri non agiscono
+    if (unit.type === 'tower') return false;
 
     this.selected = { r, c };
     const adj = this.getOrthogonal(r, c);
@@ -124,6 +145,7 @@ const Game = {
   clearCardSelection() {
     this.selectedCardIndex = null;
     this.possibleSummons = [];
+    this.possibleEquips = [];
   },
 
   canMoveTo(r, c) {
@@ -134,6 +156,9 @@ const Game = {
   },
   canSummonTo(r, c) {
     return this.possibleSummons.some(s => s.r === r && s.c === c);
+  },
+  canEquipTo(r, c) {
+    return this.possibleEquips.some(e => e.r === r && e.c === c);
   },
 
   // ---- Movimento ----
@@ -196,7 +221,7 @@ const Game = {
     else if (!aiAlive) { this.gameOver = true; this.winner = 'player'; }
   },
 
-  // ---- Carte e evocazione (Creature + Torri) ----
+  // ---- Carte: Creature / Torri / Armi ----
   selectCard(index) {
     if (this.gameOver || this.currentPlayer !== 'player') return false;
     this.deselect();
@@ -205,21 +230,34 @@ const Game = {
     if (index < 0 || index >= hand.length) return false;
 
     const card = hand[index];
-    if (card.type !== 'creature' && card.type !== 'tower') return false;
     if (this.powa.player < card.cost) return false;
 
     this.selectedCardIndex = index;
+    this.possibleSummons = [];
+    this.possibleEquips = [];
 
-    const magus = this.findMagus('player');
-    if (!magus) {
-      this.possibleSummons = [];
-      return false;
+    if (card.type === 'creature' || card.type === 'tower') {
+      const magus = this.findMagus('player');
+      if (!magus) return false;
+      this.possibleSummons = this.getOrthogonal(magus.r, magus.c)
+        .filter(p => this.isEmpty(p.r, p.c));
+      return true;
     }
 
-    this.possibleSummons = this.getOrthogonal(magus.r, magus.c)
-      .filter(p => this.isEmpty(p.r, p.c));
+    if (card.type === 'weapon') {
+      // Unità alleate con abbastanza mani libere
+      for (const [k, u] of Object.entries(this.units)) {
+        if (u.owner !== 'player') continue;
+        if (u.type === 'tower') continue;
+        if (this.getFreeHands(u) >= (card.handsRequired || 1)) {
+          const [r, c] = k.split('-').map(Number);
+          this.possibleEquips.push({ r, c });
+        }
+      }
+      return this.possibleEquips.length > 0;
+    }
 
-    return true;
+    return false;
   },
 
   summonCard(r, c) {
@@ -246,10 +284,40 @@ const Game = {
       symbol: card.symbol || '👾',
       cardId: card.id,
       passive: card.passive || null,
-      passiveValue: card.passiveValue || 0
+      passiveValue: card.passiveValue || 0,
+      weapons: []
     };
 
     this.units[this.key(r, c)] = unit;
+    hand.splice(this.selectedCardIndex, 1);
+    this.clearCardSelection();
+    return true;
+  },
+
+  equipWeapon(r, c) {
+    if (this.gameOver || this.selectedCardIndex === null) return false;
+    if (!this.canEquipTo(r, c)) return false;
+
+    const hand = this.hands.player;
+    const card = hand[this.selectedCardIndex];
+    if (!card || card.type !== 'weapon') return false;
+    if (this.powa.player < card.cost) return false;
+
+    const unit = this.getUnit(r, c);
+    if (!unit || unit.owner !== 'player') return false;
+    if (this.getFreeHands(unit) < (card.handsRequired || 1)) return false;
+
+    this.powa.player -= card.cost;
+
+    if (!unit.weapons) unit.weapons = [];
+    unit.weapons.push({
+      id: card.id,
+      name: card.name,
+      atkBonus: card.atkBonus || 0,
+      handsRequired: card.handsRequired || 1,
+      symbol: card.symbol
+    });
+
     hand.splice(this.selectedCardIndex, 1);
     this.clearCardSelection();
     return true;
@@ -280,9 +348,10 @@ const Game = {
     }
   },
 
-  // IA v5
+  // IA v6
   aiTurn() {
     if (this.gameOver) return;
+    this.aiTryEquip();
     this.aiTrySummon();
 
     const aiUnits = [];
@@ -299,6 +368,35 @@ const Game = {
     }
 
     this.finishAiTurn();
+  },
+
+  aiTryEquip() {
+    const hand = this.hands.ai;
+    const weapons = hand
+      .map((card, idx) => ({ card, idx }))
+      .filter(({ card }) => card.type === 'weapon' && card.cost <= this.powa.ai);
+
+    if (!weapons.length) return;
+
+    // Equipaggia la prima arma disponibile sulla prima unità con mani libere
+    for (const { card, idx } of weapons) {
+      for (const [k, u] of Object.entries(this.units)) {
+        if (u.owner !== 'ai' || u.type === 'tower') continue;
+        if (this.getFreeHands(u) >= (card.handsRequired || 1)) {
+          this.powa.ai -= card.cost;
+          if (!u.weapons) u.weapons = [];
+          u.weapons.push({
+            id: card.id,
+            name: card.name,
+            atkBonus: card.atkBonus || 0,
+            handsRequired: card.handsRequired || 1,
+            symbol: card.symbol
+          });
+          hand.splice(idx, 1);
+          return;
+        }
+      }
+    }
   },
 
   aiTrySummon() {
@@ -340,7 +438,8 @@ const Game = {
       symbol: card.symbol || '👾',
       cardId: card.id,
       passive: card.passive || null,
-      passiveValue: card.passiveValue || 0
+      passiveValue: card.passiveValue || 0,
+      weapons: []
     };
     hand.splice(idx, 1);
   },
@@ -403,13 +502,13 @@ const Game = {
       }
     }
 
-    // Aggiungi atk effettivo per la UI
     const unitsWithBonus = {};
     for (const [k, u] of Object.entries(this.units)) {
       const [r, c] = k.split('-').map(Number);
       unitsWithBonus[k] = {
         ...u,
-        effectiveAtk: this.getEffectiveAtk(r, c)
+        effectiveAtk: this.getEffectiveAtk(r, c),
+        freeHands: this.getFreeHands(u)
       };
     }
 
@@ -424,6 +523,7 @@ const Game = {
       possibleMoves: [...this.possibleMoves],
       possibleAttacks: [...this.possibleAttacks],
       possibleSummons: [...this.possibleSummons],
+      possibleEquips: [...this.possibleEquips],
       hand: this.hands.player.map(c => ({ ...c })),
       playerHp, playerMaxHp, aiHp, aiMaxHp,
       gameOver: this.gameOver,

@@ -85,11 +85,20 @@ const UI = {
   onCardClick(index) {
     if (Game.currentPlayer !== 'player' || Game.gameOver) return;
 
+    const card = Game.hands.player[index];
     const ok = Game.selectCard(index);
     this.render();
 
     if (ok) {
-      if (Game.possibleSummons.length > 0) {
+      if (card && card.type === 'weapon') {
+        if (Game.possibleEquips.length > 0) {
+          this.showHint('Clicca un\'unità blu per equipaggiare l\'arma');
+        } else {
+          this.showHint('Nessuna unità con mani libere');
+          Game.clearCardSelection();
+          this.render();
+        }
+      } else if (Game.possibleSummons.length > 0) {
         this.showHint('Clicca una casella verde accanto al Magus per evocare');
       } else {
         this.showHint('Nessuna casella libera accanto al Magus');
@@ -97,9 +106,10 @@ const UI = {
         this.render();
       }
     } else {
-      const card = Game.hands.player[index];
       if (card && Game.powa.player < card.cost) {
         this.showHint(`Powa insufficiente (serve ${card.cost})`);
+      } else if (card && card.type === 'weapon') {
+        this.showHint('Nessuna unità con mani libere per questa arma');
       } else {
         this.showHint('Non puoi giocare questa carta ora');
       }
@@ -109,21 +119,30 @@ const UI = {
   onCellClick(r, c) {
     if (Game.currentPlayer !== 'player' || Game.gameOver) return;
 
-    // Se abbiamo una carta selezionata → prova evocazione
+    // Se abbiamo una carta selezionata → evocazione o equip
     if (Game.selectedCardIndex !== null) {
+      const card = Game.hands.player[Game.selectedCardIndex];
+
+      if (Game.canEquipTo(r, c)) {
+        Game.equipWeapon(r, c);
+        this.render();
+        this.showHint('Arma equipaggiata! ATK aumentato');
+        return;
+      }
+
       if (Game.canSummonTo(r, c)) {
-        const card = Game.hands.player[Game.selectedCardIndex];
         const isTower = card && card.type === 'tower';
         Game.summonCard(r, c);
         this.render();
         this.showHint(isTower
           ? 'Torre piazzata! Non si muove, dà bonus agli alleati vicini'
           : 'Creatura evocata! Può agire dal prossimo turno');
-      } else {
-        Game.clearCardSelection();
-        this.render();
-        this.showHint('Clicca una carta o un\'unità');
+        return;
       }
+
+      Game.clearCardSelection();
+      this.render();
+      this.showHint('Clicca una carta o un\'unità');
       return;
     }
 
@@ -195,19 +214,26 @@ const UI = {
       const el = document.createElement('div');
       el.className = 'card';
       if (card.type === 'tower') el.classList.add('card-tower');
+      if (card.type === 'weapon') el.classList.add('card-weapon');
       el.dataset.index = idx;
 
+      const playableTypes = ['creature', 'tower', 'weapon'];
       const canPlay = state.currentPlayer === 'player' &&
                       !state.gameOver &&
                       card.cost <= state.powa &&
-                      (card.type === 'creature' || card.type === 'tower');
+                      playableTypes.includes(card.type);
 
       if (!canPlay) el.classList.add('disabled');
       if (state.selectedCardIndex === idx) el.classList.add('selected');
 
-      const statsHtml = card.type === 'tower'
-        ? `<span class="hp">❤ ${card.hp}</span><span class="passive">+ATK</span>`
-        : `<span class="atk">⚔ ${card.atk}</span><span class="hp">❤ ${card.hp}</span>`;
+      let statsHtml;
+      if (card.type === 'tower') {
+        statsHtml = `<span class="hp">❤ ${card.hp}</span><span class="passive">+ATK</span>`;
+      } else if (card.type === 'weapon') {
+        statsHtml = `<span class="atk">⚔ +${card.atkBonus}</span>`;
+      } else {
+        statsHtml = `<span class="atk">⚔ ${card.atk}</span><span class="hp">❤ ${card.hp}</span>`;
+      }
 
       el.innerHTML = `
         <div class="card-cost">◆ ${card.cost}</div>
@@ -246,7 +272,7 @@ const UI = {
       for (let c = 0; c < COLS; c++) {
         const cell = this.cells[r][c];
         cell.innerHTML = '';
-        cell.classList.remove('highlight', 'attack-highlight', 'summon-highlight');
+        cell.classList.remove('highlight', 'attack-highlight', 'summon-highlight', 'equip-highlight');
       }
     }
 
@@ -258,6 +284,9 @@ const UI = {
     }
     for (const s of state.possibleSummons) {
       this.cells[s.r][s.c].classList.add('summon-highlight');
+    }
+    for (const e of (state.possibleEquips || [])) {
+      this.cells[e.r][e.c].classList.add('equip-highlight');
     }
 
     // Unità
@@ -276,14 +305,16 @@ const UI = {
       const atkShow = unit.type === 'tower' ? 0 : (unit.effectiveAtk ?? unit.atk);
       const bonus = (unit.effectiveAtk != null && unit.effectiveAtk > unit.atk)
         ? ` (+${unit.effectiveAtk - unit.atk})` : '';
+      const hasWeapon = unit.weapons && unit.weapons.length > 0;
 
       el.innerHTML = `
         <span class="unit-symbol">${unit.symbol || (unit.owner === 'player' ? '𓁹' : '𓀀')}</span>
         <span class="unit-hp">${unit.hp}</span>
+        ${hasWeapon ? '<span class="unit-weapon">⚔</span>' : ''}
       `;
       el.title = unit.type === 'tower'
         ? `${unit.name} (Torre) — HP ${unit.hp} • Alleati adiacenti +ATK`
-        : `${unit.name || (unit.owner === 'player' ? 'Il tuo Magus' : 'Faraone Oscuro')} — ATK ${atkShow}${bonus} / HP ${unit.hp}`;
+        : `${unit.name || (unit.owner === 'player' ? 'Il tuo Magus' : 'Faraone Oscuro')} — ATK ${atkShow}${bonus} / HP ${unit.hp}${hasWeapon ? ' • Armato' : ''}`;
       cell.appendChild(el);
     }
 
