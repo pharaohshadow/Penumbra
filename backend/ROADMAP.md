@@ -1,18 +1,17 @@
-# Roadmap Penumbra (aggiornata – v11)
+# Roadmap Penumbra (aggiornata – v12)
 
 ## Stato attuale
-**Completato: Fase 1 · Step 1.2 – Mostrissimi in UI**
+**Completato: Fase 1 · Step 1.3 – Altare C3 (Evoluzione)**
 
-Precedente: **1.1 Frammenti in UI** (v10)
+### Cosa introduce v12
+- Se una tua creatura **inizia il turno** su **C3 (Altare)**:
+  - prima volta: status `evolved`, **+1 ATK permanente**, **+1 HP**
+  - turni successivi sull’Altare: solo **+1 HP**
+- UI: ✦ sull’unità evoluta; casella vuota mostra **✦Altare**
+- API: `unit.evolved`, `cell.altar`
 
-### Cosa introduce v11
-- Click su un Mostrissimo del pool → modalità sacrifici
-- Click sulle tue creature per selezionare/deselezionare sacrifici
-- Serve il numero richiesto; **almeno una su Cerchio Rituale** (caselle con ✧)
-- **Conferma evocazione** → `POST /api/eldrazi`
-- Board: flag `ritual` nelle celle; simbolo ✧
-
-File in questa cartella (solo modificati):
+File modificati in questa cartella:
+- `core/game_state.py`
 - `api/main.py`
 - `static/index.html`
 - `ROADMAP.md`
@@ -22,22 +21,22 @@ File in questa cartella (solo modificati):
 ## Cronologia
 
 ### Fase 0
-- [x] v9 baseline online
+- [x] v9 baseline
 
 ### Fase 1 – Regole in partita
-- [x] 1.1 Frammenti in UI (v10)
-- [x] **1.2 Mostrissimi in UI (v11)** ← **sei qui**
-- [ ] **1.3 Altare C3** ← prossimo
-- [ ] 1.4 Effetti carte ondata 1
+- [x] 1.1 Frammenti UI (v10)
+- [x] 1.2 Mostrissimi UI (v11)
+- [x] **1.3 Altare C3 (v12)** ← **sei qui**
+- [ ] **1.4 Effetti carte ondata 1** ← prossimo
 - [ ] 1.5 Mostro Neutrale attivo
 
-### Fase 2 – Draft interattivo
+### Fase 2 – Draft
 - [ ] 2.1–2.3
 
-### Fase 3 – Mappa / quest / snapshot
+### Fase 3 – Mappa / quest
 - [ ] 3.1–3.3
 
-### Fase 4 – Multiplayer usabile
+### Fase 4 – Multiplayer
 - [ ] 4.1–4.4
 
 ### Fase 5 – IA
@@ -49,8 +48,7 @@ File in questa cartella (solo modificati):
 ---
 
 ## Deploy
-Sovrascrivi in `/backend`:
-- `api/main.py`
-- `static/index.html`
+Sovrascrivi in `/backend` i tre path sopra, poi redeploy Render.
 
-Redeploy Render.
+## Come testare
+Muovi un’unità su C3, **Fine turno** fino a quando è di nuovo il tuo turno con quella unità ancora su C3 → log “Altare C3: … evolve” e ATK+1.

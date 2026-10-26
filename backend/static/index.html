@@ -110,8 +110,8 @@
         if (cell.unit) {
           const u = cell.unit;
           const cls = u.owner === 0 ? "p0" : u.owner === 1 ? "p1" : "neutral";
-          html += `<div class="unit ${cls}">${u.crown ? '<span class="crown">👑</span>' : ""}${u.name}<br/>${u.atk}/${u.hp}</div>`;
-        } else html += `<span class="tile-label">${cell.tile}${cell.trap ? " ⚠" : ""}</span>`;
+          html += `<div class="unit ${cls}">${u.crown ? '<span class="crown">👑</span>' : ""}${u.evolved ? "✦" : ""}${u.name}<br/>${u.atk}/${u.hp}</div>`;
+        } else html += `<span class="tile-label">${cell.altar ? "✦Altare" : cell.tile}${cell.ritual ? " ✧" : ""}${cell.trap ? " ⚠" : ""}</span>`;
         div.innerHTML = html;
         div.onclick = () => onCellClick(cell.coord);
         boardEl.appendChild(div);

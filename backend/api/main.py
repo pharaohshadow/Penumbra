@@ -74,6 +74,7 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
                 "explored": tile.explored if tile else True,
                 "trap": tile.trap_card_id is not None if tile else False,
                 "ritual": bool(tile and tile.is_ritual),
+                "altar": bool(tile and tile.tile_type.value == "Altare"),
                 "unit": None,
             }
             if unit:
@@ -83,6 +84,7 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
                     "hp": unit.current_hp,
                     "owner": unit.owner_id,
                     "crown": unit.has_fragment,
+                    "evolved": "evolved" in unit.statuses,
                     "coord": unit.coord,
                 }
             row.append(cell)

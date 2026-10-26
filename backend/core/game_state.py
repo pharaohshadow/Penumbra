@@ -166,6 +166,19 @@ class GameState:
             if "Regenerate" in (unit.card.keywords or []):
                 unit.heal(1)
                 self.log_msg(f"  Rigenerazione: {unit.card.name} +1 HP")
+            # Altare C3 – Evoluzione (GDD): inizia il turno sul centro
+            if (unit.row, unit.col) == ALTAR_POS:
+                if "evolved" not in unit.statuses:
+                    unit.statuses.add("evolved")
+                    unit.current_atk += 1
+                    unit.heal(1)
+                    self.log_msg(
+                        f"  ✦ Altare C3: {unit.card.name} evolve! +1 ATK permanente, +1 HP "
+                        f"(ora {unit.current_atk}/{unit.current_hp})"
+                    )
+                else:
+                    unit.heal(1)
+                    self.log_msg(f"  ✦ Altare C3: {unit.card.name} già evoluta, +1 HP")
 
     def _spawn_free_1_1(self, player: Player):
         from .card import Card
