@@ -1,18 +1,19 @@
 """
-FastAPI Penumbra v7 – partite multiple, vs IA o base PvP (join by game_id).
+FastAPI Penumbra – partite multiple, vs IA o base PvP (join by game_id).
+4.2.6 – join autenticato: richiede JWT e salva player1_uid.
 """
 
 from __future__ import annotations
 import sys
 import uuid
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -23,8 +24,9 @@ from core.constants import Phase, pos_to_coord, coord_to_pos
 from ai.basic_ai import BasicAI
 from api import supabase_store
 from api.restore import hydrate
+from api.auth import require_user, user_id
 
-app = FastAPI(title="Penumbra Tactical Card Game", version="0.22")
+app = FastAPI(title="Penumbra Tactical Card Game", version="0.13")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -43,10 +45,8 @@ def _new_engine(p0_name: str = "Giocatore 1", p1_name: str = "AI Overlord", p1_i
     if not p1_is_ai:
         gs.players[1].name = p1_name
     gs.start_draft()
-    # Se P0 è umano resta in DRAFT; se per qualche motivo P0 è IA, completa
     gs._draft_ai_if_needed()
     return gs
-
 
 
 def _quest_progress(gs: GameState) -> dict:
@@ -55,7 +55,6 @@ def _quest_progress(gs: GameState) -> dict:
     if not q:
         return {"active": False, "label": "Nessuna Main Quest attiva", "detail": "Esplora tessere evento per rivelarne una."}
     if q == "MainQuest_Dominio":
-        # per ogni giocatore
         players = []
         for pid in (0, 1):
             buff = 0
@@ -99,8 +98,6 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
         for c in range(5):
             tile = gs.board.get_tile(r, c)
             unit = gs.board.get_unit_at(r, c)
-            # Snapshot tile ricco (v20 / step 3.3): salva tutti i campi persistenti del Tile
-            # senza rompere i client che leggono solo i campi vecchi.
             cell = {
                 "coord": pos_to_coord(r, c),
                 "tile": tile.tile_type.value if tile else "Vuoto",
@@ -108,29 +105,17 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
                 "trap": tile.trap_card_id is not None if tile else False,
                 "ritual": bool(tile and tile.is_ritual),
                 "altar": bool(tile and tile.tile_type.value == "Altare"),
-                # campi ricchi (nuovi, backward-compatible)
-                "permanent_effect": tile.permanent_effect if tile else None,
-                "trap_card_id": tile.trap_card_id if tile else None,
-                "wall_hp": int(tile.wall_hp) if tile else 0,
-                "owner_id": tile.owner_id if tile else None,
                 "unit": None,
             }
             if unit:
-                # Snapshot status unità (v21 / step 3.4): statuses + flag di turno
                 cell["unit"] = {
                     "name": unit.card.name,
                     "atk": unit.current_atk,
                     "hp": unit.current_hp,
                     "owner": unit.owner_id,
                     "crown": unit.has_fragment,
-                    "evolved": "evolved" in unit.statuses,  # retrocompat UI
+                    "evolved": "evolved" in unit.statuses,
                     "coord": unit.coord,
-                    # campi ricchi (nuovi, backward-compatible)
-                    "statuses": sorted(unit.statuses) if unit.statuses else [],
-                    "summoning_sickness": bool(unit.summoning_sickness),
-                    "can_attack_this_turn": bool(unit.can_attack_this_turn),
-                    "moved_this_turn": bool(unit.moved_this_turn),
-                    "fragment_index": int(unit.fragment_index) if unit.fragment_index is not None else -1,
                 }
             row.append(cell)
         board.append(row)
@@ -172,25 +157,6 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
         for i, e in enumerate(gs.eldrazi_pool)
     ]
     mode = _modes.get(game_id, {"p1_ai": True})
-
-    # Draft UI leggero (già esistente) + draft_full per restore (step 3.5 / v22)
-    draft_ui = gs.get_draft_state() if gs.phase == Phase.DRAFT else None
-    draft_full = None
-    if gs.phase == Phase.DRAFT and hasattr(gs, "_draft_packs"):
-        packs_raw = getattr(gs, "_draft_packs", []) or []
-        picks_raw = getattr(gs, "_draft_picks", {}) or {}
-        draft_full = {
-            "picker": int(getattr(gs, "_draft_picker", 0)),
-            "packs": [
-                [{"id": c.id, "name": c.name} for c in pack]
-                for pack in packs_raw
-            ],
-            "picks": {
-                "0": [{"id": c.id, "name": c.name} for c in picks_raw.get(0, [])],
-                "1": [{"id": c.id, "name": c.name} for c in picks_raw.get(1, [])],
-            },
-        }
-
     return {
         "game_id": game_id,
         "turn": gs.turn,
@@ -205,8 +171,9 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
         "log": gs.log[-15:],
         "supabase": supabase_store.enabled(),
         "p1_is_ai": mode.get("p1_ai", True),
-        "draft": draft_ui,
-        "draft_full": draft_full,
+        "draft": gs.get_draft_state() if gs.phase == Phase.DRAFT else None,
+        "player0_uid": mode.get("player0_uid"),
+        "player1_uid": mode.get("player1_uid"),
     }
 
 
@@ -214,7 +181,14 @@ def _persist(game_id: str, gs: GameState, action: str = "update", payload: Optio
     if not supabase_store.enabled():
         return
     snap = serialize_state(gs, game_id)
-    supabase_store.update_game(game_id, snap)
+    mode = _modes.get(game_id, {})
+    supabase_store.update_game(
+        game_id,
+        snap,
+        player0_uid=mode.get("player0_uid"),
+        player1_uid=mode.get("player1_uid"),
+        p1_is_ai=mode.get("p1_ai"),
+    )
     if action != "update":
         supabase_store.log_move(game_id, snap.get("current_player", 0), action, payload or {})
 
@@ -235,11 +209,18 @@ def _load_from_supabase(game_id: str) -> Optional[GameState]:
         return None
     _games[game_id] = gs
     p1_ai = True
-    if snap.get("players") and len(snap["players"]) > 1:
+    if "p1_is_ai" in row:
+        p1_ai = bool(row["p1_is_ai"])
+    elif snap.get("players") and len(snap["players"]) > 1:
         p1_ai = bool(snap["players"][1].get("is_ai", True))
     elif "p1_is_ai" in snap:
         p1_ai = bool(snap["p1_is_ai"])
-    _modes[game_id] = {"p1_ai": p1_ai, "p1_joined": not p1_ai or True}
+    _modes[game_id] = {
+        "p1_ai": p1_ai,
+        "p1_joined": not p1_ai or bool(row.get("player1_uid")),
+        "player0_uid": row.get("player0_uid"),
+        "player1_uid": row.get("player1_uid"),
+    }
     gs.log_msg("[sistema] Partita ripristinata da Supabase")
     return gs
 
@@ -251,6 +232,23 @@ def _require_game(game_id: str) -> GameState:
     if gs:
         return gs
     raise HTTPException(404, "Partita non trovata (né in memoria né su Supabase).")
+
+
+def _require_membership(game_id: str, uid: Optional[str]) -> None:
+    """
+    Scelta A: se non sei player0 o player1 → 403.
+    Partite senza uid (legacy) → 403.
+    """
+    if not uid:
+        raise HTTPException(401, "Utente non autenticato")
+    mode = _modes.get(game_id, {})
+    p0 = mode.get("player0_uid")
+    p1 = mode.get("player1_uid")
+    if p0 is None and p1 is None:
+        # Partita legacy / senza ownership → non giocabile (scelta A)
+        raise HTTPException(403, "Partita senza proprietario registrato (accesso negato)")
+    if uid != p0 and uid != p1:
+        raise HTTPException(403, "Non sei un giocatore di questa partita")
 
 
 class MoveReq(BaseModel):
@@ -289,6 +287,18 @@ class JoinReq(BaseModel):
     name: str = "Giocatore 2"
 
 
+class FragmentReq(BaseModel):
+    game_id: str
+    coord: str
+    player_id: int = 0
+
+
+class DraftReq(BaseModel):
+    game_id: str
+    card_index: int
+    player_id: int = 0
+
+
 @app.get("/")
 def index():
     static = ROOT / "static" / "index.html"
@@ -299,11 +309,16 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "version": "0.22", "games_in_memory": len(_games), "supabase": supabase_store.enabled()}
+    return {"ok": True, "version": "0.13", "games_in_memory": len(_games), "supabase": supabase_store.enabled()}
 
 
 @app.post("/api/new")
-def api_new(body: NewReq = NewReq()):
+async def api_new(body: NewReq = NewReq(), user: Dict[str, Any] = Depends(require_user)):
+    """Crea una nuova partita. Richiede JWT. Il creatore diventa player0_uid."""
+    uid = user_id(user)
+    if not uid:
+        raise HTTPException(401, "Utente non autenticato")
+
     game_id = str(uuid.uuid4())
     p1_ai = body.vs_ai
     gs = _new_engine(
@@ -312,46 +327,84 @@ def api_new(body: NewReq = NewReq()):
         p1_is_ai=p1_ai,
     )
     _games[game_id] = gs
-    _modes[game_id] = {"p1_ai": p1_ai, "p1_joined": p1_ai}
+    _modes[game_id] = {
+        "p1_ai": p1_ai,
+        "p1_joined": p1_ai,
+        "player0_uid": uid,
+        "player1_uid": None,
+    }
     if supabase_store.enabled():
-        supabase_store.create_game(serialize_state(gs, game_id), game_id=game_id)
+        supabase_store.create_game(
+            serialize_state(gs, game_id),
+            game_id=game_id,
+            player0_uid=uid,
+            player1_uid=None,
+            p1_is_ai=p1_ai,
+        )
     return serialize_state(gs, game_id)
 
 
 @app.post("/api/join")
-def api_join(body: JoinReq):
+async def api_join(body: JoinReq, user: Dict[str, Any] = Depends(require_user)):
+    """
+    Unisciti a una partita PvP.
+    Richiede JWT. Diventi player1_uid.
+    """
+    uid = user_id(user)
+    if not uid:
+        raise HTTPException(401, "Utente non autenticato")
+
     gs = _require_game(body.game_id)
     mode = _modes.get(body.game_id, {})
+
     if mode.get("p1_ai"):
         raise HTTPException(400, "Questa partita è vs IA, non si può joinare.")
-    if mode.get("p1_joined"):
+    if mode.get("p1_joined") or mode.get("player1_uid"):
         raise HTTPException(400, "Il posto P1 è già occupato.")
+    if mode.get("player0_uid") == uid:
+        raise HTTPException(400, "Non puoi unirti alla partita che hai creato tu.")
+
     gs.players[1].name = body.name or "Giocatore 2"
     gs.players[1].is_ai = False
     mode["p1_joined"] = True
     mode["p1_ai"] = False
+    mode["player1_uid"] = uid
     _modes[body.game_id] = mode
     gs.log_msg(f"{gs.players[1].name} si è unito alla partita.")
-    _persist(body.game_id, gs, "join", {"name": body.name})
+
+    # Salva ownership su Supabase
+    if supabase_store.enabled():
+        supabase_store.set_ownership(
+            body.game_id,
+            player1_uid=uid,
+            p1_is_ai=False,
+        )
+    _persist(body.game_id, gs, "join", {"name": body.name, "player1_uid": uid})
     return serialize_state(gs, body.game_id)
 
 
 @app.get("/api/state")
-def api_state(game_id: Optional[str] = Query(None)):
+async def api_state(
+    game_id: Optional[str] = Query(None),
+    user: Dict[str, Any] = Depends(require_user),
+):
+    """Stato partita: richiede JWT + membership."""
     if not game_id:
-        return api_new(NewReq(vs_ai=True))
-    if game_id in _games:
-        return serialize_state(_games[game_id], game_id)
-    gs = _load_from_supabase(game_id)
-    if gs:
-        return serialize_state(gs, game_id)
-    # fallback: nuova partita vs IA
-    return api_new(NewReq(vs_ai=True))
+        raise HTTPException(
+            400,
+            "Fornire game_id oppure creare una partita con POST /api/new",
+        )
+    uid = user_id(user)
+    gs = _require_game(game_id)
+    _require_membership(game_id, uid)
+    return serialize_state(gs, game_id)
 
 
 @app.post("/api/move")
-def api_move(body: MoveReq):
+async def api_move(body: MoveReq, user: Dict[str, Any] = Depends(require_user)):
+    uid = user_id(user)
     gs = _require_game(body.game_id)
+    _require_membership(body.game_id, uid)
     if gs.phase == Phase.GAME_OVER:
         raise HTTPException(400, "Partita finita")
     if gs.current_player_id != body.player_id:
@@ -372,8 +425,10 @@ def api_move(body: MoveReq):
 
 
 @app.post("/api/play")
-def api_play(body: PlayReq):
+async def api_play(body: PlayReq, user: Dict[str, Any] = Depends(require_user)):
+    uid = user_id(user)
     gs = _require_game(body.game_id)
+    _require_membership(body.game_id, uid)
     if gs.phase == Phase.GAME_OVER:
         raise HTTPException(400, "Partita finita")
     if gs.current_player_id != body.player_id:
@@ -387,8 +442,10 @@ def api_play(body: PlayReq):
 
 
 @app.post("/api/eldrazi")
-def api_eldrazi(body: EldraziReq):
+async def api_eldrazi(body: EldraziReq, user: Dict[str, Any] = Depends(require_user)):
+    uid = user_id(user)
     gs = _require_game(body.game_id)
+    _require_membership(body.game_id, uid)
     if gs.current_player_id != body.player_id:
         raise HTTPException(400, "Non è il tuo turno")
     coords = [c.upper() for c in body.sacrifice_coords]
@@ -400,8 +457,10 @@ def api_eldrazi(body: EldraziReq):
 
 
 @app.post("/api/end")
-def api_end(body: EndReq):
+async def api_end(body: EndReq, user: Dict[str, Any] = Depends(require_user)):
+    uid = user_id(user)
     gs = _require_game(body.game_id)
+    _require_membership(body.game_id, uid)
     if gs.phase == Phase.GAME_OVER:
         return serialize_state(gs, body.game_id)
     if gs.current_player_id != body.player_id:
@@ -414,17 +473,12 @@ def api_end(body: EndReq):
     return serialize_state(gs, body.game_id)
 
 
-
-class FragmentReq(BaseModel):
-    game_id: str
-    coord: str
-    player_id: int = 0
-
-
 @app.post("/api/fragment")
-def api_fragment(body: FragmentReq):
-    """Piazza (o sposta) il Frammento/Corona su una tua creatura, pagando Commander Tax."""
+async def api_fragment(body: FragmentReq, user: Dict[str, Any] = Depends(require_user)):
+    """Piazza (o sposta) il Frammento/Corona su una tua creatura."""
+    uid = user_id(user)
     gs = _require_game(body.game_id)
+    _require_membership(body.game_id, uid)
     if gs.phase == Phase.GAME_OVER:
         raise HTTPException(400, "Partita finita")
     if gs.current_player_id != body.player_id:
@@ -452,16 +506,11 @@ def api_fragment(body: FragmentReq):
     return serialize_state(gs, body.game_id)
 
 
-
-class DraftReq(BaseModel):
-    game_id: str
-    card_index: int
-    player_id: int = 0
-
-
 @app.post("/api/draft")
-def api_draft(body: DraftReq):
+async def api_draft(body: DraftReq, user: Dict[str, Any] = Depends(require_user)):
+    uid = user_id(user)
     gs = _require_game(body.game_id)
+    _require_membership(body.game_id, uid)
     if gs.phase != Phase.DRAFT:
         raise HTTPException(400, "Non sei in fase draft")
     ok = gs.draft_pick(body.player_id, body.card_index)

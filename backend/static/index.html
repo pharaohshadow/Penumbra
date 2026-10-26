@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Penumbra – Tactical Card Game 5×5</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg: #0f1115; --panel: #1a1d24; --border: #2a2f3a; --text: #e8eaed;
@@ -33,73 +34,179 @@
     .log { font-size: 0.75rem; color: var(--muted); max-height: 160px; overflow-y: auto; white-space: pre-wrap; margin-top: 12px; }
     .msg { color: var(--crown); font-size: 0.85rem; margin: 8px 0; min-height: 1.2em; }
     .gid { font-size: 0.7rem; color: var(--muted); word-break: break-all; }
+    /* Auth */
+    #authGate { max-width: 380px; margin: 40px auto; }
+    #authGate input { width: 100%; padding: 10px; margin: 6px 0 12px; border-radius: 6px; border: 1px solid var(--border); background: #12151a; color: var(--text); }
+    #authGate label { font-size: 0.85rem; color: var(--muted); }
+    #authUserBar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.85rem; color: var(--muted); }
+    #gameRoot { display: none; }
+    #authGate.hidden { display: none; }
+    #gameRoot.visible { display: block; }
   </style>
 </head>
 <body>
-  <div class="layout">
-    <div>
-      <h1>Penumbra – 5×5</h1>
-      <div class="status panel" id="status">Caricamento…</div>
-      <div class="panel" id="draftPanel" style="display:none;margin-bottom:12px;border-color:var(--accent)">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <strong style="color:var(--accent)">📜 Snake Draft</strong>
-          <span id="draftInfo" style="font-size:0.85rem;color:var(--muted)"></span>
-        </div>
-        <div id="draftPack" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:10px"></div>
-        <div id="draftPicks" style="font-size:0.75rem;color:var(--muted);margin-top:10px;line-height:1.4"></div>
-      </div>
-      <div class="panel" id="questPanel" style="margin-bottom:12px;font-size:0.85rem">
-        <strong style="color:var(--crown)">★ Main Quest</strong>
-        <div id="questBody" style="margin-top:6px;color:var(--muted)"></div>
-      </div>
-      <div class="board" id="board"></div>
-      <div class="actions">
-        <button id="btnEnd">Fine turno</button>
-        <button class="secondary" id="btnFrag">Piazza Corona</button>
-        <button class="secondary" id="btnNewAi">Nuova vs IA</button>
-        <button class="secondary" id="btnNewPvp">Nuova PvP (host)</button>
-        <button class="secondary" id="btnJoin">Unisciti</button>
-      </div>
-      <div class="msg" id="msg"></div>
-      <div class="gid" id="gid"></div>
-      <div class="log panel" id="log"></div>
+
+  <!-- ============ LOGIN ============ -->
+  <div id="authGate" class="panel">
+    <h1>Penumbra</h1>
+    <p style="color:var(--muted);font-size:0.9rem;margin:0 0 16px">Accedi o registrati per giocare.</p>
+    <label>Email</label>
+    <input type="email" id="authEmail" autocomplete="email" placeholder="tu@email.com" />
+    <label>Password</label>
+    <input type="password" id="authPassword" autocomplete="current-password" placeholder="minimo 6 caratteri" />
+    <div class="actions">
+      <button id="btnLogin">Accedi</button>
+      <button class="secondary" id="btnRegister">Registrati</button>
     </div>
-    <div class="panel">
-      <h1 style="font-size:1rem">La tua mano</h1>
-      <div class="hand" id="hand"></div>
-      <div id="eldrazi" style="font-size:0.8rem;margin-top:8px"></div>
-      <p style="font-size:0.75rem;color:var(--muted);margin-top:12px">
-        Click unità → casella diagonale = muovi/attacca.<br/>
-        Click carta Mostro = evoca. Trappola/Maledizione = poi click casella.<br/>
-        PvP: host crea partita, condivide game_id, l’altro usa Unisciti.<br/>
-        Mostrissimi: click sul pool → seleziona sacrifici (✧ = Rituale) → Conferma.
-      </p>
+    <div class="msg" id="authMsg"></div>
+    <p style="font-size:0.75rem;color:var(--muted);margin-top:16px">
+      Se vedi un errore sulle chiavi Supabase, apri questo file e inserisci URL e anon key del tuo progetto (vedi README v19).
+    </p>
+  </div>
+
+  <!-- ============ GIOCO ============ -->
+  <div id="gameRoot">
+    <div id="authUserBar" class="panel">
+      <span>Loggato come <strong id="userEmail">—</strong></span>
+      <button class="secondary" id="btnLogout" style="padding:4px 10px;font-size:0.8rem">Esci</button>
+    </div>
+    <div class="layout">
+      <div>
+        <h1>Penumbra – 5×5</h1>
+        <div class="status panel" id="status">Caricamento…</div>
+        <div class="panel" id="draftPanel" style="display:none;margin-bottom:12px;border-color:var(--accent)">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <strong style="color:var(--accent)">📜 Snake Draft</strong>
+            <span id="draftInfo" style="font-size:0.85rem;color:var(--muted)"></span>
+          </div>
+          <div id="draftPack" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:10px"></div>
+          <div id="draftPicks" style="font-size:0.75rem;color:var(--muted);margin-top:10px;line-height:1.4"></div>
+        </div>
+        <div class="panel" id="questPanel" style="margin-bottom:12px;font-size:0.85rem">
+          <strong style="color:var(--crown)">★ Main Quest</strong>
+          <div id="questBody" style="margin-top:6px;color:var(--muted)"></div>
+        </div>
+        <div class="board" id="board"></div>
+        <div class="actions">
+          <button id="btnEnd">Fine turno</button>
+          <button class="secondary" id="btnFrag">Piazza Corona</button>
+          <button class="secondary" id="btnNewAi">Nuova vs IA</button>
+          <button class="secondary" id="btnNewPvp">Nuova PvP (host)</button>
+          <button class="secondary" id="btnJoin">Unisciti</button>
+        </div>
+        <div class="msg" id="msg"></div>
+        <div class="gid" id="gid"></div>
+        <div class="log panel" id="log"></div>
+      </div>
+      <div class="panel">
+        <h1 style="font-size:1rem">La tua mano</h1>
+        <div class="hand" id="hand"></div>
+        <div id="eldrazi" style="font-size:0.8rem;margin-top:8px"></div>
+        <p style="font-size:0.75rem;color:var(--muted);margin-top:12px">
+          Click unità → casella diagonale = muovi/attacca.<br/>
+          Click carta Mostro = evoca. Trappola/Maledizione = poi click casella.<br/>
+          PvP: host crea partita, condivide game_id, l’altro usa Unisciti.<br/>
+          Mostrissimi: click sul pool → seleziona sacrifici (✧ = Rituale) → Conferma.
+        </p>
+      </div>
     </div>
   </div>
+
   <script>
+    // ========== Supabase (progetto Penumbra) ==========
+    const SUPABASE_URL = "https://favrmxwyaxklfiruyvqz.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhdnJteHd5YXhrbGZpcnV5dnF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MTA4OTYsImV4cCI6MjEwODM4Njg5Nn0.HLR7eYKscg6ldoYkuFpRx9LMWzSGeSCZ1Jl0Rgu9N-0";
+    // ===============================================================
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let accessToken = null;
     let state = null;
     let gameId = localStorage.getItem("penumbra_game_id") || null;
     let playerId = parseInt(localStorage.getItem("penumbra_player_id") || "0", 10);
     let selectedCoord = null;
     let selectedCard = null;
     let fragmentMode = false;
-    let eldraziMode = null; // { index, need, selected: [] }
+    let eldraziMode = null;
+    let pollTimer = null;
 
-    async function api(path, method = "GET", body = null) {
-      const opts = { method, headers: { "Content-Type": "application/json" } };
-      if (body) opts.body = JSON.stringify(body);
-      const r = await fetch(path, opts);
-      if (!r.ok) throw new Error(await r.text() || r.statusText);
-      return r.json();
-    }
+    function setAuthMsg(t) { document.getElementById("authMsg").textContent = t || ""; }
     function setMsg(t) { document.getElementById("msg").textContent = t || ""; }
 
+    function showGame(email) {
+      document.getElementById("authGate").classList.add("hidden");
+      document.getElementById("gameRoot").classList.add("visible");
+      document.getElementById("userEmail").textContent = email || "utente";
+    }
+
+    function showLogin() {
+      document.getElementById("authGate").classList.remove("hidden");
+      document.getElementById("gameRoot").classList.remove("visible");
+      accessToken = null;
+      state = null;
+      if (pollTimer) clearInterval(pollTimer);
+    }
+
+    async function api(path, method = "GET", body = null) {
+      if (!accessToken) throw new Error("Devi essere loggato");
+      const opts = {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + accessToken,
+        },
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const r = await fetch(path, opts);
+      const text = await r.text();
+      if (!r.ok) {
+        let msg = text || r.statusText;
+        try { const j = JSON.parse(text); msg = j.detail || j.message || msg; } catch (_) {}
+        throw new Error(msg);
+      }
+      return text ? JSON.parse(text) : {};
+    }
+
+    // ---- Auth buttons ----
+    document.getElementById("btnLogin").onclick = async () => {
+      setAuthMsg("Accesso…");
+      const email = document.getElementById("authEmail").value.trim();
+      const password = document.getElementById("authPassword").value;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) { setAuthMsg(error.message); return; }
+      accessToken = data.session.access_token;
+      showGame(data.user.email);
+      setAuthMsg("");
+      await loadGame();
+    };
+
+    document.getElementById("btnRegister").onclick = async () => {
+      setAuthMsg("Registrazione…");
+      const email = document.getElementById("authEmail").value.trim();
+      const password = document.getElementById("authPassword").value;
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) { setAuthMsg(error.message); return; }
+      if (data.session) {
+        accessToken = data.session.access_token;
+        showGame(data.user.email);
+        setAuthMsg("");
+        await loadGame();
+      } else {
+        setAuthMsg("Controlla la email per confermare l’account, poi accedi.");
+      }
+    };
+
+    document.getElementById("btnLogout").onclick = async () => {
+      await supabase.auth.signOut();
+      showLogin();
+    };
+
+    // ---- Render / game (stessa logica di prima) ----
     function render() {
       if (!state) return;
       gameId = state.game_id;
       localStorage.setItem("penumbra_game_id", gameId);
       const p = state.players[playerId] || state.players[0];
-      // Draft UI
       const dp = document.getElementById("draftPanel");
       if (state.phase === "DRAFT" && state.draft) {
         dp.style.display = "block";
@@ -154,7 +261,6 @@
         <span>Colore dominante: <strong>${p.dominant_color || "—"}</strong></span>
         ${state.winner !== null ? `<span style="color:var(--crown)">Vincitore P${state.winner}</span>` : ""}
       `;
-      // Main Quest panel
       const qp = document.getElementById("questBody");
       const q = state.quest_progress;
       if (!q || !q.active) {
@@ -234,7 +340,7 @@
           cancel.textContent = "Annulla";
           cancel.className = "secondary";
           cancel.style.marginLeft = "6px";
-          cancel.onclick = () => { eldraziMode = null; setMsg(""); render(); };
+          cancel.onclick = () => { eldraziMode = null; render(); };
           eld.appendChild(cancel);
         }
       } else eld.innerHTML = "";
@@ -249,58 +355,12 @@
       }
     }
 
-
-    function startEldrazi(index, need, name) {
-      if (!state || state.current_player !== playerId) {
-        setMsg("Non è il tuo turno");
-        return;
-      }
-      fragmentMode = false;
-      selectedCard = null;
-      selectedCoord = null;
-      eldraziMode = { index, need, name, selected: [] };
-      setMsg(`Evoca ${name}: seleziona ${need} tue creature (almeno una su Cerchio Rituale ✧)`);
-      render();
-    }
-
-    async function confirmEldrazi() {
-      if (!eldraziMode) return;
-      if (eldraziMode.selected.length < eldraziMode.need) {
-        setMsg(`Servono ${eldraziMode.need} sacrifici`);
-        return;
-      }
-      try {
-        state = await api("/api/eldrazi", "POST", {
-          game_id: gameId,
-          eldrazi_index: eldraziMode.index,
-          sacrifice_coords: eldraziMode.selected,
-          player_id: playerId
-        });
-        eldraziMode = null;
-        setMsg("Mostrissimo evocato");
-        render();
-      } catch (e) {
-        setMsg(e.message);
-      }
-    }
-
     async function onCellClick(coord) {
-      setMsg("");
-      if (state.current_player !== playerId) return;
+      if (!state || state.phase === "DRAFT" || state.phase === "GAME_OVER") return;
       if (eldraziMode) {
-        // toggle sacrifice coord if own unit
-        const cell = state.board.flat().find(c => c.coord === coord);
-        if (!cell || !cell.unit || cell.unit.owner !== playerId) {
-          setMsg("Seleziona una tua creatura da sacrificare");
-          return;
-        }
-        const i = eldraziMode.selected.indexOf(coord);
-        if (i >= 0) eldraziMode.selected.splice(i, 1);
-        else {
-          if (eldraziMode.selected.length >= eldraziMode.need) {
-            setMsg(`Servono solo ${eldraziMode.need} sacrifici`);
-            return;
-          }
+        if (eldraziMode.selected.includes(coord)) {
+          eldraziMode.selected = eldraziMode.selected.filter(c => c !== coord);
+        } else if (eldraziMode.selected.length < eldraziMode.need) {
           eldraziMode.selected.push(coord);
         }
         render();
@@ -310,57 +370,69 @@
         try {
           state = await api("/api/fragment", "POST", { game_id: gameId, coord, player_id: playerId });
           fragmentMode = false;
-          selectedCoord = null;
-          render();
           setMsg("Corona piazzata");
+          render();
         } catch (e) { setMsg(e.message); }
         return;
       }
-      if (selectedCard !== null) {
+      if (selectedCard != null) {
         try {
           state = await api("/api/play", "POST", { game_id: gameId, hand_index: selectedCard, target_coord: coord, player_id: playerId });
-          selectedCard = null; selectedCoord = null; render();
+          selectedCard = null;
+          setMsg("");
+          render();
         } catch (e) { setMsg(e.message); }
         return;
       }
-      if (!selectedCoord) { selectedCoord = coord; render(); return; }
-      if (selectedCoord === coord) { selectedCoord = null; render(); return; }
+      if (selectedCoord === null) {
+        selectedCoord = coord;
+        render();
+        return;
+      }
+      if (selectedCoord === coord) {
+        selectedCoord = null;
+        render();
+        return;
+      }
       try {
         state = await api("/api/move", "POST", { game_id: gameId, from_coord: selectedCoord, to_coord: coord, player_id: playerId });
-        selectedCoord = null; render();
+        selectedCoord = null;
+        setMsg("");
+        render();
       } catch (e) { setMsg(e.message); selectedCoord = null; render(); }
     }
 
-    async function onCardClick(index, type) {
-      setMsg("");
-      if (state.current_player !== playerId) return;
-      if (type === "Mostro" || type === "Boss") {
-        try {
-          state = await api("/api/play", "POST", { game_id: gameId, hand_index: index, player_id: playerId });
-          selectedCard = null; render();
-        } catch (e) { setMsg(e.message); }
-        return;
-      }
-      selectedCard = index; selectedCoord = null;
-      setMsg("Seleziona casella target"); render();
+    function onCardClick(index, type) {
+      if (!state || state.current_player !== playerId || state.phase === "DRAFT") return;
+      selectedCard = selectedCard === index ? null : index;
+      selectedCoord = null;
+      render();
     }
 
-    document.getElementById("btnFrag").onclick = () => {
-      if (!state || state.current_player !== playerId) {
-        setMsg("Non è il tuo turno");
-        return;
-      }
-      const p = state.players[playerId];
-      if (p.next_fragment_cost == null) {
-        setMsg("Nessun Frammento rimasto");
-        return;
-      }
-      fragmentMode = true;
-      selectedCard = null;
-      selectedCoord = null;
-      setMsg(`Seleziona una tua creatura per la Corona (costo ${p.next_fragment_cost} mana)`);
+    function startEldrazi(index, need, name) {
+      if (state.current_player !== playerId) return;
+      eldraziMode = { index, need, selected: [], name };
+      selectedCoord = null; selectedCard = null;
       render();
-    };
+    }
+
+    async function confirmEldrazi() {
+      if (!eldraziMode || eldraziMode.selected.length !== eldraziMode.need) {
+        setMsg("Seleziona il numero giusto di sacrifici");
+        return;
+      }
+      try {
+        state = await api("/api/eldrazi", "POST", {
+          game_id: gameId,
+          eldrazi_index: eldraziMode.index,
+          sacrifice_coords: eldraziMode.selected,
+          player_id: playerId,
+        });
+        eldraziMode = null;
+        setMsg("Mostrissimo evocato");
+        render();
+      } catch (e) { setMsg(e.message); }
+    }
 
     document.getElementById("btnEnd").onclick = async () => {
       setMsg("…");
@@ -370,17 +442,30 @@
       } catch (e) { setMsg(e.message); }
     };
 
+    document.getElementById("btnFrag").onclick = () => {
+      fragmentMode = !fragmentMode;
+      selectedCoord = null; selectedCard = null; eldraziMode = null;
+      setMsg(fragmentMode ? "Click su una tua creatura per piazzare la Corona" : "");
+      render();
+    };
+
     document.getElementById("btnNewAi").onclick = async () => {
-      playerId = 0; localStorage.setItem("penumbra_player_id", "0");
-      state = await api("/api/new", "POST", { vs_ai: true, name: "Tu" });
-      selectedCoord = null; selectedCard = null; render(); setMsg("Nuova partita vs IA");
+      try {
+        playerId = 0; localStorage.setItem("penumbra_player_id", "0");
+        state = await api("/api/new", "POST", { vs_ai: true, name: "Tu" });
+        selectedCoord = null; selectedCard = null; render(); setMsg("Nuova partita vs IA");
+        startPolling();
+      } catch (e) { setMsg(e.message); }
     };
 
     document.getElementById("btnNewPvp").onclick = async () => {
-      playerId = 0; localStorage.setItem("penumbra_player_id", "0");
-      state = await api("/api/new", "POST", { vs_ai: false, name: "Host" });
-      selectedCoord = null; selectedCard = null; render();
-      setMsg("Condividi game_id con l’avversario, poi lui preme Unisciti");
+      try {
+        playerId = 0; localStorage.setItem("penumbra_player_id", "0");
+        state = await api("/api/new", "POST", { vs_ai: false, name: "Host" });
+        selectedCoord = null; selectedCard = null; render();
+        setMsg("Condividi game_id con l’avversario, poi lui preme Unisciti");
+        startPolling();
+      } catch (e) { setMsg(e.message); }
     };
 
     document.getElementById("btnJoin").onclick = async () => {
@@ -391,18 +476,17 @@
         playerId = 1; localStorage.setItem("penumbra_player_id", "1");
         localStorage.setItem("penumbra_game_id", state.game_id);
         selectedCoord = null; selectedCard = null; render();
-        setMsg("Sei P1 (alto). Attendi il tuo turno.");
+        setMsg("Sei P1. Attendi il tuo turno.");
+        startPolling();
       } catch (e) { setMsg(e.message); }
     };
 
-    // Polling: aggiorna stato se non è il tuo turno (PvP)
-    let pollTimer = null;
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(async () => {
-        if (!gameId || !state) return;
+        if (!gameId || !state || !accessToken) return;
         if (state.phase === "GAME_OVER") return;
-        if (state.current_player === playerId) return; // non sovrascrivere mentre giochi
+        if (state.current_player === playerId) return;
         try {
           const s = await api(`/api/state?game_id=${encodeURIComponent(gameId)}`);
           state = s;
@@ -411,16 +495,41 @@
       }, 2500);
     }
 
-    // Init
-    const q = new URLSearchParams(location.search).get("game");
-    if (q) gameId = q;
-    const path = gameId ? `/api/state?game_id=${encodeURIComponent(gameId)}` : "/api/state";
-    api(path).then(s => {
-      state = s;
-      if (state.game_id) localStorage.setItem("penumbra_game_id", state.game_id);
-      render();
-      startPolling();
-    }).catch(e => setMsg(e.message));
+    async function loadGame() {
+      document.getElementById("status").textContent = "Pronto. Crea una partita o unisciti.";
+      setMsg("Crea una nuova partita (vs IA o PvP) per iniziare.");
+      // Se c’era un game_id salvato, prova a ricaricarlo
+      if (gameId) {
+        try {
+          state = await api(`/api/state?game_id=${encodeURIComponent(gameId)}`);
+          render();
+          startPolling();
+          setMsg("");
+        } catch (e) {
+          // partita non accessibile (403) o inesistente → parti da zero
+          gameId = null;
+          localStorage.removeItem("penumbra_game_id");
+          setMsg("Nessuna partita attiva. Creane una nuova.");
+        }
+      }
+    }
+
+    // Sessione già aperta?
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        accessToken = data.session.access_token;
+        showGame(data.session.user.email);
+        await loadGame();
+      }
+      supabase.auth.onAuthStateChange((event, session) => {
+        if (session) {
+          accessToken = session.access_token;
+        } else {
+          showLogin();
+        }
+      });
+    })();
   </script>
 </body>
 </html>
