@@ -26,8 +26,9 @@ from pydantic import BaseModel
 from core.game_state import GameState
 from core.constants import Phase, pos_to_coord, coord_to_pos
 from ai.basic_ai import BasicAI
+from api import supabase_store
 
-app = FastAPI(title="Penumbra Tactical Card Game", version="0.5")
+app = FastAPI(title="Penumbra Tactical Card Game", version="0.6")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -36,16 +37,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Partita in memoria (una sola sessione per prototipo)
+# Partita in memoria (+ id Supabase opzionale)
 _game: Optional[GameState] = None
+_game_id: Optional[str] = None
 
 
 def get_game() -> GameState:
-    global _game
+    global _game, _game_id
     if _game is None:
         _game = GameState(human_name="Tu", ai_name="AI Overlord")
         _game.start_draft()
-        # Auto-draft rapido
         while _game.phase == Phase.DRAFT:
             pack = _game.get_current_pack()
             if not pack:
@@ -61,7 +62,25 @@ def get_game() -> GameState:
         units = _game.board.get_units_of_player(0)
         if units:
             _game.players[0].place_fragment(units[0])
+        # Persistenza opzionale
+        if supabase_store.enabled():
+            snap = serialize_state(_game)
+            _game_id = supabase_store.create_game(snap)
+            print(f"[supabase] game id={_game_id}")
     return _game
+
+
+def _persist(action: str = "update", payload: Optional[dict] = None):
+    global _game_id
+    if not _game or not supabase_store.enabled():
+        return
+    snap = serialize_state(_game)
+    if _game_id:
+        supabase_store.update_game(_game_id, snap)
+        if action != "update":
+            supabase_store.log_move(_game_id, snap.get("current_player", 0), action, payload or {})
+    else:
+        _game_id = supabase_store.create_game(snap)
 
 
 def serialize_state(gs: GameState) -> dict:
@@ -137,6 +156,8 @@ def serialize_state(gs: GameState) -> dict:
         "players": [player_data(p) for p in gs.players],
         "eldrazi": eldrazi,
         "log": gs.log[-15:],
+        "game_id": _game_id,
+        "supabase": supabase_store.enabled(),
     }
 
 
@@ -172,9 +193,11 @@ def api_state():
 
 @app.post("/api/new")
 def api_new():
-    global _game
+    global _game, _game_id
     _game = None
-    return serialize_state(get_game())
+    _game_id = None
+    st = serialize_state(get_game())
+    return st
 
 
 @app.post("/api/move")
@@ -193,6 +216,7 @@ def api_move(body: MoveReq):
     ok = gs.try_move(unit, tr, tc)
     if not ok:
         raise HTTPException(400, "Mossa non valida")
+    _persist("move", {"from": body.from_coord, "to": body.to_coord})
     return serialize_state(gs)
 
 
@@ -204,6 +228,7 @@ def api_play(body: PlayReq):
     ok = gs.play_card(0, body.hand_index, body.target_coord.upper() if body.target_coord else None)
     if not ok:
         raise HTTPException(400, "Carta non giocabile")
+    _persist("play", {"hand_index": body.hand_index, "target": body.target_coord})
     return serialize_state(gs)
 
 
@@ -216,6 +241,7 @@ def api_eldrazi(body: EldraziReq):
     ok = gs.summon_eldrazi(0, body.eldrazi_index, coords)
     if not ok:
         raise HTTPException(400, "Evocazione Mostrissimo fallita")
+    _persist("eldrazi", {"index": body.eldrazi_index, "sac": coords})
     return serialize_state(gs)
 
 
@@ -231,6 +257,7 @@ def api_end():
     if gs.phase != Phase.GAME_OVER and gs.current_player_id == 1:
         ai = BasicAI(gs, player_id=1)
         ai.take_turn()
+    _persist("end_turn")
     return serialize_state(gs)
 
 

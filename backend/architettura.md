@@ -1,41 +1,41 @@
-# Architettura – Penumbra v5
+# Architettura – Penumbra v6
 
-## Repo
+## Stack
 
-```
-Penumbra/
-├── backend/          # codice gioco + API
-│   ├── api/main.py
-│   ├── static/index.html
-│   ├── core/
-│   ├── ai/
-│   ├── requirements.txt
-│   ├── Procfile
-│   ├── runtime.txt
-│   ├── render.yaml
-│   ├── README.md
-│   └── architettura.md
-└── docs/             # GitHub Pages (solo documentazione)
-```
+| Layer | Tecnologia |
+|-------|------------|
+| Motore + IA | Python `core/`, `ai/` |
+| API + UI | FastAPI + `static/index.html` |
+| Hosting | Render |
+| DB (opzionale) | Supabase (Postgres + REST) |
+| Docs | GitHub Pages `/docs` |
 
-## Deploy
+## Persistenza
 
-- **Host**: Render (Web Service)
-- **Root Directory**: `backend`
-- **Start**: `uvicorn api.main:app --host 0.0.0.0 --port $PORT`
-- Stato partita: **in memoria** (una sessione per istanza; si resetta al restart/sleep)
+- Senza env Supabase → solo memoria processo (come v5)
+- Con `SUPABASE_URL` + `SUPABASE_ANON_KEY`:
+  - `create_game` a inizio partita
+  - `update_game` dopo ogni mossa / fine turno
+  - `log_move` su `game_moves`
 
-## Flusso online
+File: `api/supabase_store.py`  
+Schema: `supabase/schema.sql`
 
-1. Browser → URL Render
-2. `GET /` serve `static/index.html`
-3. JS parla con `/api/*` sullo stesso origin
-4. `POST /api/end` esegue il turno IA sul server
+## Flusso
+
+1. Browser → Render URL
+2. `GET /api/state` (crea partita se serve)
+3. Mosse → `_persist()`
+4. `POST /api/end` → IA → `_persist()`
+
+## Sicurezza attuale
+
+RLS aperta in anon per prototipo. Prima di PvP pubblico: auth Supabase + policy per `user_id`.
 
 ## Prossimi passi
 
-1. Supabase: salvare partite / utenti (opzionale multiplayer)
-2. WebSocket se serve realtime tra due umani
-3. Frontend Next.js separato (solo se serve SEO/UI più ricca)
+1. Auth + due giocatori umani sulla stessa `game_id`
+2. Realtime Supabase (subscription su `games`)
+3. Ripristino stato da `state_json` dopo sleep Render
 
-**Versione: v5**
+**Versione: v6**
