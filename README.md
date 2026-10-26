@@ -1,3 +1,4 @@
+
 # Tactical Card Game 5×5 – Backend (v2)
 
 Motore di gioco Python puro fedele al GDD ufficiale.
