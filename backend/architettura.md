@@ -1,7 +1,6 @@
-# Architettura – Tactical Card Game 5×5
+# Architettura – Tactical Card Game 5×5 (v3)
 
-Documento di riferimento per qualsiasi chat futura.  
-Contiene: struttura cartelle, responsabilità di ogni file, dipendenze, dove trovare le funzioni principali, flusso di una partita.
+Documento di riferimento per qualsiasi chat futura.
 
 ---
 
@@ -9,169 +8,119 @@ Contiene: struttura cartelle, responsabilità di ogni file, dipendenze, dove tro
 
 ```
 backend/
-├── README.md                 # Panoramica + comandi CLI
+├── README.md
 ├── architettura.md           # QUESTO FILE
-├── main.py                   # Entry-point CLI (loop di gioco interattivo)
-├── core/                     # Motore puro (nessuna dipendenza esterna)
+├── main.py                   # CLI + loop (umano vs IA)
+├── core/                     # Motore puro
+│   ├── constants.py
+│   ├── card.py               # 180 carte
+│   ├── unit.py
+│   ├── tile.py
+│   ├── map_board.py
+│   ├── player.py
+│   └── game_state.py         # Turni, draft, combattimento, carte, quest, eldrazi
+├── ai/
 │   ├── __init__.py
-│   ├── constants.py          # Enum, coordinate, mana, frammenti, ANSI
-│   ├── card.py               # Card + CardDatabase (180 carte)
-│   ├── unit.py               # Unit sul tabellone
-│   ├── tile.py               # Singola casella
-│   ├── map_board.py          # Board 5×5 + layout fisso + path
-│   ├── player.py             # Stato giocatore (mana, mano, frammenti, corona)
-│   └── game_state.py         # Orchestratore: turni, draft, combattimento, carte, quest
-├── ai/                       # (vuoto – prossimo)
-├── api/                      # (vuoto – FastAPI futuro)
-├── data/                     # (vuoto – eventuali JSON)
-├── tests/                    # (vuoto)
-└── ui/                       # (vuoto – frontend futuro)
+│   └── basic_ai.py           # IA con priorità
+├── api/                      # (vuoto – FastAPI)
+├── data/
+├── tests/
+└── ui/
+```
+
+Repo root previsto:
+
+```
+Penumbra/
+├── backend/     ← questa cartella
+└── docs/        ← GitHub Pages (già creato)
 ```
 
 ---
 
-## 2. Dipendenze tra moduli (core)
+## 2. Dipendenze
 
 ```
 constants.py
     ↑
-    ├── card.py  ←── unit.py
-    │                 ↑
-    ├── tile.py       │
-    │                 │
-    ├── map_board.py ←┘
-    │       ↑
-    ├── player.py
-    │       ↑
-    └── game_state.py  ←── main.py
+card.py ← unit.py
+tile.py
+map_board.py ← unit, tile
+player.py ← card, unit
+game_state.py ← tutto il core
+    ↑
+basic_ai.py ← game_state, unit, player, constants
+    ↑
+main.py ← GameState, BasicAI
 ```
 
-- `constants.py` non importa nessuno.
-- `card.py` importa solo `constants`.
-- `unit.py` importa `card` + `constants`.
-- `tile.py` importa `constants` (+ type hint Unit).
-- `map_board.py` importa `tile`, `unit`, `constants`.
-- `player.py` importa `card`, `unit`, `constants`.
-- `game_state.py` importa tutto il resto del core.
-- `main.py` importa solo `GameState` e `Phase`.
-
 ---
 
-## 3. Dove trovare le funzioni importanti
+## 3. Dove trovare le funzioni
 
-### constants.py
-| Funzione / Costante | Ruolo |
-|---------------------|-------|
-| `pos_to_coord(row, col)` | (2,2) → `"C3"` |
-| `coord_to_pos("C3")` | → `(2, 2)` |
-| `Color`, `CardType`, `TileType`, `Phase`, `Direction` | Enum centrali |
-| `MANA_CAP = 6`, `FRAGMENT_COSTS = [0,3,6]` | Regole mana e vite |
-| `ALTAR_POS`, `TEMPLE_P1_POSITIONS`, `TEMPLE_P2_POSITIONS` | Layout |
+### core/ (invariato rispetto a v2 + piccole aggiunte)
 
-### card.py
-| Classe / Funzione | Ruolo |
-|-------------------|-------|
-| `Card` | Dataclass di una carta |
-| `CardDatabase` | Carica tutte le 180 carte |
-| `get_card_db()` | Singleton del database |
-| `CardDatabase.get_draftable()` | Carte usabili nel draft |
-| `CardDatabase.eldrazi` / `.bosses` | Liste filtrate |
+| File | Funzioni chiave |
+|------|-----------------|
+| `game_state.py` | `start_draft`, `draft_pick`, `start_turn`, `end_turn`, `try_move`, `_resolve_combat`, `play_card`, `_summon_monster`, `_play_trap`, `_play_curse`, `summon_eldrazi`, `_on_enter_tile`, `_check_main_quest`, `_apply_start_of_turn_effects` |
+| `map_board.py` | `place_unit`, `move_unit`, `get_adjacent_diagonal`, `print_board` |
+| `player.py` | `place_fragment`, `spend_mana`, `next_fragment_cost` |
+| `card.py` | `get_card_db()`, `CardDatabase._load_all` |
 
-### unit.py
+### ai/basic_ai.py (nuovo)
+
 | Metodo | Ruolo |
 |--------|-------|
-| `Unit.take_damage(amount)` | Applica danno (scudi, ReduceDamage, invulnerabilità) |
-| `Unit.heal(amount)` | Cura rispettando max HP |
-| `Unit.has_keyword(kw)` | Controlla keywords della carta |
-
-### map_board.py
-| Metodo | Ruolo |
-|--------|-------|
-| `Board._setup_fixed_layout()` | Costruisce Templi, Altare, Buff, muri, portali |
-| `Board.place_unit` / `remove_unit` / `move_unit` | Gestione unità sulla griglia |
-| `Board.get_adjacent_diagonal` | Caselle raggiungibili con 1 passo diagonale |
-| `Board.print_board()` | ASCII della mappa |
-| `Tile.is_ritual` / `is_portal` / `is_walkable` | Query sulla casella |
-
-### player.py
-| Metodo | Ruolo |
-|--------|-------|
-| `Player.spend_mana` / `refresh_mana` / `increase_mana_max` | Mana |
-| `Player.place_fragment(unit)` | Assegna Corona (paga Commander Tax) |
-| `Player.lose_fragment()` | Quando la creatura incoronata muore |
-| `Player.next_fragment_cost()` | 0 / 3 / 6 |
-
-### game_state.py (cuore del gioco)
-| Metodo | Ruolo |
-|--------|-------|
-| `start_draft()` / `draft_pick()` / `_finish_draft()` | Snake draft + Boss garantito |
-| `start_turn()` / `end_turn()` | Ciclo di turno + progressione mana |
-| `_spawn_free_1_1()` | Creatura gratuita in zona Tempio |
-| `_spawn_neutral()` | Mostro Neutrale X/X |
-| `try_move(unit, row, col)` | Movimento o inizio combattimento |
-| `_resolve_combat(attacker, defender)` | First Strike → Contrattacco → Rimbalzo |
-| `play_card(player_id, hand_index, target_coord)` | Dispatcher Mostro/Trappola/Maledizione |
-| `_summon_monster()` | Evocazione solo in zona Tempio |
-| `_play_trap()` | Piazza trappola nascosta |
-| `_play_curse()` | Effetti base delle maledizioni |
-| `summon_eldrazi(player_id, idx, sacrifice_coords)` | Mostrissimi + sacrifici + Cerchio Rituale |
-| `_on_enter_tile(unit)` | Trappole + esplorazione + terreni |
-| `_apply_event_tile()` | Trasforma la casella dopo esplorazione |
-| `_check_main_quest()` | Dominio / Superiorità |
-| `_apply_start_of_turn_effects()` | Santuario, Fenditura, Growth, Regenerate |
-| `print_state()` | Debug completo |
+| `BasicAI.take_turn()` | Esegue l’intero turno IA e chiama `end_turn()` |
+| `_try_place_fragment()` | Assegna Corona se manca |
+| `_try_play_cards()` | Gioca 1-2 carte economiche |
+| `_try_combat_or_move()` | Attacca corona/nemici o muove verso obiettivi |
+| `_try_eldrazi()` | Sacrifici + Cerchio Rituale → Mostrissimo |
+| `_choose_move_target()` | Scoring caselle (Altare, corona nemica, avanzata) |
 
 ---
 
-## 4. Flusso di una partita
+## 4. Flusso partita (con IA)
 
-1. **Init** → `GameState()` crea Board, 2 Player, pool Mostrissimi, mazzo Eventi.
-2. **Draft** → `start_draft()` + `draft_pick()` ripetuti → mano 9 carte + 1 Boss.
-3. **Turno** → `start_turn()`:
-   - progressione mana
-   - spawn 1/1
-   - spawn Neutrale
-   - effetti inizio turno
-   - check Main Quest
-4. **Azioni giocatore** (CLI o futura API):
-   - `try_move` / `play_card` / `summon_eldrazi`
-5. **Fine turno** → `end_turn()`:
-   - verifica presenza Frammento (altrimenti sconfitta)
-   - passa all’altro giocatore
-6. **Vittoria** → eliminazione Comandante senza rimpiazzo **oppure** Main Quest.
+1. Draft automatico (snake)
+2. Turno umano (P0) → comandi CLI
+3. `e` → `end_turn()` → `start_turn()` per P1
+4. `main.py` vede `player.is_ai` → `BasicAI.take_turn()`
+5. IA esegue azioni → `end_turn()` → di nuovo umano
+6. Vittoria: Frammento perso senza rimpiazzo **oppure** Main Quest
 
 ---
 
-## 5. Convenzioni importanti
+## 5. Convenzioni
 
-- Giocatore 0 = umano (basso, Tempio1, righe alte della griglia stampata)
-- Giocatore 1 = IA (alto, Tempio2)
-- Movimento **solo diagonale** di 1 passo = 1 mana
-- Evocazione Mostri **solo** nelle 3 caselle del proprio Tempio
-- Mostrissimi: 0 mana, N sacrifici, almeno uno su casella con `tile.is_ritual == True`
-- Carte giocate o distrutte escono definitivamente (nessun cimitero)
-- Coordinate sempre nel formato `A1`…`E5` (lettera colonna, numero riga 1-based)
-
----
-
-## 6. Cosa manca ancora (roadmap)
-
-| Priorità | Feature | Dove andrà |
-|----------|---------|------------|
-| Alta | IA con priorità | `ai/basic_ai.py` |
-| Alta | FastAPI + WebSocket | `api/main.py` |
-| Media | Schema Supabase (games, moves, users) | docs + SQL |
-| Media | Frontend griglia | repo root `/frontend` o `ui/` |
-| Bassa | Effetti avanzati di ogni singola carta | parser in `game_state` o `effects.py` |
-| Bassa | Portali (teletrasporto reale) | `_on_enter_tile` + Board |
+- P0 = umano (basso, Tempio1)
+- P1 = IA (alto, Tempio2)
+- Movimento solo diagonale, 1 mana
+- Evocazione Mostri solo zona Tempio
+- Mostrissimi: 0 mana, N sacrifici, uno su `tile.is_ritual`
+- Coordinate `A1`–`E5`
 
 ---
 
-## 7. Come leggere questo progetto in una nuova chat
+## 6. Roadmap residua
 
-1. Leggi `README.md` (stato versione + comandi)
+| Priorità | Feature | Dove |
+|----------|---------|------|
+| Alta | FastAPI + WebSocket | `api/` |
+| Alta | Schema Supabase | SQL + docs |
+| Media | Frontend griglia | repo `/frontend` |
+| Media | Deploy Render | — |
+| Bassa | Effetti avanzati carta per carta | `game_state` / `effects.py` |
+| Bassa | Teletrasporto portali completo | `_on_enter_tile` |
+
+---
+
+## 7. Come usare in una nuova chat
+
+1. Leggi `README.md` (versione + comandi)
 2. Leggi `architettura.md` (questo file)
-3. Se serve dettaglio di una regola → apri `core/game_state.py` o `core/constants.py`
-4. Database carte → `core/card.py` (metodo `_load_all`)
+3. Dettaglio regole → `core/game_state.py`
+4. Database carte → `core/card.py`
+5. Comportamento IA → `ai/basic_ai.py`
 
-Versione corrente: **v2**
+**Versione corrente: v3**

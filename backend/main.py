@@ -58,9 +58,9 @@ def main():
     while gs.phase != Phase.GAME_OVER:
         p = gs.players[gs.current_player_id]
         if p.is_ai:
-            # IA molto stupida per ora: passa sempre
-            print(f"[IA] {p.name} passa il turno.")
-            gs.end_turn()
+            from ai.basic_ai import BasicAI
+            ai = BasicAI(gs, player_id=1)
+            ai.take_turn()
             gs.print_state()
             continue
 
