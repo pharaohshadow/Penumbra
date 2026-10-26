@@ -22,8 +22,9 @@ from core.game_state import GameState
 from core.constants import Phase, pos_to_coord, coord_to_pos
 from ai.basic_ai import BasicAI
 from api import supabase_store
+from api.restore import hydrate
 
-app = FastAPI(title="Penumbra Tactical Card Game", version="0.8")
+app = FastAPI(title="Penumbra Tactical Card Game", version="0.9")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -141,10 +142,38 @@ def _persist(game_id: str, gs: GameState, action: str = "update", payload: Optio
         supabase_store.log_move(game_id, snap.get("current_player", 0), action, payload or {})
 
 
+def _load_from_supabase(game_id: str) -> Optional[GameState]:
+    row = supabase_store.fetch_game(game_id)
+    if not row:
+        return None
+    snap = row.get("state_json") or {}
+    if isinstance(snap, str):
+        import json
+        try:
+            snap = json.loads(snap)
+        except Exception:
+            return None
+    gs = hydrate(snap)
+    if not gs:
+        return None
+    _games[game_id] = gs
+    p1_ai = True
+    if snap.get("players") and len(snap["players"]) > 1:
+        p1_ai = bool(snap["players"][1].get("is_ai", True))
+    elif "p1_is_ai" in snap:
+        p1_ai = bool(snap["p1_is_ai"])
+    _modes[game_id] = {"p1_ai": p1_ai, "p1_joined": not p1_ai or True}
+    gs.log_msg("[sistema] Partita ripristinata da Supabase")
+    return gs
+
+
 def _require_game(game_id: str) -> GameState:
-    if game_id not in _games:
-        raise HTTPException(404, "Partita non trovata. Crea una nuova partita.")
-    return _games[game_id]
+    if game_id in _games:
+        return _games[game_id]
+    gs = _load_from_supabase(game_id)
+    if gs:
+        return gs
+    raise HTTPException(404, "Partita non trovata (né in memoria né su Supabase).")
 
 
 class MoveReq(BaseModel):
@@ -193,7 +222,7 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "version": "0.8", "games_in_memory": len(_games), "supabase": supabase_store.enabled()}
+    return {"ok": True, "version": "0.9", "games_in_memory": len(_games), "supabase": supabase_store.enabled()}
 
 
 @app.post("/api/new")
@@ -208,7 +237,7 @@ def api_new(body: NewReq = NewReq()):
     _games[game_id] = gs
     _modes[game_id] = {"p1_ai": p1_ai, "p1_joined": p1_ai}
     if supabase_store.enabled():
-        supabase_store.create_game(serialize_state(gs, game_id))
+        supabase_store.create_game(serialize_state(gs, game_id), game_id=game_id)
     return serialize_state(gs, game_id)
 
 
@@ -232,9 +261,15 @@ def api_join(body: JoinReq):
 
 @app.get("/api/state")
 def api_state(game_id: Optional[str] = Query(None)):
-    if not game_id or game_id not in _games:
+    if not game_id:
         return api_new(NewReq(vs_ai=True))
-    return serialize_state(_games[game_id], game_id)
+    if game_id in _games:
+        return serialize_state(_games[game_id], game_id)
+    gs = _load_from_supabase(game_id)
+    if gs:
+        return serialize_state(gs, game_id)
+    # fallback: nuova partita vs IA
+    return api_new(NewReq(vs_ai=True))
 
 
 @app.post("/api/move")

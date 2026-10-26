@@ -1,12 +1,11 @@
 """
 Persistenza opzionale su Supabase via REST (PostgREST).
-Se SUPABASE_URL / SUPABASE_ANON_KEY non sono impostate, tutto resta in memoria.
 """
 
 from __future__ import annotations
 import os
-import json
-from typing import Any, Optional
+from typing import Any, Optional, Dict
+from datetime import datetime, timezone
 
 import httpx
 
@@ -18,20 +17,20 @@ def enabled() -> bool:
     return bool(SUPABASE_URL and SUPABASE_KEY)
 
 
-def _headers() -> dict:
+def _headers(prefer: str = "return=representation") -> dict:
     return {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json",
-        "Prefer": "return=representation",
+        "Prefer": prefer,
     }
 
 
-def create_game(state_json: dict) -> Optional[str]:
+def create_game(state_json: dict, game_id: Optional[str] = None) -> Optional[str]:
     if not enabled():
         return None
     payload = {
-        "status": "active",
+        "status": "finished" if state_json.get("winner") is not None else "active",
         "turn": state_json.get("turn", 1),
         "phase": state_json.get("phase", "MAIN"),
         "current_player": state_json.get("current_player", 0),
@@ -39,6 +38,8 @@ def create_game(state_json: dict) -> Optional[str]:
         "main_quest": state_json.get("main_quest"),
         "state_json": state_json,
     }
+    if game_id:
+        payload["id"] = game_id
     try:
         r = httpx.post(
             f"{SUPABASE_URL}/rest/v1/games",
@@ -61,7 +62,7 @@ def update_game(game_id: str, state_json: dict) -> bool:
     if not enabled() or not game_id:
         return False
     payload = {
-        "updated_at": "now()",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
         "status": "finished" if state_json.get("winner") is not None else "active",
         "turn": state_json.get("turn", 1),
         "phase": state_json.get("phase", "MAIN"),
@@ -70,10 +71,6 @@ def update_game(game_id: str, state_json: dict) -> bool:
         "main_quest": state_json.get("main_quest"),
         "state_json": state_json,
     }
-    # PostgREST non accetta "now()" come stringa in JSON per timestamptz facilmente:
-    # inviamo updated_at omesso e usiamo un trigger, oppure ISO timestamp lato client.
-    from datetime import datetime, timezone
-    payload["updated_at"] = datetime.now(timezone.utc).isoformat()
     try:
         r = httpx.patch(
             f"{SUPABASE_URL}/rest/v1/games?id=eq.{game_id}",
@@ -86,6 +83,25 @@ def update_game(game_id: str, state_json: dict) -> bool:
     except Exception as e:
         print(f"[supabase] update_game error: {e}")
         return False
+
+
+def fetch_game(game_id: str) -> Optional[Dict[str, Any]]:
+    """Ritorna la riga games (con state_json) oppure None."""
+    if not enabled() or not game_id:
+        return None
+    try:
+        r = httpx.get(
+            f"{SUPABASE_URL}/rest/v1/games?id=eq.{game_id}&select=*",
+            headers=_headers(),
+            timeout=15,
+        )
+        r.raise_for_status()
+        data = r.json()
+        if isinstance(data, list) and data:
+            return data[0]
+    except Exception as e:
+        print(f"[supabase] fetch_game error: {e}")
+    return None
 
 
 def log_move(game_id: str, player_id: int, action: str, payload: dict) -> None:
