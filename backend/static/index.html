@@ -118,7 +118,7 @@
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhdnJteHd5YXhrbGZpcnV5dnF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MTA4OTYsImV4cCI6MjEwODM4Njg5Nn0.HLR7eYKscg6ldoYkuFpRx9LMWzSGeSCZ1Jl0Rgu9N-0";
     // ===============================================================
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let accessToken = null;
     let state = null;
@@ -172,7 +172,7 @@
       setAuthMsg("Accesso…");
       const email = document.getElementById("authEmail").value.trim();
       const password = document.getElementById("authPassword").value;
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
       if (error) { setAuthMsg(error.message); return; }
       accessToken = data.session.access_token;
       showGame(data.user.email);
@@ -184,7 +184,7 @@
       setAuthMsg("Registrazione…");
       const email = document.getElementById("authEmail").value.trim();
       const password = document.getElementById("authPassword").value;
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await sb.auth.signUp({ email, password });
       if (error) { setAuthMsg(error.message); return; }
       if (data.session) {
         accessToken = data.session.access_token;
@@ -197,7 +197,7 @@
     };
 
     document.getElementById("btnLogout").onclick = async () => {
-      await supabase.auth.signOut();
+      await sb.auth.signOut();
       showLogin();
     };
 
@@ -516,13 +516,13 @@
 
     // Sessione già aperta?
     (async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await sb.auth.getSession();
       if (data.session) {
         accessToken = data.session.access_token;
         showGame(data.session.user.email);
         await loadGame();
       }
-      supabase.auth.onAuthStateChange((event, session) => {
+      sb.auth.onAuthStateChange((event, session) => {
         if (session) {
           accessToken = session.access_token;
         } else {
