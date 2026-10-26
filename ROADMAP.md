@@ -1,45 +1,18 @@
-# Roadmap Penumbra (aggiornata – v20)
+# Roadmap – post 4.2.1
 
-## Stato attuale
+## 4.1 — CHIUSA
 
-**Completato: Fase 3 · Step 3.3 – Snapshot tile ricco** ← **sei qui (consegna v1)**
+## 4.2 API protetta
 
-### Cosa introduce v20 (questa consegna)
+- [x] **4.2.1 Contratto auth** (v12) ← fatto
+- [ ] **4.2.2 Modulo JWT** ← prossimo
+- [ ] 4.2.3 Store ownership write
+- [ ] 4.2.4 `/api/new` + player0_uid
+- [ ] 4.2.5 state + azioni + 403
+- [ ] 4.2.6 join authed
+- [ ] 4.2.7 smoke
 
-- `serialize_state`: board cell con `permanent_effect`, `trap_card_id`, `wall_hp`, `owner_id`
-- `hydrate`: applica i campi tile dallo snapshot (compatibile con snapshot pre-v20)
-- Nessun breaking change su API pubbliche o UI
+### Policy fisse
 
-File modificati in questa consegna:
-- `backend/api/main.py`
-- `backend/api/restore.py`
-
----
-
-## Cronologia
-
-### Fase 3
-
-- [x] 3.1 Tessere evento (v18)
-- [x] 3.2 Main Quest UI (v19)
-- [x] **3.3 Snapshot tile ricco (v20)** ← **fatto in v1**
-
-### Possibili micro-step residuali Fase 3 (non bloccanti)
-
-- [ ] 3.4 Snapshot status temporanei unità
-- [ ] 3.5 Restore draft completo (opzionale)
-
-### Fase 4–6
-
-Invariate rispetto al piano precedente (da dettagliare quando si chiude Fase 3):
-
-- Realtime / multiplayer più solido
-- Auth
-- Frontend più ricco / polish
-- Bilanciamento e contenuto carte
-
----
-
-## Deploy
-
-Sovrascrivi in `/backend` i file di questa cartella `v1/backend/…`, poi redeploy Render.
+- Scelta **A**: no accesso legacy senza membership
+- Sito in costruzione: ok hard cut

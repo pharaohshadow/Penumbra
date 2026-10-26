@@ -138,6 +138,26 @@ def hydrate(snapshot: Dict[str, Any]) -> Optional[GameState]:
                 )
             unit = Unit(card, owner, r, c, hp, atk)
             unit.has_fragment = bool(u.get("crown"))
+            # Status e flag di turno (step 3.4 / v21) — backward compatible
+            if "statuses" in u and u.get("statuses") is not None:
+                try:
+                    unit.statuses = set(u.get("statuses") or [])
+                except TypeError:
+                    unit.statuses = set()
+            elif u.get("evolved"):
+                # snapshot pre-v21: solo flag evolved
+                unit.statuses.add("evolved")
+            if "summoning_sickness" in u:
+                unit.summoning_sickness = bool(u.get("summoning_sickness"))
+            if "can_attack_this_turn" in u:
+                unit.can_attack_this_turn = bool(u.get("can_attack_this_turn"))
+            if "moved_this_turn" in u:
+                unit.moved_this_turn = bool(u.get("moved_this_turn"))
+            if "fragment_index" in u and u.get("fragment_index") is not None:
+                try:
+                    unit.fragment_index = int(u.get("fragment_index"))
+                except (TypeError, ValueError):
+                    unit.fragment_index = -1
             gs.board.place_unit(unit)
             if unit.has_fragment and owner in (0, 1):
                 gs.players[owner].crown_unit = unit
@@ -155,6 +175,56 @@ def hydrate(snapshot: Dict[str, Any]) -> Optional[GameState]:
             pool.append(found)
     if pool:
         gs.eldrazi_pool = pool
+
+    # --- Draft completo (step 3.5 / v22) ---
+    # Se la partita era in DRAFT, ricostruisci pack rimanenti, picks e picker.
+    # Snapshot senza draft_full: resta il comportamento precedente (fragile in DRAFT).
+    if gs.phase == Phase.DRAFT:
+        df = snapshot.get("draft_full")
+        if isinstance(df, dict):
+
+            def _resolve_card(entry):
+                if entry is None:
+                    return None
+                if isinstance(entry, dict):
+                    cid = entry.get("id")
+                    name = entry.get("name")
+                else:
+                    cid, name = entry, None
+                card = db.get(cid) if cid is not None else None
+                if card is None and name:
+                    for cobj in db.cards.values():
+                        if cobj.name == name:
+                            return cobj
+                return card
+
+            packs = []
+            for pack_entries in df.get("packs") or []:
+                pack_cards = []
+                for entry in pack_entries:
+                    card = _resolve_card(entry)
+                    if card is not None:
+                        pack_cards.append(card)
+                packs.append(pack_cards)
+            gs._draft_packs = packs
+
+            picks = {0: [], 1: []}
+            raw_picks = df.get("picks") or {}
+            for pid_key in ("0", "1", 0, 1):
+                entries = raw_picks.get(pid_key) if isinstance(raw_picks, dict) else None
+                if not entries:
+                    continue
+                pid = int(pid_key)
+                for entry in entries:
+                    card = _resolve_card(entry)
+                    if card is not None:
+                        picks[pid].append(card)
+                        gs.players[pid].colors.add(card.color)
+            gs._draft_picks = picks
+            try:
+                gs._draft_picker = int(df.get("picker", 0))
+            except (TypeError, ValueError):
+                gs._draft_picker = 0
 
     # p1 ai flag handled by caller via _modes
     return gs

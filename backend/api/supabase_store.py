@@ -1,5 +1,7 @@
 """
 Persistenza opzionale su Supabase via REST (PostgREST).
+
+4.1.5: preferisci SUPABASE_SERVICE_KEY (bypass RLS). Non usare service_role nel browser.
 """
 
 from __future__ import annotations
@@ -10,7 +12,8 @@ from datetime import datetime, timezone
 import httpx
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY", "") or os.environ.get("SUPABASE_SERVICE_KEY", "")
+# Preferisci service_role dopo RLS 4.1.5; fallback anon per compat dev leggero
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "") or os.environ.get("SUPABASE_ANON_KEY", "")
 
 
 def enabled() -> bool:
