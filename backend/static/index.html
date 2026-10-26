@@ -43,6 +43,7 @@
       <div class="board" id="board"></div>
       <div class="actions">
         <button id="btnEnd">Fine turno</button>
+        <button class="secondary" id="btnFrag">Piazza Corona</button>
         <button class="secondary" id="btnNewAi">Nuova vs IA</button>
         <button class="secondary" id="btnNewPvp">Nuova PvP (host)</button>
         <button class="secondary" id="btnJoin">Unisciti</button>
@@ -68,6 +69,7 @@
     let playerId = parseInt(localStorage.getItem("penumbra_player_id") || "0", 10);
     let selectedCoord = null;
     let selectedCard = null;
+    let fragmentMode = false;
 
     async function api(path, method = "GET", body = null) {
       const opts = { method, headers: { "Content-Type": "application/json" } };
@@ -89,7 +91,8 @@
         <span>Gioca: <strong>${cur ? cur.name : "?"}</strong></span>
         <span>Tu sei <strong>P${playerId}</strong> (${p.name})</span>
         <span>Mana <strong>${p.mana}/${p.mana_max}</strong></span>
-        <span>Frammenti <strong>${p.fragments}/3</strong></span>
+        <span>Frammenti <strong>${p.fragments}/3</strong>${p.next_fragment_cost != null ? ` (prossimo: ${p.next_fragment_cost} mana)` : ""}</span>
+        <span>Corona: <strong>${p.has_crown ? "sì" : "NO – piazzala!"}</strong></span>
         <span>Quest: <strong>${state.main_quest || "—"}</strong></span>
         ${state.winner !== null ? `<span style="color:var(--crown)">Vincitore P${state.winner}</span>` : ""}
       `;
@@ -129,11 +132,27 @@
         : "";
       document.getElementById("log").textContent = (state.log || []).join("\n");
       document.getElementById("btnEnd").disabled = state.current_player !== playerId || state.phase === "GAME_OVER";
+      const me = state.players[playerId] || state.players[0];
+      const fragBtn = document.getElementById("btnFrag");
+      if (fragBtn) {
+        fragBtn.disabled = state.current_player !== playerId || state.phase === "GAME_OVER" || me.next_fragment_cost == null || me.mana < (me.next_fragment_cost || 0);
+        fragBtn.style.outline = fragmentMode ? "2px solid var(--crown)" : "";
+      }
     }
 
     async function onCellClick(coord) {
       setMsg("");
       if (state.current_player !== playerId) return;
+      if (fragmentMode) {
+        try {
+          state = await api("/api/fragment", "POST", { game_id: gameId, coord, player_id: playerId });
+          fragmentMode = false;
+          selectedCoord = null;
+          render();
+          setMsg("Corona piazzata");
+        } catch (e) { setMsg(e.message); }
+        return;
+      }
       if (selectedCard !== null) {
         try {
           state = await api("/api/play", "POST", { game_id: gameId, hand_index: selectedCard, target_coord: coord, player_id: playerId });
@@ -162,6 +181,23 @@
       selectedCard = index; selectedCoord = null;
       setMsg("Seleziona casella target"); render();
     }
+
+    document.getElementById("btnFrag").onclick = () => {
+      if (!state || state.current_player !== playerId) {
+        setMsg("Non è il tuo turno");
+        return;
+      }
+      const p = state.players[playerId];
+      if (p.next_fragment_cost == null) {
+        setMsg("Nessun Frammento rimasto");
+        return;
+      }
+      fragmentMode = true;
+      selectedCard = null;
+      selectedCoord = null;
+      setMsg(`Seleziona una tua creatura per la Corona (costo ${p.next_fragment_cost} mana)`);
+      render();
+    };
 
     document.getElementById("btnEnd").onclick = async () => {
       setMsg("…");

@@ -94,6 +94,8 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
             "mana": p.mana,
             "mana_max": p.mana_max,
             "fragments": p.fragments_remaining,
+            "next_fragment_cost": p.next_fragment_cost(),
+            "has_crown": p.crown_unit is not None and p.crown_unit.is_alive,
             "hand": [
                 {
                     "index": i,
@@ -334,6 +336,44 @@ def api_end(body: EndReq):
         ai = BasicAI(gs, player_id=gs.current_player_id)
         ai.take_turn()
     _persist(body.game_id, gs, "end_turn")
+    return serialize_state(gs, body.game_id)
+
+
+
+class FragmentReq(BaseModel):
+    game_id: str
+    coord: str
+    player_id: int = 0
+
+
+@app.post("/api/fragment")
+def api_fragment(body: FragmentReq):
+    """Piazza (o sposta) il Frammento/Corona su una tua creatura, pagando Commander Tax."""
+    gs = _require_game(body.game_id)
+    if gs.phase == Phase.GAME_OVER:
+        raise HTTPException(400, "Partita finita")
+    if gs.current_player_id != body.player_id:
+        raise HTTPException(400, "Non è il tuo turno")
+    p = gs.players[body.player_id]
+    cost = p.next_fragment_cost()
+    if cost is None:
+        raise HTTPException(400, "Nessun Frammento rimanente")
+    if not p.can_afford(cost):
+        raise HTTPException(400, f"Mana insufficiente (serve {cost})")
+    try:
+        r, c = coord_to_pos(body.coord.upper())
+    except Exception:
+        raise HTTPException(400, "Coordinata non valida")
+    unit = gs.board.get_unit_at(r, c)
+    if not unit or unit.owner_id != body.player_id:
+        raise HTTPException(400, "Nessuna tua creatura su quella casella")
+    if not unit.is_alive:
+        raise HTTPException(400, "Unità non valida")
+    ok = p.place_fragment(unit)
+    if not ok:
+        raise HTTPException(400, "Impossibile piazzare il Frammento")
+    gs.log_msg(f"{p.name} piazza la Corona su {unit.card.name} ({unit.coord}) pagando {cost} mana")
+    _persist(body.game_id, gs, "fragment", {"coord": body.coord, "cost": cost})
     return serialize_state(gs, body.game_id)
 
 
