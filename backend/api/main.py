@@ -18,6 +18,7 @@ if str(ROOT) not in sys.path:
 
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
@@ -26,7 +27,14 @@ from core.game_state import GameState
 from core.constants import Phase, pos_to_coord, coord_to_pos
 from ai.basic_ai import BasicAI
 
-app = FastAPI(title="Penumbra Tactical Card Game", version="0.4")
+app = FastAPI(title="Penumbra Tactical Card Game", version="0.5")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Partita in memoria (una sola sessione per prototipo)
 _game: Optional[GameState] = None

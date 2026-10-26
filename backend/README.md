@@ -1,50 +1,51 @@
-# Tactical Card Game 5×5 – Backend (v4)
+# Penumbra – Tactical Card Game 5×5 (v5)
 
-Motore Python + **IA** + **UI web** (FastAPI + HTML).
+Backend Python + IA + UI web, pronto per **Render**.
 
-## Come testare (browser)
+## Deploy su Render (test online)
 
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
-```
+### Opzione A – Blueprint (consigliata)
+1. Su [render.com](https://render.com) → **New** → **Blueprint**
+2. Collega il repo GitHub `Penumbra`
+3. Se il file `render.yaml` è nella root del repo, Render lo legge da solo  
+   Se `render.yaml` è dentro `backend/`, oppure imposta **Root Directory** = `backend`
+4. Crea il servizio e attendi il deploy
+5. Apri l’URL tipo: `https://penumbra-backend.onrender.com`
 
-Apri nel browser: **http://localhost:8000**
+### Opzione B – Web Service manuale
+1. **New** → **Web Service** → seleziona il repo
+2. Impostazioni:
+   - **Root Directory**: `backend`
+   - **Runtime**: Python 3
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn api.main:app --host 0.0.0.0 --port $PORT`
+3. Piano **Free** → Create Web Service
 
-Vedrai la griglia 5×5, la mano, i comandi. L’IA gioca quando premi **Fine turno**.
+### Dopo il deploy
+Apri l’URL di Render nel browser: vedrai la griglia e potrai giocare contro l’IA.
 
-### Controlli UI
-- Clic su **tua unità** → clic su casella diagonale = muovi / attacca
-- Clic su **carta Mostro** = evoca in zona Tempio
-- Clic su **Trappola/Maledizione** → clic su casella target
-- **Fine turno** = passa all’IA (gioca automaticamente)
-- **Nuova partita** = reset
+> Nota piano free: dopo ~15 min di inattività il servizio va in sleep; la prima richiesta successiva può richiedere 30–60 secondi.
 
-### CLI (opzionale)
-```bash
-python3 main.py
-```
+## File di deploy
 
-## Stack
+| File | Ruolo |
+|------|--------|
+| `requirements.txt` | Dipendenze Python |
+| `Procfile` | Comando web (Heroku-style) |
+| `runtime.txt` | Versione Python |
+| `render.yaml` | Blueprint Render |
+| `api/main.py` | FastAPI + CORS |
+| `static/index.html` | UI giocabile |
 
-| Layer | Tecnologia |
-|-------|------------|
-| Motore + IA | Python (`core/`, `ai/`) |
-| API + UI | FastAPI + `static/index.html` |
-| Docs Pages | `/docs` |
-| Futuro | Supabase, Render, Next.js |
+## API
 
-## API utili
+| Metodo | Path |
+|--------|------|
+| GET | `/` UI |
+| GET | `/api/state` |
+| POST | `/api/new` |
+| POST | `/api/move` |
+| POST | `/api/play` |
+| POST | `/api/end` |
 
-| Metodo | Path | Descrizione |
-|--------|------|-------------|
-| GET | `/` | UI HTML |
-| GET | `/api/state` | Stato partita |
-| POST | `/api/new` | Nuova partita |
-| POST | `/api/move` | `{from_coord, to_coord}` |
-| POST | `/api/play` | `{hand_index, target_coord?}` |
-| POST | `/api/eldrazi` | `{eldrazi_index, sacrifice_coords[]}` |
-| POST | `/api/end` | Fine turno + turno IA |
-
-Leggi **`architettura.md`** per la mappa del codice.
+Vedi anche **`architettura.md`**.

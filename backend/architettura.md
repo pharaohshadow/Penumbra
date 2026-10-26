@@ -1,53 +1,41 @@
-# Architettura – Penumbra v4
+# Architettura – Penumbra v5
 
-## Struttura
+## Repo
 
-```
-backend/
-├── README.md
-├── architettura.md
-├── requirements.txt
-├── main.py                 # CLI
-├── core/                   # Motore puro
-├── ai/basic_ai.py          # IA
-├── api/main.py             # FastAPI (stato + mosse + serve HTML)
-└── static/index.html       # UI browser
-```
-
-Repo:
 ```
 Penumbra/
-├── backend/   ← questo
-└── docs/      ← GitHub Pages (documentazione)
+├── backend/          # codice gioco + API
+│   ├── api/main.py
+│   ├── static/index.html
+│   ├── core/
+│   ├── ai/
+│   ├── requirements.txt
+│   ├── Procfile
+│   ├── runtime.txt
+│   ├── render.yaml
+│   ├── README.md
+│   └── architettura.md
+└── docs/             # GitHub Pages (solo documentazione)
 ```
 
-## Flusso web
+## Deploy
 
-1. Browser apre `/` → `static/index.html`
-2. JS chiama `GET /api/state`
-3. Utente muove/gioca → `POST /api/move` o `/api/play`
-4. Fine turno → `POST /api/end` → server esegue `BasicAI.take_turn()`
-5. Risposta = nuovo stato → UI si aggiorna
+- **Host**: Render (Web Service)
+- **Root Directory**: `backend`
+- **Start**: `uvicorn api.main:app --host 0.0.0.0 --port $PORT`
+- Stato partita: **in memoria** (una sessione per istanza; si resetta al restart/sleep)
 
-## File chiave
+## Flusso online
 
-| File | Ruolo |
-|------|--------|
-| `api/main.py` | FastAPI, sessione in memoria, `serialize_state`, route |
-| `static/index.html` | UI completa (griglia, mano, log, comandi) |
-| `core/game_state.py` | Regole di gioco |
-| `ai/basic_ai.py` | Turno automatico P1 |
-
-## Dipendenze runtime
-
-- `fastapi`, `uvicorn`, `pydantic` (vedi `requirements.txt`)
-- Nessun DB ancora (stato in RAM; una partita per processo)
+1. Browser → URL Render
+2. `GET /` serve `static/index.html`
+3. JS parla con `/api/*` sullo stesso origin
+4. `POST /api/end` esegue il turno IA sul server
 
 ## Prossimi passi
 
-1. Deploy API su Render
-2. Schema Supabase (partite persistenti / multiplayer)
-3. Frontend Next.js più ricco (opzionale)
-4. WebSocket per realtime
+1. Supabase: salvare partite / utenti (opzionale multiplayer)
+2. WebSocket se serve realtime tra due umani
+3. Frontend Next.js separato (solo se serve SEO/UI più ricca)
 
-**Versione: v4**
+**Versione: v5**
