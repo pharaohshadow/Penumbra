@@ -1,6 +1,6 @@
 # Istruzioni per IA – Penumbra
 
-- Sito in costruzione; utente non tecnico; **niente modifiche manuali**.
-- Ogni consegna: README, ROADMAP, architettura, istruzioni.
-- Movimento re; Giallo proxy; Home solo Partita base.
-- 5.4: fix regole su segnalazione o audit codice; continuare finché la base non è stabile.
+- Utente non tecnico; niente modifiche manuali; aggiornare README/ROADMAP/architettura/istruzioni ogni volta.
+- UI partita: niente PvP/Unisciti finché non si lavora su quella modalità.
+- Corona = carta in mano costo 0/3/6, non bottone dedicato.
+- Draft = buste; movimento = re; Giallo = proxy.

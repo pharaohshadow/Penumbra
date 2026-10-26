@@ -1,31 +1,26 @@
-# Penumbra – Consegna v25 (step 5.4 – primi fix regole)
+# Penumbra – Consegna v27
 
-Correzioni automatiche trovate nel motore di gioco (senza elenco da parte tua).
+Due cambiamenti UI / regole:
+
+1. **Niente più pulsanti PvP / Unisciti** in partita (resta Partita base / vs IA dalla Home).
+2. **Corona = carta in mano**, non più tasto «Piazza Corona».
 
 **Nessuna modifica manuale richiesta.**
 
-## Cosa è stato sistemato
+## Corona come carta
 
-1. **Malattia da evocazione**  
-   Le creature appena evocate non dovevano attaccare subito (salvo parole chiave speciali).  
-   Ora la limitazione vale davvero e **scade all’inizio del turno successivo**.
-
-2. **Fuoco amico**  
-   Non si può più “attaccare” (muovere su) una creatura **alleata**.
-
-3. **Attacco nel turno sbagliato**  
-   Se una creatura non può attaccare in questo turno, non può entrare in combattimento.
+- In mano trovi **«Frammento / Corona»**
+- Costo: **0** (primo), poi **3**, poi **6**
+- Si gioca come le altre carte a bersaglio: click sulla carta → click su una tua creatura
+- Dopo ogni piazzamento, se hai ancora frammenti, torna in mano con il costo successivo
 
 ## File da sostituire
 
 | File | Azione |
 |------|--------|
 | `backend/core/game_state.py` | Sostituisci |
+| `backend/static/index.html` | Sostituisci |
 | `ROADMAP.md` | Sostituisci |
 | `architettura.md` | Sostituisci |
 | `istruzioni_per_IA.md` | Sostituisci |
 | `README.md` | Questo handoff |
-
-## Ancora utile da te
-
-Se noti altre regole sbagliate (carte, draft, corona, mana, vittoria…), elencale e le sistemiamo nel prossimo giro.

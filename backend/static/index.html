@@ -118,7 +118,7 @@
         <div class="status panel" id="status">Caricamento…</div>
         <div class="panel" id="draftPanel" style="display:none;margin-bottom:12px;border-color:var(--accent)">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-            <strong style="color:var(--accent)">📜 Snake Draft</strong>
+            <strong style="color:var(--accent)">📦 Scelta buste</strong>
             <span id="draftInfo" style="font-size:0.85rem;color:var(--muted)"></span>
           </div>
           <div id="draftPack" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:10px"></div>
@@ -131,10 +131,7 @@
         <div class="board" id="board"></div>
         <div class="actions">
           <button id="btnEnd">Fine turno</button>
-          <button class="secondary" id="btnFrag">Piazza Corona</button>
           <button class="secondary" id="btnNewAi">Nuova vs IA</button>
-          <button class="secondary" id="btnNewPvp">Nuova PvP (host)</button>
-          <button class="secondary" id="btnJoin">Unisciti</button>
         </div>
         <div class="msg" id="msg"></div>
         <div class="gid" id="gid"></div>
@@ -146,8 +143,8 @@
         <div id="eldrazi" style="font-size:0.8rem;margin-top:8px"></div>
         <p style="font-size:0.75rem;color:var(--muted);margin-top:12px">
           Click unità → casella adiacente (come il re degli scacchi) = muovi/attacca.<br/>
-          Click carta Mostro = evoca. Trappola/Maledizione = poi click casella.<br/>
-          PvP: host crea partita, condivide game_id, l’altro usa Unisciti.<br/>
+          Click carta Mostro = evoca. Trappola/Maledizione/Corona = poi click casella.<br/>
+          Carta «Frammento / Corona» in mano (costo 0, poi 3, poi 6).<br/>
           Mostrissimi: click sul pool → seleziona sacrifici (✧ = Rituale) → Conferma.
         </p>
       </div>
@@ -168,7 +165,6 @@
     let playerId = parseInt(localStorage.getItem("penumbra_player_id") || "0", 10);
     let selectedCoord = null;
     let selectedCard = null;
-    let fragmentMode = false;
     let eldraziMode = null;
     let pollTimer = null;
 
@@ -309,30 +305,35 @@
         dp.style.display = "block";
         const d = state.draft;
         const myPick = d.picker === playerId;
-        const myCount = (d.picks[String(playerId)] || []).length;
+        const taken = (d.packs_taken && d.packs_taken[String(playerId)]) || 0;
+        const need = d.packs_needed || 3;
         document.getElementById("draftInfo").textContent =
-          `Bustine: ${d.packs_left} · Tue carte: ${myCount}/9 · Turno pick: P${d.picker}` + (myPick ? " — scegli!" : " — attendi…");
+          `Buste prese: ${taken}/${need} · Tocca a P${d.picker}` + (myPick ? " — scegli una busta!" : " — attendi…");
         const packEl = document.getElementById("draftPack");
         packEl.innerHTML = "";
-        (d.pack || []).forEach(card => {
+        const packs = d.packs || [];
+        packs.forEach(pk => {
           const el = document.createElement("div");
-          el.className = "card" + ((card.color === "Giallo") ? " giallo" : "");
-          el.style.minHeight = "88px";
+          const isY = pk.color === "Giallo";
+          el.className = "card" + (isY ? " giallo" : "");
+          el.style.minHeight = "100px";
+          el.style.textAlign = "center";
           if (myPick) {
             el.style.cursor = "pointer";
-            if (card.color !== "Giallo") el.style.borderColor = "var(--accent)";
+            if (!isY) el.style.borderColor = "var(--accent)";
           } else {
             el.style.opacity = "0.55";
             el.style.cursor = "default";
           }
-          el.innerHTML = `<span class="cost">${card.cost}</span><strong>${card.name}</strong>
-            <div style="color:var(--muted);margin-top:4px">${card.color} · ${card.type}${card.atk||card.hp?` · ${card.atk}/${card.hp}`:""}</div>
-            <div style="font-size:0.7rem;color:var(--muted);margin-top:4px">${card.text||""}</div>`;
+          el.innerHTML = `<div style="font-size:1.5rem;margin:8px 0">📦</div>
+            <strong>Busta ${pk.color}</strong>
+            <div style="color:var(--muted);margin-top:6px">3 carte · colore ${pk.color}</div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-top:4px">Si apre a inizio partita</div>`;
           if (myPick) {
             el.onclick = async () => {
               try {
-                state = await api("/api/draft", "POST", { game_id: gameId, card_index: card.index, player_id: playerId });
-                setMsg(`Hai preso: ${card.name}`);
+                state = await api("/api/draft", "POST", { game_id: gameId, pack_index: pk.index, player_id: playerId });
+                setMsg(`Hai preso busta ${pk.color}`);
                 render();
               } catch (e) { setMsg(e.message); }
             };
@@ -342,7 +343,7 @@
         const mine = (d.picks[String(playerId)] || []).join(", ") || "—";
         const opp = (d.picks[String(1 - playerId)] || []).join(", ") || "—";
         document.getElementById("draftPicks").innerHTML =
-          `<div><strong style="color:var(--p0)">Tue scelte:</strong> ${mine}</div>
+          `<div><strong style="color:var(--p0)">Tue buste:</strong> ${mine}</div>
            <div><strong style="color:var(--p1)">Avversario:</strong> ${opp}</div>`;
       } else {
         dp.style.display = "none";
@@ -446,11 +447,6 @@
       const inDraft = state.phase === "DRAFT";
       document.getElementById("btnEnd").disabled = inDraft || state.current_player !== playerId || state.phase === "GAME_OVER";
       const me = state.players[playerId] || state.players[0];
-      const fragBtn = document.getElementById("btnFrag");
-      if (fragBtn) {
-        fragBtn.disabled = state.current_player !== playerId || state.phase === "GAME_OVER" || me.next_fragment_cost == null || me.mana < (me.next_fragment_cost || 0);
-        fragBtn.style.outline = fragmentMode ? "2px solid var(--crown)" : "";
-      }
     }
 
     async function onCellClick(coord) {
@@ -462,15 +458,6 @@
           eldraziMode.selected.push(coord);
         }
         render();
-        return;
-      }
-      if (fragmentMode) {
-        try {
-          state = await api("/api/fragment", "POST", { game_id: gameId, coord, player_id: playerId });
-          fragmentMode = false;
-          setMsg("Corona piazzata");
-          render();
-        } catch (e) { setMsg(e.message); }
         return;
       }
       if (selectedCard != null) {
@@ -540,41 +527,11 @@
       } catch (e) { setMsg(e.message); }
     };
 
-    document.getElementById("btnFrag").onclick = () => {
-      fragmentMode = !fragmentMode;
-      selectedCoord = null; selectedCard = null; eldraziMode = null;
-      setMsg(fragmentMode ? "Click su una tua creatura per piazzare la Corona" : "");
-      render();
-    };
-
     document.getElementById("btnNewAi").onclick = async () => {
       try {
         playerId = 0; localStorage.setItem("penumbra_player_id", "0");
         state = await api("/api/new", "POST", { vs_ai: true, name: "Tu" });
         selectedCoord = null; selectedCard = null; render(); setMsg("Nuova partita vs IA");
-        startPolling();
-      } catch (e) { setMsg(e.message); }
-    };
-
-    document.getElementById("btnNewPvp").onclick = async () => {
-      try {
-        playerId = 0; localStorage.setItem("penumbra_player_id", "0");
-        state = await api("/api/new", "POST", { vs_ai: false, name: "Host" });
-        selectedCoord = null; selectedCard = null; render();
-        setMsg("Condividi game_id con l’avversario, poi lui preme Unisciti");
-        startPolling();
-      } catch (e) { setMsg(e.message); }
-    };
-
-    document.getElementById("btnJoin").onclick = async () => {
-      const id = prompt("Incolla game_id della partita PvP:");
-      if (!id) return;
-      try {
-        state = await api("/api/join", "POST", { game_id: id.trim(), name: "Guest" });
-        playerId = 1; localStorage.setItem("penumbra_player_id", "1");
-        localStorage.setItem("penumbra_game_id", state.game_id);
-        selectedCoord = null; selectedCard = null; render();
-        setMsg("Sei P1. Attendi il tuo turno.");
         startPolling();
       } catch (e) { setMsg(e.message); }
     };

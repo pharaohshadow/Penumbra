@@ -7,7 +7,8 @@
 | 5.1 Movimento re | fatto |
 | 5.2 Home | fatto |
 | 5.3 Giallo | fatto |
-| **5.4 Regole** | in corso (v25: sickness, fuoco amico, attacco) |
-| 5.5 Smoke | checklist fatta |
+| 5.4 Regole | in corso (v25+v27) |
+| Draft buste | fatto (v26) |
+| Corona come carta + no PvP in UI | fatto (v27) |
 
-Altri fix 5.4 quando l’utente segnala.
+Prossimo: altre regole che segnali tu.

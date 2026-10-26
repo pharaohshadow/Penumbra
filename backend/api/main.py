@@ -296,7 +296,8 @@ class FragmentReq(BaseModel):
 
 class DraftReq(BaseModel):
     game_id: str
-    card_index: int
+    pack_index: Optional[int] = None
+    card_index: Optional[int] = None  # alias legacy = pack_index
     player_id: int = 0
 
 
@@ -514,10 +515,13 @@ async def api_draft(body: DraftReq, user: Dict[str, Any] = Depends(require_user)
     _require_membership(body.game_id, uid)
     if gs.phase != Phase.DRAFT:
         raise HTTPException(400, "Non sei in fase draft")
-    ok = gs.draft_pick(body.player_id, body.card_index)
+    idx = body.pack_index if body.pack_index is not None else body.card_index
+    if idx is None:
+        raise HTTPException(400, "Serve pack_index")
+    ok = gs.draft_pick(body.player_id, idx)
     if not ok:
-        raise HTTPException(400, "Pick non valida")
-    _persist(body.game_id, gs, "draft", {"index": body.card_index})
+        raise HTTPException(400, "Scelta busta non valida")
+    _persist(body.game_id, gs, "draft", {"pack_index": idx})
     return serialize_state(gs, body.game_id)
 
 

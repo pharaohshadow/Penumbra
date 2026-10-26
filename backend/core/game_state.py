@@ -59,118 +59,154 @@ class GameState:
         random.shuffle(self.event_deck)
 
     def start_draft(self):
-        """6 bustine da 3 carte (18 carte) → 9 pick a testa + 1 Boss."""
+        """
+        Draft a buste sigillate:
+        - Sempre 3 buste sul tavolo, ognuna di un colore, 3 carte di quel colore.
+        - I giocatori a turno scelgono una busta; ne compare subito una nuova.
+        - Ognuno prende 3 buste → 9 carte; a inizio partita si aprono + 1 Boss.
+        """
         self.phase = Phase.DRAFT
-        db = get_card_db()
-        draftable = db.get_draftable_with_yellow()
-        random.shuffle(draftable)
-        n = min(18, len(draftable) - (len(draftable) % 3))
-        cards = draftable[:n] if n >= 3 else draftable
-        packs = [cards[i:i+3] for i in range(0, len(cards), 3)]
-        if not packs:
-            packs = [draftable[:3]]
-        self._draft_packs = packs
         self._draft_picks: Dict[int, List[Card]] = {0: [], 1: []}
-        self._draft_picker = 0  # chi deve scegliere ora
-        self.log_msg("=== FASE DI DRAFT ===")
-        self.log_msg(f"{len(packs)} bustine pronte. Snake draft: inizia P0.")
+        self._draft_pack_labels: Dict[int, List[str]] = {0: [], 1: []}
+        self._draft_packs_taken: Dict[int, int] = {0: 0, 1: 0}
+        self._draft_picker = 0
+        self._draft_table: List[dict] = []
+        for _ in range(3):
+            self._draft_table.append(self._generate_sealed_pack())
+        self.log_msg("=== FASE DI DRAFT (buste) ===")
+        self.log_msg("3 buste sul tavolo. Scegline una: a inizio partita si aprono (9 carte).")
 
-    def get_current_pack(self) -> List[Card]:
-        if not hasattr(self, "_draft_packs") or not self._draft_packs:
-            return []
-        return self._draft_packs[0]
+    def _pack_colors(self) -> List[Color]:
+        return [Color.WHITE, Color.BLUE, Color.RED, Color.BLACK, Color.GREEN, Color.YELLOW]
+
+    def _generate_sealed_pack(self) -> dict:
+        """Crea una busta: colore + 3 carte random di quel colore (Giallo = mix degli altri 5)."""
+        db = get_card_db()
+        color = random.choice(self._pack_colors())
+        five = [Color.WHITE, Color.BLUE, Color.RED, Color.BLACK, Color.GREEN]
+        if color == Color.YELLOW:
+            pool = [c for c in db.get_draftable() if c.color in five]
+        else:
+            pool = [c for c in db.get_draftable(color) if c.color == color]
+            if not pool:
+                pool = [c for c in db.get_draftable() if c.color in five]
+        if not pool:
+            pool = list(db.cards.values())[:10]
+        cards = []
+        for _ in range(3):
+            src = random.choice(pool)
+            if color == Color.YELLOW and src.color != Color.YELLOW:
+                cards.append(db.make_yellow_proxy(src, 80000 + random.randint(1, 90000)))
+            else:
+                cards.append(src)
+        return {"color": color, "cards": cards}
 
     def get_draft_state(self) -> dict:
-        pack = self.get_current_pack()
+        table = getattr(self, "_draft_table", []) or []
+        taken = getattr(self, "_draft_packs_taken", {0: 0, 1: 0})
+        labels = getattr(self, "_draft_pack_labels", {0: [], 1: []})
         return {
             "active": self.phase == Phase.DRAFT,
+            "mode": "sealed_packs",
             "picker": getattr(self, "_draft_picker", 0),
-            "pack_index": 0,
-            "packs_left": len(getattr(self, "_draft_packs", []) or []),
-            "pack": [
+            "packs_needed": 3,
+            "packs_taken": {"0": taken.get(0, 0), "1": taken.get(1, 0)},
+            "packs": [
                 {
                     "index": i,
-                    "id": c.id,
-                    "name": c.name,
-                    "cost": c.cost,
-                    "type": c.card_type.value,
-                    "atk": c.atk,
-                    "hp": c.hp,
-                    "color": c.color.value,
-                    "text": (c.text or "")[:100],
+                    "color": p["color"].value,
+                    "size": len(p["cards"]),
+                    "label": f"Busta {p['color'].value}",
                 }
-                for i, c in enumerate(pack)
+                for i, p in enumerate(table)
             ],
+            # compat UI vecchia
+            "pack": [],
+            "packs_left": 3 - min(taken.get(0, 0), taken.get(1, 0)),
             "picks": {
-                "0": [c.name for c in self._draft_picks.get(0, [])],
-                "1": [c.name for c in self._draft_picks.get(1, [])],
+                "0": list(labels.get(0, [])),
+                "1": list(labels.get(1, [])),
             },
         }
 
-    def draft_pick(self, player_id: int, card_index: int) -> bool:
-        """Il giocatore corrente sceglie una carta dalla bustina."""
+    def draft_pick(self, player_id: int, pack_index: int) -> bool:
+        """Il giocatore sceglie una busta dal tavolo (indice 0..2)."""
         if self.phase != Phase.DRAFT:
             return False
         picker = getattr(self, "_draft_picker", 0)
         if player_id != picker:
             self.log_msg(f"Non è il turno di draft di P{player_id} (tocca a P{picker})")
             return False
-        pack = self.get_current_pack()
-        if not pack or card_index < 0 or card_index >= len(pack):
+        table = getattr(self, "_draft_table", [])
+        if pack_index < 0 or pack_index >= len(table):
             return False
-        card = pack.pop(card_index)
-        self._draft_picks[player_id].append(card)
-        self.players[player_id].colors.add(card.color)
-        self.log_msg(f"P{player_id} ha scelto: {card}")
+        pack = table.pop(pack_index)
+        # assegna le 3 carte (ancora "chiuse" finché non finisce il draft)
+        self._draft_picks[player_id].extend(pack["cards"])
+        label = f"Busta {pack['color'].value}"
+        self._draft_pack_labels[player_id].append(label)
+        self._draft_packs_taken[player_id] = self._draft_packs_taken.get(player_id, 0) + 1
+        self.players[player_id].colors.add(pack["color"])
+        self.log_msg(f"P{player_id} prende {label} ({self._draft_packs_taken[player_id]}/3)")
 
-        if not pack:
-            self._draft_packs.pop(0)
-            if self._draft_packs:
-                self.log_msg(f"Nuova bustina ({len(self._draft_packs[0])} carte)")
-            else:
-                self._finish_draft()
-                return True
+        # Sempre 3 buste sul tavolo finché entrambi non hanno 3 buste
+        if self._draft_packs_taken.get(0, 0) < 3 or self._draft_packs_taken.get(1, 0) < 3:
+            self._draft_table.append(self._generate_sealed_pack())
 
-        # Snake: alterna il picker
-        self._draft_picker = 1 - picker
-        # Se il prossimo è IA, sceglie automaticamente
+        if self._draft_packs_taken.get(0, 0) >= 3 and self._draft_packs_taken.get(1, 0) >= 3:
+            self._finish_draft()
+            return True
+
+        # Alterna giocatore (salta chi ha già 3 buste)
+        nxt = 1 - picker
+        if self._draft_packs_taken.get(nxt, 0) >= 3:
+            nxt = picker
+        self._draft_picker = nxt
         self._draft_ai_if_needed()
         return True
 
     def _draft_ai_if_needed(self):
-        """Finché tocca all'IA e siamo in DRAFT, pick random."""
+        """Finché tocca all'IA in DRAFT, sceglie una busta a caso."""
         safety = 0
-        while self.phase == Phase.DRAFT and safety < 30:
+        while self.phase == Phase.DRAFT and safety < 20:
             safety += 1
             picker = getattr(self, "_draft_picker", 0)
             if not self.players[picker].is_ai:
                 break
-            pack = self.get_current_pack()
-            if not pack:
+            if self._draft_packs_taken.get(picker, 0) >= 3:
                 break
-            # preferisci mostri a basso costo
-            best = 0
-            for i, c in enumerate(pack):
-                if c.card_type.value == "Mostro" and c.cost <= 2:
-                    best = i
-                    break
-            self.draft_pick(picker, best)
+            table = getattr(self, "_draft_table", [])
+            if not table:
+                break
+            self.draft_pick(picker, random.randrange(len(table)))
 
     def _finish_draft(self):
+        """Apre le buste: 9 carte a testa + Boss del colore dominante."""
         db = get_card_db()
         for pid in (0, 1):
             picks = list(self._draft_picks.get(pid, []))
             color_count = {}
             for c in picks:
                 color_count[c.color] = color_count.get(c.color, 0) + 1
-            main_color = max(color_count, key=color_count.get) if color_count else list(Color)[0]
+            # Giallo non è un colore di Boss dedicato → usa il più frequente tra i 5
+            main_color = None
+            if color_count:
+                ranked = sorted(color_count.items(), key=lambda x: x[1], reverse=True)
+                for col, _ in ranked:
+                    if col != Color.YELLOW and col != Color.GRAY:
+                        main_color = col
+                        break
+                if main_color is None:
+                    main_color = ranked[0][0]
+            if main_color is None or main_color in (Color.YELLOW, Color.GRAY):
+                main_color = random.choice([Color.WHITE, Color.BLUE, Color.RED, Color.BLACK, Color.GREEN])
             bosses_of_color = [b for b in db.bosses if b.color == main_color]
             if not bosses_of_color:
                 bosses_of_color = db.bosses
             boss = random.choice(bosses_of_color)
             picks.append(boss)
             self.players[pid].hand = picks
-            self.log_msg(f"P{pid} mano finale ({len(picks)} carte) + Boss: {boss.name}")
+            self.log_msg(f"P{pid} apre le buste: {len(picks)-1} carte + Boss {boss.name}")
         self.phase = Phase.SETUP
         self.log_msg("Draft completato. Inizio partita.")
         self.current_player_id = 0
@@ -180,6 +216,8 @@ class GameState:
         if units:
             self.players[0].place_fragment(units[0])
 
+    # ------------------------------------------------------------------
+    # Turno
     # ------------------------------------------------------------------
     # Turno
     # ------------------------------------------------------------------
@@ -544,6 +582,8 @@ class GameState:
             owner = self.players[unit.owner_id]
             owner.lose_fragment()
             self.log_msg(f"  ⚠ Frammento di {owner.name} perso!")
+            if owner.id in (0, 1):
+                self._sync_fragment_card(owner.id)
         self.board.remove_unit(unit)
 
     def _on_enter_tile(self, unit: Unit):
@@ -830,6 +870,8 @@ class GameState:
 
         if card.card_type in (CardType.MONSTER, CardType.BOSS):
             return self._summon_monster(p, hand_index, card, target_coord)
+        elif card.card_type == CardType.FRAGMENT:
+            return self._play_fragment(p, hand_index, card, target_coord)
         elif card.card_type == CardType.TRAP:
             return self._play_trap(p, hand_index, card, target_coord)
         elif card.card_type == CardType.CURSE:
@@ -882,7 +924,46 @@ class GameState:
         self.log_msg(f"{player.name} evoca {card.name} ({card.atk}/{card.hp}) su {unit.coord}")
         return True
 
+    def _play_fragment(self, player: Player, hand_index: int, card: Card, target_coord: Optional[str]) -> bool:
+        """Gioca la carta Frammento/Corona dalla mano sulla creatura bersaglio."""
+        if not target_coord:
+            self.log_msg("Scegli una tua creatura su cui piazzare la Corona.")
+            return False
+        try:
+            r, c = coord_to_pos(target_coord.upper())
+        except Exception:
+            self.log_msg("Coordinata non valida.")
+            return False
+        unit = self.board.get_unit_at(r, c)
+        if not unit or unit.owner_id != player.id or not unit.is_alive:
+            self.log_msg("Nessuna tua creatura su quella casella.")
+            return False
+        cost = player.next_fragment_cost()
+        if cost is None:
+            self.log_msg("Nessun Frammento rimanente.")
+            return False
+        if card.cost != cost:
+            # allinea costo carta a quello reale
+            card.cost = cost
+        if not player.can_afford(cost):
+            self.log_msg(f"Mana insufficiente (serve {cost}).")
+            return False
+        # place_fragment spende già il mana
+        ok = player.place_fragment(unit)
+        if not ok:
+            self.log_msg("Impossibile piazzare il Frammento.")
+            return False
+        # Rimuovi la carta Frammento giocata (place non tocca la mano)
+        if 0 <= hand_index < len(player.hand) and player.hand[hand_index].card_type.value == "Frammento":
+            player.hand.pop(hand_index)
+        else:
+            player.hand = [c for c in player.hand if c.card_type.value != "Frammento"]
+        self.log_msg(f"{player.name} piazza la Corona su {unit.card.name} ({unit.coord}) per {cost} mana")
+        self._sync_fragment_card(player.id)
+        return True
+
     def _play_trap(self, player: Player, hand_index: int, card: Card, target_coord: Optional[str]) -> bool:
+
         if not target_coord:
             self.log_msg("Devi specificare la casella per la Trappola.")
             return False

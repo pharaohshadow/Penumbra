@@ -1,7 +1,13 @@
-# Architettura – v25
+# Architettura – v27
 
-- Movimento: re degli scacchi
-- Combattimento: solo su casella adiacente occupata da nemico/neutrale
-- Niente attacco ad alleati
-- Summoning sickness: no attacco nel turno di evocazione; scade a inizio turno successivo
-- Home + Giallo come in 5.2 / 5.3
+## UI partita
+- Niente pulsanti Nuova PvP / Unisciti / Piazza Corona
+- Home resta il posto per le modalità
+
+## Corona
+- Carta `CardType.FRAGMENT` in mano, costo 0 / 3 / 6
+- `play_card` → `_play_fragment` → `place_fragment` + `_sync_fragment_card`
+- Dopo perdita frammento, la carta può tornare in mano se ne restano
+
+## Draft
+- Buste sigillate (v26)
