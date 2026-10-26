@@ -1,57 +1,50 @@
-# Tactical Card Game 5×5 – Backend (v3)
+# Tactical Card Game 5×5 – Backend (v4)
 
-Motore di gioco Python puro + **IA base**.
+Motore Python + **IA** + **UI web** (FastAPI + HTML).
 
-## Cosa c’è in v3
-
-Tutto di v2 **più**:
-
-- **IA base** (`ai/basic_ai.py`) che controlla il giocatore in alto (P1)
-- Priorità IA:
-  1. Piazza Frammento se manca
-  2. Gioca carte economiche (Mostri / Maledizioni / Trappole)
-  3. Attacca Corona nemica o unità adiacenti
-  4. Muove verso Altare / Corona
-  5. Tenta Mostrissimo se ha abbastanza sacrifici + Cerchio Rituale
-  6. Fine turno
-- CLI: quando è il turno dell’IA, gioca automaticamente
-
-## Come testare
+## Come testare (browser)
 
 ```bash
 cd backend
-python3 main.py
+pip install -r requirements.txt
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-L’IA gioca da sola quando è il suo turno. Tu comandi solo il giocatore in basso.
+Apri nel browser: **http://localhost:8000**
 
-### Comandi CLI (umano)
+Vedrai la griglia 5×5, la mano, i comandi. L’IA gioca quando premi **Fine turno**.
 
-| Comando | Descrizione |
-|---------|-------------|
-| `m B5 C4` | Muovi unità |
-| `p 0` / `p 2 B5` | Gioca carta dalla mano |
-| `x 0 A1 B5` | Evoca Mostrissimo (sacrifici) |
-| `s` | Stato |
-| `e` | Fine turno (passa all’IA) |
-| `q` | Esci |
+### Controlli UI
+- Clic su **tua unità** → clic su casella diagonale = muovi / attacca
+- Clic su **carta Mostro** = evoca in zona Tempio
+- Clic su **Trappola/Maledizione** → clic su casella target
+- **Fine turno** = passa all’IA (gioca automaticamente)
+- **Nuova partita** = reset
+
+### CLI (opzionale)
+```bash
+python3 main.py
+```
 
 ## Stack
 
 | Layer | Tecnologia |
 |-------|------------|
-| Logica + IA | Python 3.12 |
-| API | FastAPI (prossimo) |
-| Frontend | Next.js |
-| DB / Auth / Realtime | Supabase |
-| Hosting | Render |
-| Docs (Pages) | `/docs` |
+| Motore + IA | Python (`core/`, `ai/`) |
+| API + UI | FastAPI + `static/index.html` |
+| Docs Pages | `/docs` |
+| Futuro | Supabase, Render, Next.js |
 
-## Prossimi passi (v4+)
+## API utili
 
-1. FastAPI + WebSocket (stato partita, mosse)
-2. Schema Supabase
-3. Frontend griglia
-4. Deploy Render
+| Metodo | Path | Descrizione |
+|--------|------|-------------|
+| GET | `/` | UI HTML |
+| GET | `/api/state` | Stato partita |
+| POST | `/api/new` | Nuova partita |
+| POST | `/api/move` | `{from_coord, to_coord}` |
+| POST | `/api/play` | `{hand_index, target_coord?}` |
+| POST | `/api/eldrazi` | `{eldrazi_index, sacrifice_coords[]}` |
+| POST | `/api/end` | Fine turno + turno IA |
 
-Leggi **`architettura.md`** per la mappa completa del codice.
+Leggi **`architettura.md`** per la mappa del codice.

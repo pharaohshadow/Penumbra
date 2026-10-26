@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Penumbra – Tactical Card Game 5×5</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #1a1d24;
+      --border: #2a2f3a;
+      --text: #e8eaed;
+      --muted: #9aa0a6;
+      --accent: #7c9cff;
+      --p0: #4ade80;
+      --p1: #f87171;
+      --crown: #fbbf24;
+      --tile: #252a33;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; padding: 12px;
+    }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 16px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .status {
+      display: flex; flex-wrap: wrap; gap: 12px;
+      align-items: center; margin-bottom: 12px;
+      font-size: 0.9rem;
+    }
+    .status span { color: var(--muted); }
+    .status strong { color: var(--text); }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      aspect-ratio: 1;
+      max-width: 420px;
+    }
+    .cell {
+      background: var(--tile);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      min-height: 64px;
+      padding: 4px;
+      cursor: pointer;
+      position: relative;
+      font-size: 0.7rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .cell:hover { border-color: var(--accent); }
+    .cell.selected { outline: 2px solid var(--accent); }
+    .cell .coord { color: var(--muted); font-size: 0.65rem; }
+    .cell .tile-label { color: var(--muted); opacity: 0.7; }
+    .unit {
+      font-weight: 600;
+      font-size: 0.75rem;
+      line-height: 1.2;
+    }
+    .unit.p0 { color: var(--p0); }
+    .unit.p1 { color: var(--p1); }
+    .unit.neutral { color: var(--muted); }
+    .unit .crown { color: var(--crown); }
+    .hand {
+      display: flex; flex-direction: column; gap: 6px;
+      max-height: 280px; overflow-y: auto;
+    }
+    .card {
+      background: #12151a;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .card:hover { border-color: var(--accent); }
+    .card.selected { border-color: var(--accent); background: #1e2430; }
+    .card .cost {
+      display: inline-block;
+      background: var(--accent);
+      color: #000;
+      font-weight: 700;
+      border-radius: 4px;
+      padding: 0 6px;
+      margin-right: 6px;
+      font-size: 0.75rem;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    button {
+      background: var(--accent);
+      color: #0f1115;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button.secondary { background: var(--border); color: var(--text); }
+    .log {
+      font-size: 0.75rem;
+      color: var(--muted);
+      max-height: 160px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      margin-top: 12px;
+    }
+    .eldrazi { font-size: 0.8rem; margin-top: 8px; }
+    .msg { color: var(--crown); font-size: 0.85rem; margin: 8px 0; min-height: 1.2em; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div>
+      <h1>Penumbra – 5×5</h1>
+      <div class="status panel" id="status">Caricamento…</div>
+      <div class="board" id="board"></div>
+      <div class="actions">
+        <button id="btnEnd">Fine turno (IA gioca)</button>
+        <button class="secondary" id="btnNew">Nuova partita</button>
+      </div>
+      <div class="msg" id="msg"></div>
+      <div class="log panel" id="log"></div>
+    </div>
+    <div class="panel">
+      <h1 style="font-size:1rem">La tua mano</h1>
+      <div class="hand" id="hand"></div>
+      <div class="eldrazi" id="eldrazi"></div>
+      <p style="font-size:0.75rem;color:var(--muted);margin-top:12px">
+        Clicca una tua unità, poi una casella diagonale per muovere/attaccare.<br/>
+        Clicca una carta della mano per giocarla (Mostri → Tempio automatico).
+      </p>
+    </div>
+  </div>
+
+  <script>
+    let state = null;
+    let selectedCoord = null;
+    let selectedCard = null;
+
+    async function api(path, method = "GET", body = null) {
+      const opts = { method, headers: { "Content-Type": "application/json" } };
+      if (body) opts.body = JSON.stringify(body);
+      const r = await fetch(path, opts);
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error(t || r.statusText);
+      }
+      return r.json();
+    }
+
+    function setMsg(t) {
+      document.getElementById("msg").textContent = t || "";
+    }
+
+    function render() {
+      if (!state) return;
+      const p0 = state.players[0];
+      const p1 = state.players[1];
+      document.getElementById("status").innerHTML = `
+        <span>Turno <strong>${state.turn}</strong></span>
+        <span>Fase <strong>${state.phase}</strong></span>
+        <span>Gioca: <strong>${state.current_player === 0 ? p0.name : p1.name}</strong></span>
+        <span>Mana <strong>${p0.mana}/${p0.mana_max}</strong></span>
+        <span>Frammenti <strong>${p0.fragments}/3</strong></span>
+        <span>Quest: <strong>${state.main_quest || "—"}</strong></span>
+        ${state.winner !== null ? `<span style="color:var(--crown)">Vincitore: P${state.winner}</span>` : ""}
+      `;
+
+      const boardEl = document.getElementById("board");
+      boardEl.innerHTML = "";
+      // Stampa righe 1→5 (r=0 in alto)
+      for (let r = 0; r < 5; r++) {
+        for (let c = 0; c < 5; c++) {
+          const cell = state.board[r][c];
+          const div = document.createElement("div");
+          div.className = "cell" + (selectedCoord === cell.coord ? " selected" : "");
+          div.dataset.coord = cell.coord;
+          let html = `<span class="coord">${cell.coord}</span>`;
+          if (cell.unit) {
+            const u = cell.unit;
+            const cls = u.owner === 0 ? "p0" : u.owner === 1 ? "p1" : "neutral";
+            html += `<div class="unit ${cls}">${u.crown ? '<span class="crown">👑</span>' : ""}${u.name}<br/>${u.atk}/${u.hp}</div>`;
+          } else {
+            html += `<span class="tile-label">${cell.tile}${cell.trap ? " ⚠" : ""}</span>`;
+          }
+          div.innerHTML = html;
+          div.onclick = () => onCellClick(cell.coord);
+          boardEl.appendChild(div);
+        }
+      }
+
+      const handEl = document.getElementById("hand");
+      handEl.innerHTML = "";
+      p0.hand.forEach((card) => {
+        const d = document.createElement("div");
+        d.className = "card" + (selectedCard === card.index ? " selected" : "");
+        d.innerHTML = `<span class="cost">${card.cost}</span><strong>${card.name}</strong>
+          <div style="color:var(--muted)">${card.type}${card.atk || card.hp ? ` ${card.atk}/${card.hp}` : ""}</div>`;
+        d.onclick = () => onCardClick(card.index);
+        handEl.appendChild(d);
+      });
+
+      const eld = document.getElementById("eldrazi");
+      if (state.eldrazi && state.eldrazi.length) {
+        eld.innerHTML = "<strong>Mostrissimi</strong><br/>" +
+          state.eldrazi.map(e => `[${e.index}] ${e.name} (${e.atk}/${e.hp}) sacr.${e.sacrifice}`).join("<br/>");
+      } else eld.innerHTML = "";
+
+      document.getElementById("log").textContent = (state.log || []).join("\n");
+      document.getElementById("btnEnd").disabled = state.current_player !== 0 || state.phase === "GAME_OVER";
+    }
+
+    async function onCellClick(coord) {
+      setMsg("");
+      if (state.current_player !== 0) return;
+
+      // Se ho una carta selezionata di tipo trappola/maledizione, prova a giocarla sul target
+      if (selectedCard !== null) {
+        try {
+          state = await api("/api/play", "POST", { hand_index: selectedCard, target_coord: coord });
+          selectedCard = null;
+          selectedCoord = null;
+          render();
+        } catch (e) {
+          setMsg(e.message);
+        }
+        return;
+      }
+
+      if (!selectedCoord) {
+        selectedCoord = coord;
+        render();
+        return;
+      }
+      if (selectedCoord === coord) {
+        selectedCoord = null;
+        render();
+        return;
+      }
+      try {
+        state = await api("/api/move", "POST", { from_coord: selectedCoord, to_coord: coord });
+        selectedCoord = null;
+        render();
+      } catch (e) {
+        setMsg(e.message);
+        selectedCoord = null;
+        render();
+      }
+    }
+
+    async function onCardClick(index) {
+      setMsg("");
+      if (state.current_player !== 0) return;
+      const card = state.players[0].hand.find(c => c.index === index);
+      if (!card) return;
+
+      // Mostri: gioca subito senza target
+      if (card.type === "Mostro" || card.type === "Boss") {
+        try {
+          state = await api("/api/play", "POST", { hand_index: index });
+          selectedCard = null;
+          render();
+        } catch (e) {
+          setMsg(e.message);
+        }
+        return;
+      }
+      // Altrimenti seleziona e aspetta click su casella
+      selectedCard = index;
+      selectedCoord = null;
+      setMsg("Seleziona una casella target per la carta");
+      render();
+    }
+
+    document.getElementById("btnEnd").onclick = async () => {
+      setMsg("IA in gioco…");
+      try {
+        state = await api("/api/end", "POST");
+        selectedCoord = null;
+        selectedCard = null;
+        render();
+        setMsg("");
+      } catch (e) {
+        setMsg(e.message);
+      }
+    };
+
+    document.getElementById("btnNew").onclick = async () => {
+      state = await api("/api/new", "POST");
+      selectedCoord = null;
+      selectedCard = null;
+      render();
+      setMsg("Nuova partita");
+    };
+
+    // Init
+    api("/api/state").then(s => { state = s; render(); }).catch(e => setMsg(e.message));
+  </script>
+</body>
+</html>
