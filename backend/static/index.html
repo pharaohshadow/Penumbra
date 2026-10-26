@@ -196,12 +196,32 @@
       } catch (e) { setMsg(e.message); }
     };
 
-    // Init: riprendi game_id se esiste, altrimenti nuova vs IA
+    // Polling: aggiorna stato se non è il tuo turno (PvP)
+    let pollTimer = null;
+    function startPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(async () => {
+        if (!gameId || !state) return;
+        if (state.phase === "GAME_OVER") return;
+        if (state.current_player === playerId) return; // non sovrascrivere mentre giochi
+        try {
+          const s = await api(`/api/state?game_id=${encodeURIComponent(gameId)}`);
+          state = s;
+          render();
+        } catch (_) {}
+      }, 2500);
+    }
+
+    // Init
     const q = new URLSearchParams(location.search).get("game");
     if (q) gameId = q;
     const path = gameId ? `/api/state?game_id=${encodeURIComponent(gameId)}` : "/api/state";
-    api(path).then(s => { state = s; if (state.game_id) localStorage.setItem("penumbra_game_id", state.game_id); render(); })
-      .catch(e => setMsg(e.message));
+    api(path).then(s => {
+      state = s;
+      if (state.game_id) localStorage.setItem("penumbra_game_id", state.game_id);
+      render();
+      startPolling();
+    }).catch(e => setMsg(e.message));
   </script>
 </body>
 </html>

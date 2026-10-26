@@ -327,6 +327,10 @@ class GameState:
                     self.main_quest = event
                     self.log_msg(f"  ★ MAIN QUEST rivelata: {event}")
 
+        # Portali: entrata → uscita su casella adiacente libera del portale collegato
+        if tile.is_portal:
+            self._resolve_portal(unit, tile)
+
         # Effetti permanenti del terreno
         if tile.permanent_effect == "swamp" or tile.tile_type == TileType.SWAMP:
             self.log_msg(f"  Palude: +1 mana extra per entrare/uscire (già pagato movimento).")
@@ -405,6 +409,52 @@ class GameState:
 
         if not victim.is_alive:
             self._destroy_unit(victim)
+
+
+    def _resolve_portal(self, unit: Unit, tile) -> None:
+        """Teletrasporto: non si sosta sul portale; atterra su adiacente libera del portale di uscita."""
+        from .constants import TileType
+        portals = []
+        for r in range(5):
+            for c in range(5):
+                t = self.board.get_tile(r, c)
+                if t and t.is_portal and (r, c) != (unit.row, unit.col):
+                    portals.append((r, c, t))
+        if not portals:
+            self.log_msg("  Portale senza uscita attiva.")
+            return
+        # Preferisci colore opposto bianco/nero, altrimenti primo disponibile
+        exit_pos = None
+        if tile.tile_type == TileType.PORTAL_WHITE:
+            for r, c, t in portals:
+                if t.tile_type == TileType.PORTAL_BLACK:
+                    exit_pos = (r, c)
+                    break
+        elif tile.tile_type == TileType.PORTAL_BLACK:
+            for r, c, t in portals:
+                if t.tile_type == TileType.PORTAL_WHITE:
+                    exit_pos = (r, c)
+                    break
+        if exit_pos is None:
+            r, c, _ = portals[0]
+            exit_pos = (r, c)
+        # Casella adiacente libera (ortogonale o diagonale) attorno all'uscita
+        er, ec = exit_pos
+        candidates = []
+        for dr in (-1, 0, 1):
+            for dc in (-1, 0, 1):
+                if dr == 0 and dc == 0:
+                    continue
+                nr, nc = er + dr, ec + dc
+                if self.board.is_valid_pos(nr, nc) and self.board.is_walkable(nr, nc):
+                    if self.board.get_unit_at(nr, nc) is None:
+                        candidates.append((nr, nc))
+        if not candidates:
+            self.log_msg("  Portale: nessuna casella libera in uscita.")
+            return
+        nr, nc = candidates[0]
+        self.board.move_unit(unit, nr, nc)
+        self.log_msg(f"  ✈ Teletrasporto → {unit.coord}")
 
     def _check_main_quest(self, player: Player):
         if not self.main_quest:

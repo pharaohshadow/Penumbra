@@ -23,7 +23,7 @@ from core.constants import Phase, pos_to_coord, coord_to_pos
 from ai.basic_ai import BasicAI
 from api import supabase_store
 
-app = FastAPI(title="Penumbra Tactical Card Game", version="0.7")
+app = FastAPI(title="Penumbra Tactical Card Game", version="0.8")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -193,7 +193,7 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "version": "0.7", "games_in_memory": len(_games), "supabase": supabase_store.enabled()}
+    return {"ok": True, "version": "0.8", "games_in_memory": len(_games), "supabase": supabase_store.enabled()}
 
 
 @app.post("/api/new")
