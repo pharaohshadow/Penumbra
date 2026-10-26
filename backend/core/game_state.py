@@ -149,6 +149,13 @@ class GameState:
 
     def _apply_start_of_turn_effects(self, player: Player):
         for unit in list(self.board.get_units_of_player(player.id)):
+            if "stun" in unit.statuses:
+                unit.statuses.discard("stun")
+                self.log_msg(f"  {unit.card.name} non è più stunnata")
+            if "invulnerable" in unit.statuses:
+                unit.statuses.discard("invulnerable")
+            unit.moved_this_turn = False
+            unit.can_attack_this_turn = True
             tile = self.board.get_tile(unit.row, unit.col)
             if not tile:
                 continue
@@ -249,6 +256,9 @@ class GameState:
     # ------------------------------------------------------------------
     def try_move(self, unit: Unit, target_row: int, target_col: int) -> bool:
         if unit.owner_id != self.current_player_id:
+            return False
+        if "stun" in unit.statuses:
+            self.log_msg(f"{unit.card.name} è stunnata e non può muoversi.")
             return False
         if unit.moved_this_turn and not unit.has_keyword("DoubleMove"):
             return False
@@ -398,24 +408,35 @@ class GameState:
     def _resolve_trap_effect(self, trap: Card, victim: Unit, tile) -> None:
         """Effetti base delle trappole più comuni."""
         name = trap.name.lower()
-        if "spine" in name or "fossa" in name:
-            victim.take_damage(2)
-            self.log_msg(f"    → 2 danni a {victim.card.name}")
+        if "spine" in name or "fossa di spine" in name or "fossa rampicante" in name:
+            dmg = 2 if "spine" in name else 1
+            victim.take_damage(dmg)
+            if "rampicante" in name or "ombre" in name:
+                victim.statuses.add("stun")
+            self.log_msg(f"    → {dmg} danni" + (" + stun" if "rampicante" in name or "ombre" in name else ""))
         elif "mina" in name or "esplosiva" in name:
             victim.take_damage(1)
             self.log_msg(f"    → 1 danno a {victim.card.name}")
         elif "incendiaria" in name:
-            # area 3x3 semplificata: danno al victim + adiacenti
             victim.take_damage(2)
-            self.log_msg(f"    → 2 danni area a {victim.card.name}")
-        elif "eter" in name or "mana" in name:
+            for dr, dc in [(-1, -1), (-1, 1), (1, -1), (1, 1), (-1, 0), (1, 0), (0, -1), (0, 1)]:
+                ou = self.board.get_unit_at(victim.row + dr, victim.col + dc)
+                if ou and ou is not victim:
+                    ou.take_damage(1)
+                    if not ou.is_alive:
+                        self._destroy_unit(ou)
+            self.log_msg(f"    → 2 danni + area adiacenti")
+        elif "eter" in name or "mana" in name or "runa" in name:
             owner = self.players[victim.owner_id] if victim.owner_id in (0, 1) else None
             if owner:
                 owner.mana = max(0, owner.mana - 1)
                 self.log_msg(f"    → -1 mana a {owner.name}")
-        elif "luminosa" in name or "blocca" in name:
+        elif "luminosa" in name or "blocca" in name or "liana" in name:
             victim.statuses.add("stun")
-            self.log_msg(f"    → {victim.card.name} bloccata per 1 turno")
+            self.log_msg(f"    → {victim.card.name} bloccata 1 turno")
+        elif "barriera" in name or "radiosa" in name:
+            victim.statuses.add("shield:2")
+            self.log_msg(f"    → Barriera: scudo 2 su chi attiva (inesatto ma giocabile)")
         else:
             victim.take_damage(1)
             self.log_msg(f"    → effetto generico: 1 danno")
@@ -615,31 +636,110 @@ class GameState:
             except Exception:
                 pass
 
-        # Effetti semplici basati sul nome (espandibile)
-        if "raggio solare" in name or "cura" in name or "linfa" in name:
+        # Ondata 1: effetti per nome (GDD)
+        if any(k in name for k in ("raggio solare", "linfa vitale", "cura")):
             if target_unit and target_unit.owner_id == player.id:
                 target_unit.heal(1)
                 self.log_msg(f"  → {target_unit.card.name} cura 1 HP")
-        elif "spark" in name or "dardo" in name or "giudizio" in name:
-            if target_unit and target_unit.owner_id != player.id:
-                dmg = 2 if "dardo" in name or "giudizio" in name else 1
-                target_unit.take_damage(dmg)
-                self.log_msg(f"  → {dmg} danni a {target_unit.card.name}")
-                if not target_unit.is_alive:
-                    self._destroy_unit(target_unit)
+            else:
+                self.log_msg("  → nessun alleato valido")
+        elif "benedizione minore" in name:
+            if target_unit and target_unit.owner_id == player.id:
+                target_unit.statuses.add("maxhp:1")
+                target_unit.heal(1)
+                self.log_msg(f"  → +1 HP max su {target_unit.card.name}")
+        elif "crescita rigogliosa" in name:
+            if target_unit and target_unit.owner_id == player.id:
+                target_unit.current_atk += 1
+                target_unit.statuses.add("maxhp:1")
+                target_unit.heal(1)
+                self.log_msg(f"  → +1/+1 permanente su {target_unit.card.name}")
         elif "preghiera" in name:
             player.mana += 1
-            self.log_msg(f"  → +1 mana temporaneo")
-        elif "scudo" in name or "fede" in name:
+            self.log_msg("  → +1 mana (turno corrente)")
+        elif "scudo" in name or "fede" in name or "aegis" in name:
             if target_unit and target_unit.owner_id == player.id:
-                target_unit.statuses.add("shield:2")
-                self.log_msg(f"  → Scudo 2 su {target_unit.card.name}")
-        elif "flash" in name:
+                val = 2 if "aegis" not in name else 99
+                if "aegis" in name:
+                    target_unit.statuses.add("invulnerable")
+                    self.log_msg(f"  → Invulnerabilità 1 turno su {target_unit.card.name}")
+                else:
+                    target_unit.statuses.add(f"shield:{val}")
+                    self.log_msg(f"  → Scudo {val} su {target_unit.card.name}")
+        elif "flash" in name or "tocco della fossa" in name:
             if target_unit and target_unit.owner_id != player.id:
                 target_unit.current_atk = max(0, target_unit.current_atk - 1)
-                self.log_msg(f"  → ATK di {target_unit.card.name} ridotto a {target_unit.current_atk}")
+                self.log_msg(f"  → ATK di {target_unit.card.name} → {target_unit.current_atk}")
+        elif any(k in name for k in ("spark", "dardo", "giudizio divino", "succhiasangue", "drenaggio")):
+            if target_unit and target_unit.owner_id != player.id:
+                dmg = 1
+                if "dardo" in name or "drenaggio" in name:
+                    dmg = 2
+                if "giudizio" in name:
+                    dmg = 2 if target_unit.has_fragment else 1
+                actual = target_unit.take_damage(dmg)
+                self.log_msg(f"  → {actual} danni a {target_unit.card.name}")
+                if "succhiasangue" in name and player.crown_unit:
+                    player.crown_unit.heal(1)
+                    self.log_msg("  → cura 1 al tuo Comandante")
+                if not target_unit.is_alive:
+                    self._destroy_unit(target_unit)
+            else:
+                self.log_msg("  → nessun nemico valido")
+        elif "esecuzione" in name:
+            if target_unit and target_unit.owner_id != player.id and target_unit.current_hp <= 2:
+                self.log_msg(f"  → Esecuzione: {target_unit.card.name} distrutto")
+                self._destroy_unit(target_unit)
+            else:
+                self.log_msg("  → bersaglio non valido (serve nemico con ≤2 HP)")
+        elif "congelamento" in name or "mente confusa" in name:
+            if target_unit and target_unit.owner_id != player.id:
+                target_unit.statuses.add("stun")
+                self.log_msg(f"  → {target_unit.card.name} non può agire 1 turno")
+        elif "carica frenetica" in name:
+            if target_unit and target_unit.owner_id == player.id:
+                target_unit.current_atk += 1
+                target_unit.take_damage(1)
+                self.log_msg(f"  → +1 ATK / -1 HP su {target_unit.card.name}")
+                if not target_unit.is_alive:
+                    self._destroy_unit(target_unit)
+        elif "ondata di furia" in name:
+            for u in self.board.get_units_of_player(player.id):
+                u.current_atk += 1
+            self.log_msg("  → +1 ATK a tutte le tue creature (turno)")
+        elif "forza gigantesca" in name:
+            if target_unit and target_unit.owner_id == player.id:
+                target_unit.current_atk += 3
+                target_unit.statuses.add("maxhp:3")
+                target_unit.heal(3)
+                self.log_msg(f"  → +3/+3 temporaneo-ish su {target_unit.card.name}")
+        elif "richiamo selvaggio" in name:
+            from .card import Card
+            from .constants import CardType, Color
+            wolf = Card(id=9126, name="Lupo 2/1", cost=0, card_type=CardType.MONSTER, color=Color.GREEN, atk=2, hp=1)
+            temple = [(4, 1), (4, 2), (4, 3)] if player.id == 0 else [(0, 1), (0, 2), (0, 3)]
+            placed = False
+            for r, c in temple:
+                if self.board.get_unit_at(r, c) is None and self.board.is_walkable(r, c):
+                    self.board.place_unit(Unit(wolf, player.id, r, c, 1, 2))
+                    self.log_msg(f"  → Lupo 2/1 evocato su {pos_to_coord(r, c)}")
+                    placed = True
+                    break
+            if not placed:
+                self.log_msg("  → spawn pieno, Richiamo fallito")
         else:
-            self.log_msg(f"  → effetto generico applicato")
+            # fallback utile: danno 1 a nemico o cura 1 alleato se c'è target
+            if target_unit:
+                if target_unit.owner_id != player.id:
+                    target_unit.take_damage(1)
+                    self.log_msg(f"  → effetto generico: 1 danno a {target_unit.card.name}")
+                    if not target_unit.is_alive:
+                        self._destroy_unit(target_unit)
+                else:
+                    target_unit.heal(1)
+                    self.log_msg(f"  → effetto generico: cura 1 a {target_unit.card.name}")
+            else:
+                self.log_msg("  → effetto generico (nessun target)")
         return True
 
     def summon_eldrazi(self, player_id: int, eldrazi_index: int, sacrifice_coords: List[str]) -> bool:

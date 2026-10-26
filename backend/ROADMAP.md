@@ -1,54 +1,49 @@
-# Roadmap Penumbra (aggiornata – v12)
+# Roadmap Penumbra (aggiornata – v13)
 
 ## Stato attuale
-**Completato: Fase 1 · Step 1.3 – Altare C3 (Evoluzione)**
+**Completato: Fase 1 · Step 1.4 – Effetti carte ondata 1**
 
-### Cosa introduce v12
-- Se una tua creatura **inizia il turno** su **C3 (Altare)**:
-  - prima volta: status `evolved`, **+1 ATK permanente**, **+1 HP**
-  - turni successivi sull’Altare: solo **+1 HP**
-- UI: ✦ sull’unità evoluta; casella vuota mostra **✦Altare**
-- API: `unit.evolved`, `cell.altar`
+### Cosa introduce v13
+Solo `core/game_state.py`.
 
-File modificati in questa cartella:
-- `core/game_state.py`
-- `api/main.py`
-- `static/index.html`
-- `ROADMAP.md`
+**Maledizioni (esempi):**
+- Cure / Linfa / Raggio Solare → +1 HP alleato
+- Benedizione Minore → +1 HP max
+- Crescita Rigogliosa → +1/+1
+- Preghiera → +1 mana
+- Scudo di Fede → shield 2; Aegis → invulnerabile (fino a inizio tuo turno)
+- Flash / Tocco Fossa → −1 ATK nemico
+- Spark / Dardo / Giudizio / Succhiasangue / Drenaggio → danni (con lifesteal su succhia)
+- Esecuzione → uccide nemico ≤2 HP
+- Congelamento / Mente Confusa → stun
+- Carica Frenetica → +1 ATK −1 HP
+- Ondata di Furia → +1 ATK a tutti i tuoi
+- Forza Gigantesca → +3 ATK e cura
+- Richiamo Selvaggio → Lupo 2/1 in zona Tempio
+- Fallback: 1 danno a nemico o cura 1 ad alleato se c’è target
+
+**Trappole:** spine/fosse, mine, incendiaria ad area, mana steal, stun/liana, ecc.
+
+**Stun:** blocca movimento; si rimuove a inizio turno del proprietario.
 
 ---
 
 ## Cronologia
 
-### Fase 0
-- [x] v9 baseline
-
-### Fase 1 – Regole in partita
+### Fase 1
 - [x] 1.1 Frammenti UI (v10)
 - [x] 1.2 Mostrissimi UI (v11)
-- [x] **1.3 Altare C3 (v12)** ← **sei qui**
-- [ ] **1.4 Effetti carte ondata 1** ← prossimo
-- [ ] 1.5 Mostro Neutrale attivo
+- [x] 1.3 Altare C3 (v12)
+- [x] **1.4 Effetti carte ondata 1 (v13)** ← **sei qui**
+- [ ] **1.5 Mostro Neutrale attivo** ← prossimo
 
-### Fase 2 – Draft
-- [ ] 2.1–2.3
-
-### Fase 3 – Mappa / quest
-- [ ] 3.1–3.3
-
-### Fase 4 – Multiplayer
-- [ ] 4.1–4.4
-
-### Fase 5 – IA
-- [ ] 5.1–5.3
-
-### Fase 6 – Prodotto
-- [ ] 6.1–6.5
+### Fase 2–6
+Invariate (draft, mappa, multiplayer, IA, prodotto).
 
 ---
 
 ## Deploy
-Sovrascrivi in `/backend` i tre path sopra, poi redeploy Render.
+Sovrascrivi:
+- `backend/core/game_state.py`
 
-## Come testare
-Muovi un’unità su C3, **Fine turno** fino a quando è di nuovo il tuo turno con quella unità ancora su C3 → log “Altare C3: … evolve” e ATK+1.
+Redeploy Render.
