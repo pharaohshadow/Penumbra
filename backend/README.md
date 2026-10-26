@@ -1,41 +1,36 @@
-# Penumbra – Tactical Card Game 5×5 (v6)
+# Penumbra – Tactical Card Game 5×5 (v7)
 
-Backend + IA + UI web su Render + **Supabase opzionale** (persistenza partite).
+UI web + IA + **partite multiple** + **base PvP** (host / join).
 
-## Online (già su Render)
+## Online
 
-Apri l’URL del Web Service. Funziona anche **senza** Supabase (stato in RAM).
+Dopo il redeploy su Render, apri l’URL del servizio.
 
-## Attivare Supabase (5 minuti)
+### Vs IA
+- **Nuova vs IA** → giochi contro l’AI (P0 in basso)
 
-1. Crea un progetto su [supabase.com](https://supabase.com)
-2. **SQL Editor** → incolla ed esegui `supabase/schema.sql`
-3. **Settings → API** → copia:
-   - Project URL → `SUPABASE_URL`
-   - `anon` `public` key → `SUPABASE_ANON_KEY`
-4. Su **Render** → il tuo Web Service → **Environment**:
-   - `SUPABASE_URL` = `https://xxxx.supabase.co`
-   - `SUPABASE_ANON_KEY` = la anon key
-5. **Manual Deploy** / restart del servizio
+### PvP (due umani, stessa istanza Render)
+1. Host: **Nuova PvP (host)** → copia il `game_id` mostrato
+2. Guest: **Unisciti** → incolla il `game_id`
+3. Host è P0 (basso), Guest è P1 (alto)
+4. A turno: mosse + **Fine turno** (niente IA)
 
-Da quel momento ogni nuova partita viene scritta nella tabella `games` e le mosse in `game_moves`.
+> Piano free Render: se il servizio va in sleep, le partite in RAM si perdono. Con Supabase le righe restano in DB (ripristino completo in una prossima versione).
 
-Nella risposta API vedi `"supabase": true` e `"game_id": "..."`.
+## API nuove / aggiornate
 
-## Deploy Render (riepilogo)
+| Metodo | Path | Body |
+|--------|------|------|
+| POST | `/api/new` | `{vs_ai, name}` |
+| POST | `/api/join` | `{game_id, name}` |
+| GET | `/api/state?game_id=` | |
+| POST | `/api/move` | `{game_id, from_coord, to_coord, player_id}` |
+| POST | `/api/play` | `{game_id, hand_index, target_coord?, player_id}` |
+| POST | `/api/end` | `{game_id, player_id}` |
+| GET | `/api/health` | |
 
-- Root Directory: `backend`
-- Build: `pip install -r requirements.txt`
-- Start: `uvicorn api.main:app --host 0.0.0.0 --port $PORT`
+## Deploy
 
-## File importanti
+Root Directory `backend` · Build `pip install -r requirements.txt` · Start `uvicorn api.main:app --host 0.0.0.0 --port $PORT`
 
-| Path | Ruolo |
-|------|--------|
-| `static/index.html` | UI |
-| `api/main.py` | FastAPI |
-| `api/supabase_store.py` | Persistenza REST |
-| `supabase/schema.sql` | Tabelle + RLS |
-| `.env.example` | Variabili d’ambiente |
-
-Vedi **`architettura.md`**.
+Vedi **architettura.md**.

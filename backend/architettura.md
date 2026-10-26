@@ -1,41 +1,23 @@
-# Architettura – Penumbra v6
+# Architettura – Penumbra v7
 
-## Stack
+## Novità v7
 
-| Layer | Tecnologia |
-|-------|------------|
-| Motore + IA | Python `core/`, `ai/` |
-| API + UI | FastAPI + `static/index.html` |
-| Hosting | Render |
-| DB (opzionale) | Supabase (Postgres + REST) |
-| Docs | GitHub Pages `/docs` |
+- Più partite in memoria: `game_id` (UUID)
+- `POST /api/new` con `vs_ai: true|false`
+- `POST /api/join` per secondo umano
+- UI: bottoni Nuova vs IA / Nuova PvP / Unisciti
+- Tutte le mosse richiedono `game_id` + `player_id`
 
-## Persistenza
+## Limiti attuali
 
-- Senza env Supabase → solo memoria processo (come v5)
-- Con `SUPABASE_URL` + `SUPABASE_ANON_KEY`:
-  - `create_game` a inizio partita
-  - `update_game` dopo ogni mossa / fine turno
-  - `log_move` su `game_moves`
-
-File: `api/supabase_store.py`  
-Schema: `supabase/schema.sql`
-
-## Flusso
-
-1. Browser → Render URL
-2. `GET /api/state` (crea partita se serve)
-3. Mosse → `_persist()`
-4. `POST /api/end` → IA → `_persist()`
-
-## Sicurezza attuale
-
-RLS aperta in anon per prototipo. Prima di PvP pubblico: auth Supabase + policy per `user_id`.
+- Stato partita in RAM sul dyno Render (perso a sleep/restart)
+- PvP solo se entrambi sono sulla stessa istanza attiva
+- Supabase salva snapshot ma non ancora reload completo all’avvio
 
 ## Prossimi passi
 
-1. Auth + due giocatori umani sulla stessa `game_id`
-2. Realtime Supabase (subscription su `games`)
-3. Ripristino stato da `state_json` dopo sleep Render
+1. Reload partita da Supabase `state_json` via `game_id`
+2. Polling o Realtime per aggiornare la UI del guest senza refresh
+3. Auth Supabase
 
-**Versione: v6**
+**Versione: v7**
