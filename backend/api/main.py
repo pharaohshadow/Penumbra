@@ -24,7 +24,7 @@ from ai.basic_ai import BasicAI
 from api import supabase_store
 from api.restore import hydrate
 
-app = FastAPI(title="Penumbra Tactical Card Game", version="0.10")
+app = FastAPI(title="Penumbra Tactical Card Game", version="0.20")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -99,6 +99,8 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
         for c in range(5):
             tile = gs.board.get_tile(r, c)
             unit = gs.board.get_unit_at(r, c)
+            # Snapshot tile ricco (v20 / step 3.3): salva tutti i campi persistenti del Tile
+            # senza rompere i client che leggono solo i campi vecchi.
             cell = {
                 "coord": pos_to_coord(r, c),
                 "tile": tile.tile_type.value if tile else "Vuoto",
@@ -106,6 +108,11 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
                 "trap": tile.trap_card_id is not None if tile else False,
                 "ritual": bool(tile and tile.is_ritual),
                 "altar": bool(tile and tile.tile_type.value == "Altare"),
+                # campi ricchi (nuovi, backward-compatible)
+                "permanent_effect": tile.permanent_effect if tile else None,
+                "trap_card_id": tile.trap_card_id if tile else None,
+                "wall_hp": int(tile.wall_hp) if tile else 0,
+                "owner_id": tile.owner_id if tile else None,
                 "unit": None,
             }
             if unit:
@@ -265,7 +272,7 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "version": "0.10", "games_in_memory": len(_games), "supabase": supabase_store.enabled()}
+    return {"ok": True, "version": "0.20", "games_in_memory": len(_games), "supabase": supabase_store.enabled()}
 
 
 @app.post("/api/new")

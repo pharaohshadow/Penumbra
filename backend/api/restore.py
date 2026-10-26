@@ -68,6 +68,43 @@ def hydrate(snapshot: Dict[str, Any]) -> Optional[GameState]:
             hand.append(card)
         p.hand = hand
 
+    # --- Tile ricchi (step 3.3 / v20) ---
+    # Il costruttore di Board applica il layout fisso. Qui sovrascriviamo
+    # solo i campi che possono cambiare durante la partita (explored,
+    # tile_type dopo eventi, permanent_effect, trap, wall_hp, owner_id).
+    # Snapshot vecchi senza i nuovi campi restano compatibili.
+    _value_to_tiletype = {t.value: t for t in TileType}
+    for row in snapshot.get("board") or []:
+        for cell in row:
+            coord = cell.get("coord")
+            if not coord:
+                continue
+            try:
+                r, c = coord_to_pos(coord)
+            except Exception:
+                continue
+            tile = gs.board.get_tile(r, c)
+            if not tile:
+                continue
+            # tipo tile (se presente e valido)
+            tname = cell.get("tile")
+            if tname and tname in _value_to_tiletype:
+                tile.tile_type = _value_to_tiletype[tname]
+            if "explored" in cell:
+                tile.explored = bool(cell.get("explored"))
+            # campi ricchi (opzionali: assenti su snapshot pre-v20)
+            if "permanent_effect" in cell:
+                tile.permanent_effect = cell.get("permanent_effect")
+            if "trap_card_id" in cell:
+                tile.trap_card_id = cell.get("trap_card_id")
+            if "wall_hp" in cell and cell.get("wall_hp") is not None:
+                try:
+                    tile.wall_hp = int(cell.get("wall_hp") or 0)
+                except (TypeError, ValueError):
+                    tile.wall_hp = 0
+            if "owner_id" in cell:
+                tile.owner_id = cell.get("owner_id")
+
     # Units on board
     for row in snapshot.get("board") or []:
         for cell in row:
