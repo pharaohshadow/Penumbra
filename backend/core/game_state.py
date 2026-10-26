@@ -62,7 +62,7 @@ class GameState:
         """6 bustine da 3 carte (18 carte) → 9 pick a testa + 1 Boss."""
         self.phase = Phase.DRAFT
         db = get_card_db()
-        draftable = db.get_draftable()
+        draftable = db.get_draftable_with_yellow()
         random.shuffle(draftable)
         n = min(18, len(draftable) - (len(draftable) % 3))
         cards = draftable[:n] if n >= 3 else draftable
@@ -225,6 +225,7 @@ class GameState:
                 unit.statuses.discard("invulnerable")
             unit.moved_this_turn = False
             unit.can_attack_this_turn = True
+            unit.summoning_sickness = False  # scade a inizio del tuo turno
             tile = self.board.get_tile(unit.row, unit.col)
             if not tile:
                 continue
@@ -305,6 +306,40 @@ class GameState:
                 self.log_msg(f"    Verde → cura 1 a {a.card.name}")
             else:
                 self.log_msg("    Verde → nessun alleato")
+        elif main == Color.YELLOW:
+            # Giallo: ogni turno un effetto a caso tra i 5 colori
+            pick = random.choice([
+                Color.WHITE, Color.BLUE, Color.RED, Color.BLACK, Color.GREEN
+            ])
+            self.log_msg(f"    Giallo → effetto casuale ({pick.value})")
+            if pick == Color.WHITE:
+                crown.heal(1)
+                self.log_msg(f"      cura Corona 1 (HP {crown.current_hp})")
+            elif pick == Color.BLUE:
+                if player.mana < player.mana_max:
+                    player.mana += 1
+                    self.log_msg(f"      +1 mana (ora {player.mana})")
+            elif pick == Color.RED:
+                if "corona_rage" not in crown.statuses:
+                    crown.current_atk += 1
+                    crown.statuses.add("corona_rage")
+                    self.log_msg(f"      Corona +1 ATK (ora {crown.current_atk})")
+            elif pick == Color.BLACK:
+                enemies = [u for u in self.board.get_units_of_player(1 - player.id) if u.is_alive]
+                if enemies:
+                    enemies.sort(key=lambda u: u.current_hp)
+                    t = enemies[0]
+                    t.take_damage(1)
+                    self.log_msg(f"      1 danno a {t.card.name}")
+                    if not t.is_alive:
+                        self._destroy_unit(t)
+            else:
+                allies = [u for u in self.board.get_units_of_player(player.id) if u.is_alive]
+                if allies:
+                    allies.sort(key=lambda u: u.current_hp)
+                    a = allies[0]
+                    a.heal(1)
+                    self.log_msg(f"      cura 1 a {a.card.name}")
         else:
             self.log_msg(f"    {main.value} → nessun effetto speciale")
 
@@ -352,19 +387,19 @@ class GameState:
         self.log_msg(f"Mostro Neutrale {atk}/{hp} appare su {unit.coord}")
 
     def _activate_neutrals(self):
-        """Ogni Neutrale si muove di 1 passo diagonale verso il bersaglio più vicino e attacca se adiacente."""
+        """Ogni Neutrale si muove di 1 passo (re) verso il bersaglio più vicino e attacca se adiacente."""
         neutrals = [u for u in list(self.board.units.values()) if u.owner_id == -1 and u.is_alive]
         if not neutrals:
             return
         for neu in neutrals:
-            # Bersaglio: creatura non neutrale più vicina (manhattan-ish su diagonali)
+            # Bersaglio: creatura non neutrale più vicina
             targets = [u for u in self.board.units.values() if u.owner_id != -1 and u.is_alive]
             if not targets:
                 continue
             targets.sort(key=lambda t: abs(t.row - neu.row) + abs(t.col - neu.col))
             prey = targets[0]
-            # Se già adiacente in diagonale → combatti (First Strike neutrale)
-            if abs(prey.row - neu.row) == 1 and abs(prey.col - neu.col) == 1:
+            # Se già adiacente (re: max 1 in riga e colonna, non stessa casella) → combatti
+            if max(abs(prey.row - neu.row), abs(prey.col - neu.col)) == 1:
                 self.log_msg(f"Neutrale attacca {prey.card.name} su {prey.coord}")
                 # Combattimento semplificato senza spendere mana
                 dmg = neu.current_atk
@@ -380,10 +415,10 @@ class GameState:
                 if not neu.is_alive:
                     self._destroy_unit(neu)
                 continue
-            # Altrimenti muovi 1 passo diagonale verso la preda
+            # Altrimenti muovi 1 passo (re) verso la preda
             best = None
             best_score = 999
-            for nr, nc in self.board.get_adjacent_diagonal(neu.row, neu.col):
+            for nr, nc in self.board.get_adjacent(neu.row, neu.col):
                 if self.board.get_unit_at(nr, nc) is not None:
                     continue
                 score = abs(nr - prey.row) + abs(nc - prey.col)
@@ -427,17 +462,26 @@ class GameState:
             return False
         if unit.moved_this_turn and not unit.has_keyword("DoubleMove"):
             return False
-        # Solo diagonale di 1
+        # Movimento re degli scacchi: 1 passo in qualsiasi delle 8 direzioni
         dr = abs(target_row - unit.row)
         dc = abs(target_col - unit.col)
-        if not (dr == 1 and dc == 1):
-            self.log_msg("Movimento non diagonale di 1 passo.")
+        if not (max(dr, dc) == 1 and (dr + dc) >= 1):
+            self.log_msg("Movimento non valido: serve 1 passo adiacente (come il re degli scacchi).")
             return False
         if not self.players[unit.owner_id].can_afford(1):
             self.log_msg("Mana insufficiente.")
             return False
 
         target_unit = self.board.get_unit_at(target_row, target_col)
+        if target_unit is not None:
+            # Non si attaccano gli alleati
+            if target_unit.owner_id == unit.owner_id:
+                self.log_msg("Non puoi attaccare una creatura alleata.")
+                return False
+            # Neutrale o nemico: serve poter attaccare
+            if unit.summoning_sickness or not unit.can_attack_this_turn:
+                self.log_msg(f"{unit.card.name} non può attaccare in questo turno.")
+                return False
         if target_unit is None:
             # Muro d'Illusione: attacca il muro invece di entrare
             dest = self.board.get_tile(target_row, target_col)

@@ -1,35 +1,31 @@
-# Penumbra – Consegna v19 (frontend + login)
+# Penumbra – Consegna v25 (step 5.4 – primi fix regole)
 
-Collegamento del frontend al login Supabase: il gioco manda sempre il token.
+Correzioni automatiche trovate nel motore di gioco (senza elenco da parte tua).
 
-**Sito in costruzione.** Scelta A confermata.
+**Nessuna modifica manuale richiesta.**
 
-## Cosa è stato fatto (in parole semplici)
+## Cosa è stato sistemato
 
-Prima il gioco funzionava senza login.  
-Ora:
-1. Appare una schermata di **accedi / registrati**
-2. Solo dopo il login si può creare partite e giocare
-3. Ogni richiesta al server porta con sé il token dell’utente loggato
+1. **Malattia da evocazione**  
+   Le creature appena evocate non dovevano attaccare subito (salvo parole chiave speciali).  
+   Ora la limitazione vale davvero e **scade all’inizio del turno successivo**.
 
-## Cosa devi fare tu
+2. **Fuoco amico**  
+   Non si può più “attaccare” (muovere su) una creatura **alleata**.
 
-1. Carica il file `backend/static/index.html` di questa cartella nella repo (sostituisci quello esistente).
-2. URL e chiave Supabase sono **già inseriti**.
+3. **Attacco nel turno sbagliato**  
+   Se una creatura non può attaccare in questo turno, non può entrare in combattimento.
 
-## File di questa consegna
+## File da sostituire
 
-| File | Cosa fare |
-|------|-----------|
-| `backend/static/index.html` | **Sostituisci** quello esistente |
+| File | Azione |
+|------|--------|
+| `backend/core/game_state.py` | Sostituisci |
+| `ROADMAP.md` | Sostituisci |
+| `architettura.md` | Sostituisci |
+| `istruzioni_per_IA.md` | Sostituisci |
 | `README.md` | Questo handoff |
 
-## Come si usa dopo
+## Ancora utile da te
 
-1. Apri il sito
-2. Registrati (o accedi) con email e password
-3. Poi puoi creare partite vs IA o PvP e giocare normalmente
-
-## Nota
-
-Gli utenti di test si possono creare anche dalla dashboard Supabase (Authentication → Users), se preferisci non usare la registrazione dalla pagina.
+Se noti altre regole sbagliate (carte, draft, corona, mana, vittoria…), elencale e le sistemiamo nel prossimo giro.

@@ -1,11 +1,7 @@
-# Architettura – 4.2 completa
+# Architettura – v25
 
-- Health e static pubblici
-- Tutto il resto gioco richiede JWT
-- Membership: solo player0_uid e player1_uid possono agire
-- Partite senza uid → 403 (scelta A)
-- `/api/new` → crea e assegna player0
-- `/api/join` → unisce e assegna player1 (solo PvP)
-- Store Supabase salva ownership
-- No spectator, no legacy open
-- Contesto: sito in costruzione
+- Movimento: re degli scacchi
+- Combattimento: solo su casella adiacente occupata da nemico/neutrale
+- Niente attacco ad alleati
+- Summoning sickness: no attacco nel turno di evocazione; scade a inizio turno successivo
+- Home + Giallo come in 5.2 / 5.3

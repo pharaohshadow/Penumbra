@@ -26,6 +26,7 @@ class Color(Enum):
     RED = "Rosso"
     BLACK = "Nero"
     GREEN = "Verde"
+    YELLOW = "Giallo"  # Meta: carte random dagli altri 5, bordo giallo in UI
     GRAY = "Grigio"  # Eldrazzi / Neutrali
 
 class CardType(Enum):
@@ -71,11 +72,15 @@ class Phase(Enum):
     GAME_OVER = auto()
 
 class Direction(Enum):
-    """Direzioni diagonali (movimento base)"""
-    NE = (-1, 1)   # Nord-Est
-    NW = (-1, -1)  # Nord-Ovest
-    SE = (1, 1)    # Sud-Est
-    SW = (1, -1)   # Sud-Ovest
+    """Direzioni movimento base (re degli scacchi: 8 caselle adiacenti)"""
+    N  = (-1, 0)
+    S  = (1, 0)
+    E  = (0, 1)
+    W  = (0, -1)
+    NE = (-1, 1)
+    NW = (-1, -1)
+    SE = (1, 1)
+    SW = (1, -1)
 
 # Mana
 MANA_CAP = 6

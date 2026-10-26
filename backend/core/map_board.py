@@ -121,14 +121,18 @@ class Board:
         self.units[(new_row, new_col)] = unit
         return True
 
-    def get_adjacent_diagonal(self, row: int, col: int) -> List[Tuple[int, int]]:
-        """Caselle raggiungibili con 1 passo diagonale."""
+    def get_adjacent(self, row: int, col: int) -> List[Tuple[int, int]]:
+        """Caselle raggiungibili con 1 passo come il re degli scacchi (8 direzioni)."""
         result = []
         for d in Direction:
             nr, nc = row + d.value[0], col + d.value[1]
             if self.is_valid_pos(nr, nc) and self.is_walkable(nr, nc):
                 result.append((nr, nc))
         return result
+
+    def get_adjacent_diagonal(self, row: int, col: int) -> List[Tuple[int, int]]:
+        """Compatibilità: ora equivale a get_adjacent (movimento re)."""
+        return self.get_adjacent(row, col)
 
     def get_units_of_player(self, owner_id: int) -> List[Unit]:
         return [u for u in self.units.values() if u.owner_id == owner_id]

@@ -71,6 +71,39 @@ class CardDatabase:
             result.append(c)
         return result
 
+
+    def make_yellow_proxy(self, source: Card, new_id: int) -> Card:
+        """Copia una carta di un altro colore come Giallo (stessi stats, bordo giallo in UI)."""
+        return Card(
+            id=new_id,
+            name=source.name,
+            cost=source.cost,
+            card_type=source.card_type,
+            color=Color.YELLOW,
+            atk=source.atk,
+            hp=source.hp,
+            text=(source.text or "") + " [Giallo]",
+            keywords=list(source.keywords or []),
+            is_boss=source.is_boss,
+            is_eldrazi=source.is_eldrazi,
+            sacrifice_cost=getattr(source, "sacrifice_cost", 0) or 0,
+        )
+
+    def get_draftable_with_yellow(self, yellow_ratio: float = 0.15) -> List[Card]:
+        """Pool draft: carte normali + alcune versioni Giallo (random dagli altri 5 colori)."""
+        import random
+        base = self.get_draftable()
+        five = [c for c in base if c.color in (Color.WHITE, Color.BLUE, Color.RED, Color.BLACK, Color.GREEN)]
+        if not five:
+            return base
+        n_yellow = max(1, int(len(base) * yellow_ratio))
+        out = list(base)
+        for i in range(n_yellow):
+            src = random.choice(five)
+            out.append(self.make_yellow_proxy(src, 70000 + i + src.id * 10))
+        random.shuffle(out)
+        return out
+
     def _load_all(self):
         """Carica l'intero database dal GDD (estratto completo)."""
         # ========== BIANCO ==========

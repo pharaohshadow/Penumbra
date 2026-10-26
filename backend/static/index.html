@@ -42,6 +42,14 @@
     #gameRoot { display: none; }
     #authGate.hidden { display: none; }
     #gameRoot.visible { display: block; }
+    #homeScreen { display: none; max-width: 520px; margin: 40px auto; }
+    #homeScreen.visible { display: block; }
+    #homeScreen.hidden { display: none; }
+    .mode-grid { display: grid; gap: 10px; margin-top: 16px; }
+    .mode-btn { text-align: left; padding: 14px 16px; font-size: 1rem; }
+    .mode-btn .sub { display: block; font-size: 0.8rem; font-weight: 400; color: var(--muted); margin-top: 4px; }
+    .mode-btn:disabled { opacity: 0.45; }
+    .mode-btn.active-mode { border: 1px solid var(--accent); }
   </style>
 </head>
 <body>
@@ -62,6 +70,40 @@
     <p style="font-size:0.75rem;color:var(--muted);margin-top:16px">
       Se vedi un errore sulle chiavi Supabase, apri questo file e inserisci URL e anon key del tuo progetto (vedi README v19).
     </p>
+  </div>
+
+
+  <!-- ============ HOME MODALITÀ ============ -->
+  <div id="homeScreen" class="panel">
+    <h1>Penumbra</h1>
+    <p style="color:var(--muted);font-size:0.9rem;margin:0 0 8px">Scegli una modalità</p>
+    <div id="homeUser" style="font-size:0.85rem;color:var(--muted);margin-bottom:8px"></div>
+    <div class="mode-grid">
+      <button class="mode-btn active-mode" id="modeBase">
+        Partita base
+        <span class="sub">Partita classica vs IA — regole complete</span>
+      </button>
+      <button class="mode-btn" id="modeTutorial" disabled>
+        Tutorial
+        <span class="sub">In arrivo</span>
+      </button>
+      <button class="mode-btn" id="modePvp" disabled>
+        PvP
+        <span class="sub">In arrivo</span>
+      </button>
+      <button class="mode-btn" id="modeStoria" disabled>
+        Storia
+        <span class="sub">In arrivo</span>
+      </button>
+      <button class="mode-btn" id="modeEndless" disabled>
+        Endless
+        <span class="sub">In arrivo</span>
+      </button>
+    </div>
+    <div class="actions" style="margin-top:16px">
+      <button class="secondary" id="btnHomeLogout">Esci</button>
+    </div>
+    <div class="msg" id="homeMsg"></div>
   </div>
 
   <!-- ============ GIOCO ============ -->
@@ -103,7 +145,7 @@
         <div class="hand" id="hand"></div>
         <div id="eldrazi" style="font-size:0.8rem;margin-top:8px"></div>
         <p style="font-size:0.75rem;color:var(--muted);margin-top:12px">
-          Click unità → casella diagonale = muovi/attacca.<br/>
+          Click unità → casella adiacente (come il re degli scacchi) = muovi/attacca.<br/>
           Click carta Mostro = evoca. Trappola/Maledizione = poi click casella.<br/>
           PvP: host crea partita, condivide game_id, l’altro usa Unisciti.<br/>
           Mostrissimi: click sul pool → seleziona sacrifici (✧ = Rituale) → Conferma.
@@ -133,18 +175,31 @@
     function setAuthMsg(t) { document.getElementById("authMsg").textContent = t || ""; }
     function setMsg(t) { document.getElementById("msg").textContent = t || ""; }
 
-    function showGame(email) {
-      document.getElementById("authGate").classList.add("hidden");
-      document.getElementById("gameRoot").classList.add("visible");
-      document.getElementById("userEmail").textContent = email || "utente";
-    }
-
     function showLogin() {
       document.getElementById("authGate").classList.remove("hidden");
+      document.getElementById("homeScreen").classList.remove("visible");
+      document.getElementById("homeScreen").classList.add("hidden");
       document.getElementById("gameRoot").classList.remove("visible");
       accessToken = null;
       state = null;
       if (pollTimer) clearInterval(pollTimer);
+    }
+
+    function showHome(email) {
+      document.getElementById("authGate").classList.add("hidden");
+      document.getElementById("gameRoot").classList.remove("visible");
+      document.getElementById("homeScreen").classList.remove("hidden");
+      document.getElementById("homeScreen").classList.add("visible");
+      document.getElementById("homeUser").textContent = "Loggato come " + (email || "utente");
+      document.getElementById("homeMsg").textContent = "";
+    }
+
+    function showGame(email) {
+      document.getElementById("authGate").classList.add("hidden");
+      document.getElementById("homeScreen").classList.remove("visible");
+      document.getElementById("homeScreen").classList.add("hidden");
+      document.getElementById("gameRoot").classList.add("visible");
+      document.getElementById("userEmail").textContent = email || "utente";
     }
 
     async function api(path, method = "GET", body = null) {
@@ -201,6 +256,48 @@
       showLogin();
     };
 
+    document.getElementById("btnHomeLogout").onclick = async () => {
+      await sb.auth.signOut();
+      showLogin();
+    };
+
+    document.getElementById("modeBase").onclick = async () => {
+      showGame(document.getElementById("homeUser").textContent.replace("Loggato come ", ""));
+      try {
+        playerId = 0;
+        localStorage.setItem("penumbra_player_id", "0");
+        state = await api("/api/new", "POST", { vs_ai: true, name: "Tu" });
+        selectedCoord = null; selectedCard = null;
+        render();
+        setMsg("Partita base vs IA");
+        startPolling();
+      } catch (e) {
+        setMsg(e.message);
+      }
+    };
+
+    function placeholderMode(name) {
+      document.getElementById("homeMsg").textContent = name + " — in arrivo. Per ora è disponibile solo Partita base.";
+    }
+    document.getElementById("modeTutorial").onclick = () => placeholderMode("Tutorial");
+    document.getElementById("modePvp").onclick = () => placeholderMode("PvP");
+    document.getElementById("modeStoria").onclick = () => placeholderMode("Storia");
+    document.getElementById("modeEndless").onclick = () => placeholderMode("Endless");
+
+    // Torna alla home dalla partita (riusa logout bar: aggiungiamo bottone se manca)
+    const backBtn = document.createElement("button");
+    backBtn.className = "secondary";
+    backBtn.id = "btnBackHome";
+    backBtn.style.cssText = "padding:4px 10px;font-size:0.8rem";
+    backBtn.textContent = "Home";
+    backBtn.onclick = () => {
+      if (pollTimer) clearInterval(pollTimer);
+      state = null;
+      const email = document.getElementById("userEmail").textContent;
+      showHome(email);
+    };
+    document.getElementById("authUserBar").appendChild(backBtn);
+
     // ---- Render / game (stessa logica di prima) ----
     function render() {
       if (!state) return;
@@ -219,11 +316,11 @@
         packEl.innerHTML = "";
         (d.pack || []).forEach(card => {
           const el = document.createElement("div");
-          el.className = "card";
+          el.className = "card" + ((card.color === "Giallo") ? " giallo" : "");
           el.style.minHeight = "88px";
           if (myPick) {
             el.style.cursor = "pointer";
-            el.style.borderColor = "var(--accent)";
+            if (card.color !== "Giallo") el.style.borderColor = "var(--accent)";
           } else {
             el.style.opacity = "0.55";
             el.style.cursor = "default";
@@ -306,9 +403,10 @@
       handEl.innerHTML = "";
       (p.hand || []).forEach(card => {
         const d = document.createElement("div");
-        d.className = "card" + (selectedCard === card.index ? " selected" : "");
+        const isY = (card.color === "Giallo");
+        d.className = "card" + (selectedCard === card.index ? " selected" : "") + (isY ? " giallo" : "");
         d.innerHTML = `<span class="cost">${card.cost}</span><strong>${card.name}</strong>
-          <div style="color:var(--muted)">${card.type}${card.atk || card.hp ? ` ${card.atk}/${card.hp}` : ""}</div>`;
+          <div style="color:var(--muted)">${isY ? "Giallo · " : ""}${card.type}${card.atk || card.hp ? ` ${card.atk}/${card.hp}` : ""}</div>`;
         d.onclick = () => onCardClick(card.index, card.type);
         handEl.appendChild(d);
       });
@@ -519,8 +617,7 @@
       const { data } = await sb.auth.getSession();
       if (data.session) {
         accessToken = data.session.access_token;
-        showGame(data.session.user.email);
-        await loadGame();
+        showHome(data.session.user.email);
       }
       sb.auth.onAuthStateChange((event, session) => {
         if (session) {

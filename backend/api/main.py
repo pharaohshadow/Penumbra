@@ -141,6 +141,7 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
                     "name": c.name,
                     "cost": c.cost,
                     "type": c.card_type.value,
+                    "color": c.color.value,
                     "atk": c.atk,
                     "hp": c.hp,
                     "text": (c.text or "")[:80],

@@ -131,10 +131,10 @@ class BasicAI:
         enemy_crown = self.game.players[1 - self.pid].crown_unit
         my_crown = p.crown_unit
 
-        # Priorità: attaccare corona nemica se adiacente in diagonale
+        # Priorità: attaccare corona nemica se adiacente (re)
         for u in units:
             if enemy_crown and enemy_crown.is_alive:
-                if self._is_diagonal_adjacent(u, enemy_crown.row, enemy_crown.col):
+                if self._is_adjacent(u, enemy_crown.row, enemy_crown.col):
                     if self.game.try_move(u, enemy_crown.row, enemy_crown.col):
                         return True
 
@@ -158,21 +158,27 @@ class BasicAI:
 
         return False
 
-    def _is_diagonal_adjacent(self, unit: Unit, row: int, col: int) -> bool:
-        return abs(unit.row - row) == 1 and abs(unit.col - col) == 1
+    def _is_adjacent(self, unit: Unit, row: int, col: int) -> bool:
+        """Adiacenza tipo re degli scacchi (8 caselle)."""
+        dr = abs(unit.row - row)
+        dc = abs(unit.col - col)
+        return max(dr, dc) == 1
 
     def _enemies_adjacent(self, unit: Unit) -> List[Unit]:
         result = []
-        for dr, dc in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
-            nr, nc = unit.row + dr, unit.col + dc
-            other = self.game.board.get_unit_at(nr, nc)
-            if other and other.owner_id == (1 - self.pid) and other.is_alive:
-                result.append(other)
+        for dr in (-1, 0, 1):
+            for dc in (-1, 0, 1):
+                if dr == 0 and dc == 0:
+                    continue
+                nr, nc = unit.row + dr, unit.col + dc
+                other = self.game.board.get_unit_at(nr, nc)
+                if other and other.owner_id == (1 - self.pid) and other.is_alive:
+                    result.append(other)
         return result
 
     def _choose_move_target(self, unit: Unit, enemy_crown: Optional[Unit]) -> Optional[Tuple[int, int]]:
-        """Sceglie una casella diagonale libera verso un obiettivo interessante."""
-        candidates = self.game.board.get_adjacent_diagonal(unit.row, unit.col)
+        """Sceglie una casella adiacente libera verso un obiettivo interessante."""
+        candidates = self.game.board.get_adjacent(unit.row, unit.col)
         if not candidates:
             return None
 
@@ -192,7 +198,7 @@ class BasicAI:
                 # P1 vuole scendere → aumentare row
             else:
                 s -= r * 0.3
-            # Evita caselle già occupate (già filtrate da get_adjacent_diagonal walkable)
+            # Evita caselle già occupate (già filtrate da get_adjacent walkable)
             return s
 
         candidates.sort(key=score, reverse=True)
