@@ -10,7 +10,7 @@ from .player import Player
 from .unit import Unit
 from .card import Card, get_card_db
 from .constants import (
-    Phase, TileType, Direction, MANA_CAP, ALTAR_POS,
+    Phase, TileType, Direction, MANA_CAP, ALTAR_POS, Color,
     pos_to_coord, coord_to_pos, Color
 )
 
@@ -59,26 +59,62 @@ class GameState:
         random.shuffle(self.event_deck)
 
     def start_draft(self):
-        """Prepara le 3 bustine e avvia lo snake draft (implementazione base)."""
+        """6 bustine da 3 carte (18 carte) → 9 pick a testa + 1 Boss."""
         self.phase = Phase.DRAFT
         db = get_card_db()
         draftable = db.get_draftable()
         random.shuffle(draftable)
-
-        # 3 bustine da 3 carte
-        packs = [draftable[i*3:(i+1)*3] for i in range(3)]
+        n = min(18, len(draftable) - (len(draftable) % 3))
+        cards = draftable[:n] if n >= 3 else draftable
+        packs = [cards[i:i+3] for i in range(0, len(cards), 3)]
+        if not packs:
+            packs = [draftable[:3]]
         self._draft_packs = packs
         self._draft_picks: Dict[int, List[Card]] = {0: [], 1: []}
+        self._draft_picker = 0  # chi deve scegliere ora
         self.log_msg("=== FASE DI DRAFT ===")
-        self.log_msg("3 bustine pronte. Inizia lo snake draft.")
+        self.log_msg(f"{len(packs)} bustine pronte. Snake draft: inizia P0.")
 
     def get_current_pack(self) -> List[Card]:
         if not hasattr(self, "_draft_packs") or not self._draft_packs:
             return []
         return self._draft_packs[0]
 
+    def get_draft_state(self) -> dict:
+        pack = self.get_current_pack()
+        return {
+            "active": self.phase == Phase.DRAFT,
+            "picker": getattr(self, "_draft_picker", 0),
+            "pack_index": 0,
+            "packs_left": len(getattr(self, "_draft_packs", []) or []),
+            "pack": [
+                {
+                    "index": i,
+                    "id": c.id,
+                    "name": c.name,
+                    "cost": c.cost,
+                    "type": c.card_type.value,
+                    "atk": c.atk,
+                    "hp": c.hp,
+                    "color": c.color.value,
+                    "text": (c.text or "")[:100],
+                }
+                for i, c in enumerate(pack)
+            ],
+            "picks": {
+                "0": [c.name for c in self._draft_picks.get(0, [])],
+                "1": [c.name for c in self._draft_picks.get(1, [])],
+            },
+        }
+
     def draft_pick(self, player_id: int, card_index: int) -> bool:
-        """Il giocatore sceglie una carta dalla bustina corrente."""
+        """Il giocatore corrente sceglie una carta dalla bustina."""
+        if self.phase != Phase.DRAFT:
+            return False
+        picker = getattr(self, "_draft_picker", 0)
+        if player_id != picker:
+            self.log_msg(f"Non è il turno di draft di P{player_id} (tocca a P{picker})")
+            return False
         pack = self.get_current_pack()
         if not pack or card_index < 0 or card_index >= len(pack):
             return False
@@ -87,20 +123,43 @@ class GameState:
         self.players[player_id].colors.add(card.color)
         self.log_msg(f"P{player_id} ha scelto: {card}")
 
-        # Se la bustina è vuota, passa alla prossima
         if not pack:
             self._draft_packs.pop(0)
             if self._draft_packs:
-                self.log_msg(f"Nuova bustina rivelata ({len(self._draft_packs[0])} carte)")
+                self.log_msg(f"Nuova bustina ({len(self._draft_packs[0])} carte)")
             else:
                 self._finish_draft()
+                return True
+
+        # Snake: alterna il picker
+        self._draft_picker = 1 - picker
+        # Se il prossimo è IA, sceglie automaticamente
+        self._draft_ai_if_needed()
         return True
+
+    def _draft_ai_if_needed(self):
+        """Finché tocca all'IA e siamo in DRAFT, pick random."""
+        safety = 0
+        while self.phase == Phase.DRAFT and safety < 30:
+            safety += 1
+            picker = getattr(self, "_draft_picker", 0)
+            if not self.players[picker].is_ai:
+                break
+            pack = self.get_current_pack()
+            if not pack:
+                break
+            # preferisci mostri a basso costo
+            best = 0
+            for i, c in enumerate(pack):
+                if c.card_type.value == "Mostro" and c.cost <= 2:
+                    best = i
+                    break
+            self.draft_pick(picker, best)
 
     def _finish_draft(self):
         db = get_card_db()
         for pid in (0, 1):
-            picks = self._draft_picks[pid]
-            # Aggiungi un Boss garantito del colore più presente (o random)
+            picks = list(self._draft_picks.get(pid, []))
             color_count = {}
             for c in picks:
                 color_count[c.color] = color_count.get(c.color, 0) + 1
@@ -113,7 +172,13 @@ class GameState:
             self.players[pid].hand = picks
             self.log_msg(f"P{pid} mano finale ({len(picks)} carte) + Boss: {boss.name}")
         self.phase = Phase.SETUP
-        self.log_msg("Draft completato. Preparazione campo...")
+        self.log_msg("Draft completato. Inizio partita.")
+        self.current_player_id = 0
+        self.turn = 1
+        self.start_turn()
+        units = self.board.get_units_of_player(0)
+        if units:
+            self.players[0].place_fragment(units[0])
 
     # ------------------------------------------------------------------
     # Turno
@@ -137,9 +202,13 @@ class GameState:
 
         # Mostro Neutrale
         self._spawn_neutral()
+        # I neutrali già in campo agiscono (movimento / attacco)
+        self._activate_neutrals()
 
         # Effetti a inizio turno (Santuario, Fenditura, Growth, ecc.)
         self._apply_start_of_turn_effects(p)
+        # Passiva Corona in base ai colori del grimorio
+        self._apply_crown_color_passive(p)
 
         # Verifica Main Quest
         if self.main_quest:
@@ -187,6 +256,58 @@ class GameState:
                     unit.heal(1)
                     self.log_msg(f"  ✦ Altare C3: {unit.card.name} già evoluta, +1 HP")
 
+    def _apply_crown_color_passive(self, player: Player):
+        """Passiva della Corona: effetto del colore dominante in mano."""
+        if not player.crown_unit or not player.crown_unit.is_alive:
+            return
+        counts = {}
+        for c in player.hand:
+            counts[c.color] = counts.get(c.color, 0) + 1
+        if not counts:
+            return
+        main = max(counts, key=counts.get)
+        crown = player.crown_unit
+        self.log_msg(f"  Corona ({main.value}): passiva colore")
+
+        if main == Color.WHITE:
+            crown.heal(1)
+            self.log_msg(f"    Bianco → Corona cura 1 (HP {crown.current_hp})")
+        elif main == Color.BLUE:
+            if player.mana < player.mana_max:
+                player.mana += 1
+                self.log_msg(f"    Blu → +1 mana (ora {player.mana})")
+            else:
+                self.log_msg("    Blu → mana già al massimo")
+        elif main == Color.RED:
+            if "corona_rage" not in crown.statuses:
+                crown.current_atk += 1
+                crown.statuses.add("corona_rage")
+                self.log_msg(f"    Rosso → Corona +1 ATK (ora {crown.current_atk})")
+            else:
+                self.log_msg("    Rosso → rabbia già attiva")
+        elif main == Color.BLACK:
+            enemies = [u for u in self.board.get_units_of_player(1 - player.id) if u.is_alive]
+            if enemies:
+                enemies.sort(key=lambda u: u.current_hp)
+                t = enemies[0]
+                t.take_damage(1)
+                self.log_msg(f"    Nero → 1 danno a {t.card.name} ({t.coord})")
+                if not t.is_alive:
+                    self._destroy_unit(t)
+            else:
+                self.log_msg("    Nero → nessun nemico")
+        elif main == Color.GREEN:
+            allies = [u for u in self.board.get_units_of_player(player.id) if u.is_alive]
+            if allies:
+                allies.sort(key=lambda u: u.current_hp)
+                a = allies[0]
+                a.heal(1)
+                self.log_msg(f"    Verde → cura 1 a {a.card.name}")
+            else:
+                self.log_msg("    Verde → nessun alleato")
+        else:
+            self.log_msg(f"    {main.value} → nessun effetto speciale")
+
     def _spawn_free_1_1(self, player: Player):
         from .card import Card
         from .constants import CardType, Color
@@ -229,6 +350,50 @@ class GameState:
         unit = Unit(neut, -1, r, c, hp, atk)  # owner -1 = neutrale
         self.board.place_unit(unit)
         self.log_msg(f"Mostro Neutrale {atk}/{hp} appare su {unit.coord}")
+
+    def _activate_neutrals(self):
+        """Ogni Neutrale si muove di 1 passo diagonale verso il bersaglio più vicino e attacca se adiacente."""
+        neutrals = [u for u in list(self.board.units.values()) if u.owner_id == -1 and u.is_alive]
+        if not neutrals:
+            return
+        for neu in neutrals:
+            # Bersaglio: creatura non neutrale più vicina (manhattan-ish su diagonali)
+            targets = [u for u in self.board.units.values() if u.owner_id != -1 and u.is_alive]
+            if not targets:
+                continue
+            targets.sort(key=lambda t: abs(t.row - neu.row) + abs(t.col - neu.col))
+            prey = targets[0]
+            # Se già adiacente in diagonale → combatti (First Strike neutrale)
+            if abs(prey.row - neu.row) == 1 and abs(prey.col - neu.col) == 1:
+                self.log_msg(f"Neutrale attacca {prey.card.name} su {prey.coord}")
+                # Combattimento semplificato senza spendere mana
+                dmg = neu.current_atk
+                actual = prey.take_damage(dmg, neu)
+                self.log_msg(f"  Neutrale infligge {actual} (HP preda: {prey.current_hp})")
+                if not prey.is_alive:
+                    self._destroy_unit(prey)
+                    self.log_msg(f"  {prey.card.name} eliminato dal Neutrale")
+                    continue
+                # Contrattacco
+                actual2 = neu.take_damage(prey.current_atk, prey)
+                self.log_msg(f"  Contrattacco {actual2} (HP neutrale: {neu.current_hp})")
+                if not neu.is_alive:
+                    self._destroy_unit(neu)
+                continue
+            # Altrimenti muovi 1 passo diagonale verso la preda
+            best = None
+            best_score = 999
+            for nr, nc in self.board.get_adjacent_diagonal(neu.row, neu.col):
+                if self.board.get_unit_at(nr, nc) is not None:
+                    continue
+                score = abs(nr - prey.row) + abs(nc - prey.col)
+                if score < best_score:
+                    best_score = score
+                    best = (nr, nc)
+            if best:
+                self.board.move_unit(neu, best[0], best[1])
+                self.log_msg(f"Neutrale si muove verso {prey.card.name} → {neu.coord}")
+                self._on_enter_tile(neu)
 
     def end_turn(self):
         p = self.players[self.current_player_id]
@@ -274,6 +439,18 @@ class GameState:
 
         target_unit = self.board.get_unit_at(target_row, target_col)
         if target_unit is None:
+            # Muro d'Illusione: attacca il muro invece di entrare
+            dest = self.board.get_tile(target_row, target_col)
+            if dest and dest.tile_type == TileType.ILLUSION_WALL and dest.wall_hp > 0:
+                self.players[unit.owner_id].spend_mana(1)
+                unit.moved_this_turn = True
+                dest.wall_hp -= unit.current_atk
+                self.log_msg(f"{unit.card.name} colpisce Muro d'Illusione (−{unit.current_atk}, HP muro {max(0, dest.wall_hp)})")
+                if dest.wall_hp <= 0:
+                    dest.tile_type = TileType.EMPTY
+                    dest.wall_hp = 0
+                    self.log_msg("  Muro d'Illusione distrutto!")
+                return True
             # Movimento libero
             if self.board.move_unit(unit, target_row, target_col):
                 self.players[unit.owner_id].spend_mana(1)
@@ -368,6 +545,28 @@ class GameState:
             self.log_msg(f"  Fossa di Spine: 1 danno (HP: {unit.current_hp})")
             if not unit.is_alive:
                 self._destroy_unit(unit)
+        if tile.permanent_effect == "tower" or tile.tile_type == TileType.TOWER:
+            if "tower_range" not in unit.statuses:
+                unit.statuses.add("tower_range")
+                unit.current_atk += 1
+                self.log_msg(f"  Torre: {unit.card.name} ottiene +1 ATK")
+        if tile.permanent_effect == "refuge" or tile.tile_type == TileType.SHADOW_REFUGE:
+            unit.statuses.add("shield:1")
+            self.log_msg(f"  Rifugio: scudo 1 su {unit.card.name}")
+        if tile.tile_type == TileType.PORTAL_UNSTABLE:
+            # ogni entrata = salto casuale
+            empties = []
+            for r in range(5):
+                for c in range(5):
+                    t = self.board.get_tile(r, c)
+                    if t and t.is_walkable and self.board.get_unit_at(r, c) is None:
+                        if (r, c) != (unit.row, unit.col):
+                            empties.append((r, c))
+            if empties:
+                import random
+                nr, nc = random.choice(empties)
+                self.board.move_unit(unit, nr, nc)
+                self.log_msg(f"  Portale Instabile → {unit.coord}")
 
     def _apply_event_tile(self, event: str, unit: Unit, tile) -> None:
         """Applica l'effetto della tessera rivelata e aggiorna il tipo della casella."""
@@ -383,27 +582,69 @@ class GameState:
             "FossaSpine": TileType.SPIKE_PIT,
             "RunaFurto": TileType.MANA_STEAL,
         }
-        if event in mapping:
-            tile.tile_type = mapping[event]
-            if event == "MuroIllusione":
-                tile.wall_hp = unit.current_atk + 1
-                self.log_msg(f"  Muro d'Illusione eretto (HP {tile.wall_hp})")
-            if event == "FossaSpine":
-                unit.take_damage(2)
-                self.log_msg(f"  Fossa di Spine: 2 danni all'esploratore (HP: {unit.current_hp})")
-                if not unit.is_alive:
-                    self._destroy_unit(unit)
-            if event == "RunaFurto":
-                opp = self.players[1 - unit.owner_id]
+        if event.startswith("MainQuest"):
+            tile.tile_type = TileType.NEUTRAL_TERRAIN
+            tile.permanent_effect = "quest_marker"
+            self.log_msg("  Tessera Main Quest rivelata (effetto a inizio turno).")
+            return
+        if event not in mapping:
+            self.log_msg(f"  Evento sconosciuto: {event}")
+            return
+        tile.tile_type = mapping[event]
+        if event == "MuroIllusione":
+            tile.wall_hp = max(2, unit.current_atk + 1)
+            self.log_msg(f"  Muro d'Illusione (HP {tile.wall_hp}). Blocca il passaggio finché non viene distrutto.")
+        elif event == "FossaSpine":
+            unit.take_damage(2)
+            self.log_msg(f"  Fossa di Spine: 2 danni (HP: {unit.current_hp})")
+            if not unit.is_alive:
+                self._destroy_unit(unit)
+        elif event == "RunaFurto":
+            opp = self.players[1 - unit.owner_id] if unit.owner_id in (0, 1) else None
+            if opp:
                 stolen = min(1, opp.mana)
                 opp.mana -= stolen
                 self.players[unit.owner_id].mana += stolen
-                self.log_msg(f"  Runa del Furto: rubati {stolen} mana all'avversario")
-                tile.tile_type = TileType.NEUTRAL_TERRAIN
-            if event == "SantuarioVita":
-                tile.permanent_effect = "sanctuary"
-            if event == "Fenditura":
-                tile.permanent_effect = "fissure"
+                self.log_msg(f"  Runa del Furto: +{stolen} mana (rubati)")
+            tile.tile_type = TileType.NEUTRAL_TERRAIN
+        elif event == "SantuarioVita":
+            tile.permanent_effect = "sanctuary"
+            unit.heal(1)
+            self.log_msg(f"  Santuario: {unit.card.name} cura 1 all'esplorazione")
+        elif event == "Fenditura":
+            tile.permanent_effect = "fissure"
+            unit.take_damage(1)
+            self.log_msg(f"  Fenditura: 1 danno all'esploratore (HP: {unit.current_hp})")
+            if not unit.is_alive:
+                self._destroy_unit(unit)
+        elif event == "Palude":
+            tile.permanent_effect = "swamp"
+            self.log_msg("  Palude permanente: movimento qui costa 1 mana extra (già incluso nel passo).")
+        elif event == "TorreLancio":
+            tile.permanent_effect = "tower"
+            unit.statuses.add("tower_range")
+            unit.current_atk += 1
+            self.log_msg(f"  Torre di Lancio: {unit.card.name} +1 ATK (vantaggio di tiro)")
+        elif event == "RifugioOmbroso":
+            tile.permanent_effect = "refuge"
+            unit.statuses.add("shield:1")
+            self.log_msg(f"  Rifugio Ombroso: scudo 1 su {unit.card.name}")
+        elif event == "PortaleGrigio":
+            self.log_msg("  Portale Grigio: collegato agli altri portali (teletrasporto al passo successivo).")
+            self._resolve_portal(unit, tile)
+        elif event == "PortaleInstabile":
+            self.log_msg("  Portale Instabile: teletrasporto casuale su casella vuota!")
+            empties = []
+            for r in range(5):
+                for c in range(5):
+                    t = self.board.get_tile(r, c)
+                    if t and t.is_walkable and self.board.get_unit_at(r, c) is None:
+                        empties.append((r, c))
+            if empties:
+                import random
+                nr, nc = random.choice(empties)
+                self.board.move_unit(unit, nr, nc)
+                self.log_msg(f"  → sbuca su {unit.coord}")
 
     def _resolve_trap_effect(self, trap: Card, victim: Unit, tile) -> None:
         """Effetti base delle trappole più comuni."""

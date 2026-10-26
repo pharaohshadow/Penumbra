@@ -43,22 +43,53 @@ def _new_engine(p0_name: str = "Giocatore 1", p1_name: str = "AI Overlord", p1_i
     if not p1_is_ai:
         gs.players[1].name = p1_name
     gs.start_draft()
-    while gs.phase == Phase.DRAFT:
-        pack = gs.get_current_pack()
-        if not pack:
-            break
-        for pid in (0, 1):
-            if gs.phase != Phase.DRAFT:
-                break
-            pack = gs.get_current_pack()
-            if not pack:
-                break
-            gs.draft_pick(pid, 0)
-    gs.start_turn()
-    units = gs.board.get_units_of_player(0)
-    if units:
-        gs.players[0].place_fragment(units[0])
+    # Se P0 è umano resta in DRAFT; se per qualche motivo P0 è IA, completa
+    gs._draft_ai_if_needed()
     return gs
+
+
+
+def _quest_progress(gs: GameState) -> dict:
+    """Progresso Main Quest per la UI."""
+    q = gs.main_quest
+    if not q:
+        return {"active": False, "label": "Nessuna Main Quest attiva", "detail": "Esplora tessere evento per rivelarne una."}
+    if q == "MainQuest_Dominio":
+        # per ogni giocatore
+        players = []
+        for pid in (0, 1):
+            buff = 0
+            altar = False
+            for u in gs.board.get_units_of_player(pid):
+                tile = gs.board.get_tile(u.row, u.col)
+                if not tile:
+                    continue
+                if tile.tile_type.value == "Buff":
+                    buff += 1
+                if tile.tile_type.value == "Altare":
+                    altar = True
+            players.append({"player_id": pid, "buffs": buff, "altar": altar, "done": buff >= 2 and altar})
+        return {
+            "active": True,
+            "id": q,
+            "label": "Dominio del Territorio",
+            "detail": "Controlla 2 caselle Buff + l'Altare C3 all'inizio del tuo turno.",
+            "players": players,
+        }
+    if q == "MainQuest_Superiorita":
+        players = []
+        for pid in (0, 1):
+            n = len(gs.board.get_units_of_player(pid))
+            opp = len(gs.board.get_units_of_player(1 - pid))
+            players.append({"player_id": pid, "units": n, "opp": opp, "done": n >= opp + 3})
+        return {
+            "active": True,
+            "id": q,
+            "label": "Superiorità Numerica",
+            "detail": "A inizio turno: almeno 3 creature in più dell'avversario.",
+            "players": players,
+        }
+    return {"active": True, "id": q, "label": q, "detail": "", "players": []}
 
 
 def serialize_state(gs: GameState, game_id: str) -> dict:
@@ -91,6 +122,10 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
         board.append(row)
 
     def player_data(p):
+        color_counts = {}
+        for c in p.hand:
+            color_counts[c.color.value] = color_counts.get(c.color.value, 0) + 1
+        dominant = max(color_counts, key=color_counts.get) if color_counts else None
         return {
             "id": p.id,
             "name": p.name,
@@ -99,6 +134,7 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
             "fragments": p.fragments_remaining,
             "next_fragment_cost": p.next_fragment_cost(),
             "has_crown": p.crown_unit is not None and p.crown_unit.is_alive,
+            "dominant_color": dominant,
             "hand": [
                 {
                     "index": i,
@@ -129,12 +165,14 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
         "current_player": gs.current_player_id,
         "winner": gs.winner,
         "main_quest": gs.main_quest,
+        "quest_progress": _quest_progress(gs),
         "board": board,
         "players": [player_data(p) for p in gs.players],
         "eldrazi": eldrazi,
         "log": gs.log[-15:],
         "supabase": supabase_store.enabled(),
         "p1_is_ai": mode.get("p1_ai", True),
+        "draft": gs.get_draft_state() if gs.phase == Phase.DRAFT else None,
     }
 
 
@@ -377,6 +415,25 @@ def api_fragment(body: FragmentReq):
         raise HTTPException(400, "Impossibile piazzare il Frammento")
     gs.log_msg(f"{p.name} piazza la Corona su {unit.card.name} ({unit.coord}) pagando {cost} mana")
     _persist(body.game_id, gs, "fragment", {"coord": body.coord, "cost": cost})
+    return serialize_state(gs, body.game_id)
+
+
+
+class DraftReq(BaseModel):
+    game_id: str
+    card_index: int
+    player_id: int = 0
+
+
+@app.post("/api/draft")
+def api_draft(body: DraftReq):
+    gs = _require_game(body.game_id)
+    if gs.phase != Phase.DRAFT:
+        raise HTTPException(400, "Non sei in fase draft")
+    ok = gs.draft_pick(body.player_id, body.card_index)
+    if not ok:
+        raise HTTPException(400, "Pick non valida")
+    _persist(body.game_id, gs, "draft", {"index": body.card_index})
     return serialize_state(gs, body.game_id)
 
 

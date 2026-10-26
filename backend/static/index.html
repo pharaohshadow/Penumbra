@@ -40,6 +40,18 @@
     <div>
       <h1>Penumbra – 5×5</h1>
       <div class="status panel" id="status">Caricamento…</div>
+      <div class="panel" id="draftPanel" style="display:none;margin-bottom:12px;border-color:var(--accent)">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <strong style="color:var(--accent)">📜 Snake Draft</strong>
+          <span id="draftInfo" style="font-size:0.85rem;color:var(--muted)"></span>
+        </div>
+        <div id="draftPack" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:10px"></div>
+        <div id="draftPicks" style="font-size:0.75rem;color:var(--muted);margin-top:10px;line-height:1.4"></div>
+      </div>
+      <div class="panel" id="questPanel" style="margin-bottom:12px;font-size:0.85rem">
+        <strong style="color:var(--crown)">★ Main Quest</strong>
+        <div id="questBody" style="margin-top:6px;color:var(--muted)"></div>
+      </div>
       <div class="board" id="board"></div>
       <div class="actions">
         <button id="btnEnd">Fine turno</button>
@@ -87,6 +99,50 @@
       gameId = state.game_id;
       localStorage.setItem("penumbra_game_id", gameId);
       const p = state.players[playerId] || state.players[0];
+      // Draft UI
+      const dp = document.getElementById("draftPanel");
+      if (state.phase === "DRAFT" && state.draft) {
+        dp.style.display = "block";
+        const d = state.draft;
+        const myPick = d.picker === playerId;
+        const myCount = (d.picks[String(playerId)] || []).length;
+        document.getElementById("draftInfo").textContent =
+          `Bustine: ${d.packs_left} · Tue carte: ${myCount}/9 · Turno pick: P${d.picker}` + (myPick ? " — scegli!" : " — attendi…");
+        const packEl = document.getElementById("draftPack");
+        packEl.innerHTML = "";
+        (d.pack || []).forEach(card => {
+          const el = document.createElement("div");
+          el.className = "card";
+          el.style.minHeight = "88px";
+          if (myPick) {
+            el.style.cursor = "pointer";
+            el.style.borderColor = "var(--accent)";
+          } else {
+            el.style.opacity = "0.55";
+            el.style.cursor = "default";
+          }
+          el.innerHTML = `<span class="cost">${card.cost}</span><strong>${card.name}</strong>
+            <div style="color:var(--muted);margin-top:4px">${card.color} · ${card.type}${card.atk||card.hp?` · ${card.atk}/${card.hp}`:""}</div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-top:4px">${card.text||""}</div>`;
+          if (myPick) {
+            el.onclick = async () => {
+              try {
+                state = await api("/api/draft", "POST", { game_id: gameId, card_index: card.index, player_id: playerId });
+                setMsg(`Hai preso: ${card.name}`);
+                render();
+              } catch (e) { setMsg(e.message); }
+            };
+          }
+          packEl.appendChild(el);
+        });
+        const mine = (d.picks[String(playerId)] || []).join(", ") || "—";
+        const opp = (d.picks[String(1 - playerId)] || []).join(", ") || "—";
+        document.getElementById("draftPicks").innerHTML =
+          `<div><strong style="color:var(--p0)">Tue scelte:</strong> ${mine}</div>
+           <div><strong style="color:var(--p1)">Avversario:</strong> ${opp}</div>`;
+      } else {
+        dp.style.display = "none";
+      }
       const cur = state.players[state.current_player];
       document.getElementById("status").innerHTML = `
         <span>Turno <strong>${state.turn}</strong></span>
@@ -95,12 +151,34 @@
         <span>Mana <strong>${p.mana}/${p.mana_max}</strong></span>
         <span>Frammenti <strong>${p.fragments}/3</strong>${p.next_fragment_cost != null ? ` (prossimo: ${p.next_fragment_cost} mana)` : ""}</span>
         <span>Corona: <strong>${p.has_crown ? "sì" : "NO – piazzala!"}</strong></span>
-        <span>Quest: <strong>${state.main_quest || "—"}</strong></span>
+        <span>Colore dominante: <strong>${p.dominant_color || "—"}</strong></span>
         ${state.winner !== null ? `<span style="color:var(--crown)">Vincitore P${state.winner}</span>` : ""}
       `;
+      // Main Quest panel
+      const qp = document.getElementById("questBody");
+      const q = state.quest_progress;
+      if (!q || !q.active) {
+        qp.innerHTML = q ? q.detail : "Esplora le tessere evento per rivelare una Main Quest.";
+      } else {
+        let html = `<div style="color:var(--text)"><strong>${q.label}</strong></div>
+          <div style="margin:4px 0">${q.detail || ""}</div>`;
+        (q.players || []).forEach(pl => {
+          const name = (state.players[pl.player_id] || {}).name || ("P" + pl.player_id);
+          const mine = pl.player_id === playerId;
+          if (q.id === "MainQuest_Dominio") {
+            html += `<div style="${mine ? "color:var(--p0)" : "color:var(--p1)"}">${name}: Buff ${pl.buffs}/2 · Altare ${pl.altar ? "sì" : "no"}${pl.done ? " ✓" : ""}</div>`;
+          } else if (q.id === "MainQuest_Superiorita") {
+            html += `<div style="${mine ? "color:var(--p0)" : "color:var(--p1)"}">${name}: ${pl.units} unità (avv. ${pl.opp}) — serve +3${pl.done ? " ✓" : ""}</div>`;
+          }
+        });
+        qp.innerHTML = html;
+      }
+
       document.getElementById("gid").textContent = "game_id: " + gameId + (state.p1_is_ai ? " (vs IA)" : " (PvP)");
 
       const boardEl = document.getElementById("board");
+      boardEl.style.opacity = state.phase === "DRAFT" ? "0.35" : "1";
+      boardEl.style.pointerEvents = state.phase === "DRAFT" ? "none" : "auto";
       boardEl.innerHTML = "";
       for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
         const cell = state.board[r][c];
@@ -118,6 +196,7 @@
       }
 
       const handEl = document.getElementById("hand");
+      handEl.style.opacity = state.phase === "DRAFT" ? "0.4" : "1";
       handEl.innerHTML = "";
       (p.hand || []).forEach(card => {
         const d = document.createElement("div");
@@ -160,7 +239,8 @@
         }
       } else eld.innerHTML = "";
       document.getElementById("log").textContent = (state.log || []).join("\n");
-      document.getElementById("btnEnd").disabled = state.current_player !== playerId || state.phase === "GAME_OVER";
+      const inDraft = state.phase === "DRAFT";
+      document.getElementById("btnEnd").disabled = inDraft || state.current_player !== playerId || state.phase === "GAME_OVER";
       const me = state.players[playerId] || state.players[0];
       const fragBtn = document.getElementById("btnFrag");
       if (fragBtn) {
