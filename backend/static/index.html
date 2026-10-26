@@ -59,7 +59,8 @@
       <p style="font-size:0.75rem;color:var(--muted);margin-top:12px">
         Click unità → casella diagonale = muovi/attacca.<br/>
         Click carta Mostro = evoca. Trappola/Maledizione = poi click casella.<br/>
-        PvP: host crea partita, condivide game_id, l’altro usa Unisciti.
+        PvP: host crea partita, condivide game_id, l’altro usa Unisciti.<br/>
+        Mostrissimi: click sul pool → seleziona sacrifici (✧ = Rituale) → Conferma.
       </p>
     </div>
   </div>
@@ -70,6 +71,7 @@
     let selectedCoord = null;
     let selectedCard = null;
     let fragmentMode = false;
+    let eldraziMode = null; // { index, need, selected: [] }
 
     async function api(path, method = "GET", body = null) {
       const opts = { method, headers: { "Content-Type": "application/json" } };
@@ -127,9 +129,36 @@
       });
 
       const eld = document.getElementById("eldrazi");
-      eld.innerHTML = (state.eldrazi || []).length
-        ? "<strong>Mostrissimi</strong><br/>" + state.eldrazi.map(e => `[${e.index}] ${e.name} (${e.atk}/${e.hp}) sacr.${e.sacrifice}`).join("<br/>")
-        : "";
+      if ((state.eldrazi || []).length) {
+        eld.innerHTML = "<strong>Mostrissimi</strong> (click per evocare)<br/>";
+        state.eldrazi.forEach(e => {
+          const row = document.createElement("div");
+          row.className = "card";
+          row.style.marginTop = "4px";
+          if (eldraziMode && eldraziMode.index === e.index) row.classList.add("selected");
+          row.innerHTML = `[${e.index}] <strong>${e.name}</strong> (${e.atk}/${e.hp}) — <span class="cost">${e.sacrifice}</span> sacrifici`;
+          row.onclick = () => startEldrazi(e.index, e.sacrifice, e.name);
+          eld.appendChild(row);
+        });
+        if (eldraziMode) {
+          const info = document.createElement("div");
+          info.style.marginTop = "8px";
+          info.style.color = "var(--crown)";
+          info.textContent = `Sacrifici ${eldraziMode.selected.length}/${eldraziMode.need}: ${eldraziMode.selected.join(", ") || "—"} (uno su ✧ Rituale). Click unità, poi Conferma.`;
+          eld.appendChild(info);
+          const conf = document.createElement("button");
+          conf.textContent = "Conferma evocazione";
+          conf.style.marginTop = "6px";
+          conf.onclick = confirmEldrazi;
+          eld.appendChild(conf);
+          const cancel = document.createElement("button");
+          cancel.textContent = "Annulla";
+          cancel.className = "secondary";
+          cancel.style.marginLeft = "6px";
+          cancel.onclick = () => { eldraziMode = null; setMsg(""); render(); };
+          eld.appendChild(cancel);
+        }
+      } else eld.innerHTML = "";
       document.getElementById("log").textContent = (state.log || []).join("\n");
       document.getElementById("btnEnd").disabled = state.current_player !== playerId || state.phase === "GAME_OVER";
       const me = state.players[playerId] || state.players[0];
@@ -140,9 +169,63 @@
       }
     }
 
+
+    function startEldrazi(index, need, name) {
+      if (!state || state.current_player !== playerId) {
+        setMsg("Non è il tuo turno");
+        return;
+      }
+      fragmentMode = false;
+      selectedCard = null;
+      selectedCoord = null;
+      eldraziMode = { index, need, name, selected: [] };
+      setMsg(`Evoca ${name}: seleziona ${need} tue creature (almeno una su Cerchio Rituale ✧)`);
+      render();
+    }
+
+    async function confirmEldrazi() {
+      if (!eldraziMode) return;
+      if (eldraziMode.selected.length < eldraziMode.need) {
+        setMsg(`Servono ${eldraziMode.need} sacrifici`);
+        return;
+      }
+      try {
+        state = await api("/api/eldrazi", "POST", {
+          game_id: gameId,
+          eldrazi_index: eldraziMode.index,
+          sacrifice_coords: eldraziMode.selected,
+          player_id: playerId
+        });
+        eldraziMode = null;
+        setMsg("Mostrissimo evocato");
+        render();
+      } catch (e) {
+        setMsg(e.message);
+      }
+    }
+
     async function onCellClick(coord) {
       setMsg("");
       if (state.current_player !== playerId) return;
+      if (eldraziMode) {
+        // toggle sacrifice coord if own unit
+        const cell = state.board.flat().find(c => c.coord === coord);
+        if (!cell || !cell.unit || cell.unit.owner !== playerId) {
+          setMsg("Seleziona una tua creatura da sacrificare");
+          return;
+        }
+        const i = eldraziMode.selected.indexOf(coord);
+        if (i >= 0) eldraziMode.selected.splice(i, 1);
+        else {
+          if (eldraziMode.selected.length >= eldraziMode.need) {
+            setMsg(`Servono solo ${eldraziMode.need} sacrifici`);
+            return;
+          }
+          eldraziMode.selected.push(coord);
+        }
+        render();
+        return;
+      }
       if (fragmentMode) {
         try {
           state = await api("/api/fragment", "POST", { game_id: gameId, coord, player_id: playerId });

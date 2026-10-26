@@ -1,50 +1,56 @@
-# Roadmap Penumbra (aggiornata – v10)
+# Roadmap Penumbra (aggiornata – v11)
 
 ## Stato attuale
-**Completato ora: Fase 1 · Step 1.1 – Frammenti in UI**
+**Completato: Fase 1 · Step 1.2 – Mostrissimi in UI**
 
-- API `POST /api/fragment` `{ game_id, coord, player_id }`
-- UI: bottone **Piazza Corona** → click su tua creatura
-- Status: frammenti rimanenti, costo prossimo (0/3/6), presenza Corona
+Precedente: **1.1 Frammenti in UI** (v10)
 
-Il resto dei file backend è ancora quello di **v9** (non duplicati in questa cartella).
+### Cosa introduce v11
+- Click su un Mostrissimo del pool → modalità sacrifici
+- Click sulle tue creature per selezionare/deselezionare sacrifici
+- Serve il numero richiesto; **almeno una su Cerchio Rituale** (caselle con ✧)
+- **Conferma evocazione** → `POST /api/eldrazi`
+- Board: flag `ritual` nelle celle; simbolo ✧
+
+File in questa cartella (solo modificati):
+- `api/main.py`
+- `static/index.html`
+- `ROADMAP.md`
 
 ---
 
 ## Cronologia
 
-### Fase 0 – Baseline
-- [x] v9 online (motore, IA, PvP, polling, portali, Supabase restore)
+### Fase 0
+- [x] v9 baseline online
 
-### Fase 1 – Regole che si sentono in partita
-- [x] **1.1 Frammenti in UI** ← **sei qui (v10)**
-- [ ] **1.2 Mostrissimi in UI** (prossimo)
-- [ ] **1.3 Altare C3**
-- [ ] **1.4 Effetti carte ondata 1**
-- [ ] **1.5 Mostro Neutrale attivo**
+### Fase 1 – Regole in partita
+- [x] 1.1 Frammenti in UI (v10)
+- [x] **1.2 Mostrissimi in UI (v11)** ← **sei qui**
+- [ ] **1.3 Altare C3** ← prossimo
+- [ ] 1.4 Effetti carte ondata 1
+- [ ] 1.5 Mostro Neutrale attivo
 
 ### Fase 2 – Draft interattivo
-- [ ] 2.1–2.3 Draft API + UI + passiva colori
+- [ ] 2.1–2.3
 
 ### Fase 3 – Mappa / quest / snapshot
-- [ ] 3.1–3.3 Eventi completi, Main Quest UI, snapshot tile
+- [ ] 3.1–3.3
 
 ### Fase 4 – Multiplayer usabile
-- [ ] 4.1–4.4 Realtime, lobby, auth, RLS
+- [ ] 4.1–4.4
 
 ### Fase 5 – IA
-- [ ] 5.1–5.3 Priorità GDD, difficoltà, log
+- [ ] 5.1–5.3
 
 ### Fase 6 – Prodotto
-- [ ] 6.1–6.5 Docs, tutorial, contenuti, CI
+- [ ] 6.1–6.5
 
 ---
 
-## Prossimo passo
-**1.2 – Mostrissimi in UI**: selezionare dal pool, scegliere sacrifici (uno su Cerchio Rituale), conferma.
-
-## Deploy v10
-Copia solo questi file sopra la v9 su `/backend`:
+## Deploy
+Sovrascrivi in `/backend`:
 - `api/main.py`
 - `static/index.html`
-Poi redeploy Render.
+
+Redeploy Render.

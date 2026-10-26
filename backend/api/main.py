@@ -24,7 +24,7 @@ from ai.basic_ai import BasicAI
 from api import supabase_store
 from api.restore import hydrate
 
-app = FastAPI(title="Penumbra Tactical Card Game", version="0.9")
+app = FastAPI(title="Penumbra Tactical Card Game", version="0.10")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -73,6 +73,7 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
                 "tile": tile.tile_type.value if tile else "Vuoto",
                 "explored": tile.explored if tile else True,
                 "trap": tile.trap_card_id is not None if tile else False,
+                "ritual": bool(tile and tile.is_ritual),
                 "unit": None,
             }
             if unit:
@@ -224,7 +225,7 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "version": "0.9", "games_in_memory": len(_games), "supabase": supabase_store.enabled()}
+    return {"ok": True, "version": "0.10", "games_in_memory": len(_games), "supabase": supabase_store.enabled()}
 
 
 @app.post("/api/new")
