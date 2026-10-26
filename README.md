@@ -1,388 +1,55 @@
-## Note versioneB_11 (split moduli — cards-ui)
-
-* Nuovo `docs/js/game/cards-ui.js`: escape, faction, costi, `cellHTML` / `handCardHTML` / `cardHTML`, `opponentImageHtml`.
-* Puro (niente `state`/`matchId`); solo import da `constants.js`.
-* `game.js` ~3180 → ~2746 righe.
-* Cache: `game.js?v=B11`.
-
-## Note versioneB_10 (fix cardLoaded)
-
-* In `net.js` mancava `const cardLoaded = new Map()` (rimosso per errore nello split B8): `card()` e `clearCardCache()` andavano in ReferenceError.
-* Ripristinata la Map TTL carte accanto a `cache`.
-* Cache: `game.js?v=B10`.
-
-## Note versioneB_9 (fix Home dopo «Sono io»)
-
-* Bug B8: dopo lo split di `net.js`, `auth-ready` assegnava `_profileCache` (non più in scope) → **ReferenceError** e `showHome()` non partiva.
-* Fix: `clearProfileCache()` / `getProfileCache()` esportati da `net.js`.
-* Su `penombra:auth-ready`: reset stato partita in memoria + **sempre Home** (piramidi). Le spoglie solo al click su «Partita base».
-* Cache: `game.js?v=B9`.
-
-## Note versioneB_8 (split moduli — net)
-
-* Nuovo `docs/js/game/net.js`: device id/label, token cache, `api()`, profilo (`pullProfile` / `setBaseMatchInProgress` / claim), cache carte (`card` / `clearCardCache`).
-* `game.js` importa `net` e non contiene più quelle funzioni.
-* Cache: `game.js?v=B8`.
-
-## Note versioneB_7 (split moduli — prima tranche)
-
-* `game.js` resta entry; estratti moduli ES:
-  - `docs/js/game/storage.js` — localStorage penombra:
-  - `docs/js/game/constants.js` — fazioni, stage, boot lines
-  - `docs/js/game/peek.js` — Guarda campo di battaglia
-* Comportamento invariato (solo organizzazione codice).
-* Cache: `game.js?v=B7` (i moduli sono importati da game.js, stessa sessione browser).
-* Prossime tranche possibili: `net` (api/card/profile), `board` (draw/inspect/click), `shell` (home/anima/newMatch) — richiedono stato condiviso più strutturato.
-
-## Note versioneB_6 (sezione A + D parziale)
-
-* FE: rimossi CSS morti (`.pvp-lobby*`, `.story-progress-badge`, `.story-medallion-banner`, `.home-trophy*`).
-* FE: niente più riferimenti DOM a badge/banner Storia; `syncMyPlayerIndex` sempre index 1 (lab).
-* BE: `CreateMatchOptions` solo `tertiaryColor` + `firstPlayer`; `createNewMatch` vita 20 e `story_modifiers: null`.
-* BE: rimosso `story_life_cut`; profilo API senza `story_progress`.
-* Tipo `StoryModifiers` resta su `GameState` (legacy serializzazione); lab non lo popola.
-* Cache: `game.js?v=B6`, `stage.css?v=B6`.
-* Fuori scope: split di `game.js` (eventuale B7+).
-
-## Note versioneB_5 (rifinitura residuale)
-
-* Commenti client/backend allineati a Penombra (niente più «Bellum» nel header di `game.js`).
-* Rimosso badge HTML `#story-progress-badge` (sempre nascosto).
-* Backend: `publicState` e `endHumanTurn` solo percorso PvE lab (rimossi rami `match_mode === 'pvp'`).
-* Commenti motore su opzioni legacy Storia attenuati; logica inerte `story_modifiers` resta harmless.
-* Cache: `game.js?v=B5`, `stage.css?v=B5`.
-
-## Note versioneB_4 (peek campo di battaglia)
-
-* Chip «Torna al messaggio» spostato **in alto** (non copre più nome giocatore / Fine turno / mano).
-* In modalità peek l’overlay è completamente `visibility: hidden` + `pointer-events: none` così griglia, mano e HUD restano cliccabili (anche mobile).
-* Classe `body.battlefield-peek` per forzare `pointer-events` / `touch-action` su plancia e HUD.
-* Cache: `game.js?v=B4`, `stage.css?v=B4`.
-
-## Note versioneB_2 (pulizia fase 2 — client)
-
-* Rimosso dal client tutto il codice **Storia / Endless / lobby PvP** (`game.js`).
-* `newMatch` solo percorso Partita base (create → maledizione → moneta → camera → partita).
-* Home invariata: 3 piramidi «alieni» + Partita base.
-* Medaglioni HUD: sempre placeholder «medaglione lasciato a casa per sbaglio».
-* `game.js` da ~4930 a ~3400 righe.
-* Backend lobby/story **ancora presenti** (prossimo: versioneB_3).
-
-## Note versioneB_1 (pulizia fase 1)
-
-* Rimosso `docs/js/trap_preview.js` (trappole solo via dettaglio grande in `game.js`).
-* Chiavi storage `bellum:*` → `penombra:*` con migrazione automatica dalla chiave legacy.
-* Evento auth `penombra:auth-ready` (ex `bellum:auth-ready`).
-* Medaglioni HUD: placeholder visibile **«medaglione lasciato a casa per sbaglio»** (lab base, niente poteri Storia).
-* Home invariata (3 piramidi alieni + Partita base).
-* Prossimi step (roadmap): rimozione codice Storia/Endless client; rimozione lobby PvP backend.
-
-## Note v8 (dialog visibile)
-
-* `#start-dialog` montato su `document.body` con `z-index:500` (prima era dentro `#stage`, coperta dalla Home).
-* `showStart()` nasconde la Home mentre il dialog è aperto.
-* Click piramide / login → dialog «RIPRENDI» finalmente visibile.
-
-
-
-# Penombra
-
-Gioco di carte a turni ambientato nella penombra.  
-Repository del lab **Partita base**: frontend statico (GitHub Pages) + API Node su Render + catalogo carte su Supabase.
-
-\---
-
-
-
-## Changelog lab recente
-
-- **v31** — Dialog unificati (stile A) + «Guarda campo di battaglia»; piramidi non-base: messaggio alieni; avversario sempre nomeavversario/domanda.
-
-
-- **v30** — Boot **dopo** Accedi/Sono io; flag `base_match_in_progress` (spoglie istantanee); caricamento salvataggio solo su RIPRENDI; messaggi a tema mummia.
-
-
-- **v29** — Schermata di **boot obbligatoria** con barra: precache immagini UI + `musics/base.mp3`. Path piramidi: `piramide-storia/endless/pvp/base.webp`.
-
-
-- **v28** — Path asset aggiornati (WebP): login/piramidi/dorso; avversario Partita base = `img/png/domanda/domanda.webp`; apple-touch-icon.png.
-
-
-- **v26** — Spoglie/piramide più reattive: dialog subito («Cerco…»), probe in background dopo «Sono io», cache token/profilo.
-
-
-- **v24** — Partita base: placeholder **nomeavversario**; `showOpponentDialog` / `showOpponentAngryDialog` (ex Mummy).
-
-
-- **v23** — Finestra Trappola solo in **dettaglio grande** (Conferma Trappola / Annulla=Passa); eliminato il popup compatto.
-
-
-* **v22** — HUD nome IA/giocatore a **2 righe fisse** (niente saltello); carta dettaglio al centro **più grande**.
-
-
-
-* **v21** — Colonne laterali simmetriche (grid 1fr/auto/1fr); niente «Anteprima carta»; popup senza scroll; griglia bloccata (niente saltello all’ingresso carte).
-
-
-
-* **v20** — Layout stabile: colonna centrale fissa al centro; colonne laterali simmetriche; carte grandi in trappole/dialoghi; meno saltelli di scala.
-
-
-
-* **v19** — Dialog unificati (stile dettaglio carta); Sacrifici/Ingresso rispettano **Auto Ho capito**.
-
-
-
-* **v18** — Istruzioni sacrificio in popup «Ho capito» (niente banner sulle stats); durante i sacrifici restano visibili gli altri Mostrissimi in offerta.
-
-
-
-* **v17** — Fase «dove entra»: messaggio *Ora seleziona dove vuoi evocare la creatura* + **Ho capito** (niente overlay fisso sulla griglia).
-
-
-
-* **v16** — Fix cella ingresso Mostrissimo; popup centrati; banner istruzioni sacrifici Y/X leggibile.
-
-
-
-* **v15** — Sacrifici Mostrissimo sulla **griglia**: tap sul permanente; se ha aura, scegli mostro o aura. Niente lista a schermo.
-
-
-
-* **v14** — UX sacrifici Mostrissimo: lista a schermo (colonna centrale), barra ✦, pausa in risoluzione, conferma cella di ingresso.
-
-
-
-* **v13** — Anche le creature **in campo** che possono muovere/attaccare hanno il bordo arcobaleno (`.can-act`).
-
-
-
-* **v12** — Evidenza giocabile/selezionabile: bordo **arcobaleno** (colori fazioni) su mano, Mostrissimi e celle.
-
-
-
-* **v11b** — SQL Mostrissimi: constraint `faction\_code` allargato a **IND** (fixava l’insert).
-
-
-
-* **v10** — Attacco: Terraforma attaccabile blocca l’attacco diretto; con un solo bersaglio, conferma automatica («Sei sicuro di voler attaccare questa carta?»).
-
-
-
-* **v9** — Pesca a mazzo vuoto: **1 danno** per ogni carta tentata (prima erano 2).
-* **v7** — Il dialog «RIPRENDI le tue spoglie» esce **solo** dopo il click sulla piramide «Partita base» (non più automatico al login).
-
-## Cosa fa il progetto
-
-* **Partita base (PvE vs IA)** — scegli tre colori, moneta del destino, camera di dialogo, poi partita sulla griglia 3×3.
-* **Carte su Supabase** — il catalogo non è più solo seed locale: le carte `lab-\*` vivono nel database.
-* **Abilità a 2 pezzi** — ogni effetto è `trigger` + `effetto` (es. *quando entra* + *un giocatore pesca*).
-* **Auth** — login tramite Supabase (sessione browser).
-
-Modalità Storia / Endless / PvP esistono nel codice ma in questo lab sono disattivate o secondarie.
-
-\---
-
-## Architettura in una riga
-
-```
-Browser (docs/)  →  API Render (backend/)  →  Supabase (auth + tabella cards)
-                         ↓
-                   Motore di gioco in memoria
-```
-
-|Pezzo|Tecnologia|Ruolo|
-|-|-|-|
-|Frontend|HTML / CSS / JS (ES modules)|UI, griglia, popup, chiamate API|
-|Backend|Node.js + Express + TypeScript|Regole, turni, IA, mazzi|
-|Dati|Supabase Postgres|Catalogo `cards`, autenticazione|
-|Hosting FE|GitHub Pages (`docs/`)|Sito pubblico|
-|Hosting BE|Render|`penombra-api`|
-
-Documento completo: [**docs/ARCHITETTURA.md**](docs/ARCHITETTURA.md) (o `ARCHITETTURA.md` in root se preferisci).
-
-\---
-
-## Struttura del repo
-
-```
-Penombra/
-├── backend/                 # API e motore
-│   ├── server.ts            # Express, health, porta
-│   ├── api.ts               # Route /match, /cards, auth
-│   ├── engine-core.ts       # Turni, effetti, IA, fine partita
-│   ├── engine-board.ts      # Plancia, bersagli, utilità pure
-│   ├── engine-deck.ts       # Mazzi a 3 colori, giocabilità
-│   ├── engine-storage.ts    # Catalogo Supabase + partite in RAM
-│   ├── abilities-adapter.ts # abilities\[] → effect\_json motore
-│   ├── effect-library.ts    # Libreria trigger/effetti (ridotta)
-│   ├── effect-types.ts      # Tipi Ability / Trigger / Effect
-│   ├── card-rules.ts        # Validazione carte
-│   ├── catalog-seed.ts      # Fallback se Supabase è vuoto
-│   ├── types.ts             # Contratto stato partita v4
-│   └── lobby.ts             # Lobby PvP (se attivo)
-└── docs/                    # Frontend GitHub Pages
-    ├── index.html
-    ├── css/
-    ├── js/
-    │   ├── game.js          # Client partita
-    │   ├── auth.js          # Login Supabase
-    │   └── config.js        # URL API
-    ├── img/
-    └── musics/
-```
-
-\---
-
-## Avvio locale (backend)
+# Tactical Card Game 5×5 – Backend (v2)
+
+Motore di gioco Python puro fedele al GDD ufficiale.
+
+## Cosa c’è in v2 (rispetto a v1)
+
+- Database **180 carte** completo (5 colori 0-5 + 15 Boss + 15 Mostrissimi)
+- Evocazione Mostri/Boss solo in zona Tempio
+- Piazzamento Trappole nascoste + attivazione all’ingresso
+- Maledizioni con effetti base (cura, danno, scudo, debuff ATK, mana)
+- Esplorazione tessere Evento (Portali, Palude, Santuario, Fenditura, Muro Illusione, Fossa Spine, Runa Furto, …)
+- Main Quest (Dominio del Territorio + Superiorità Numerica) verificate a inizio turno
+- **Mostrissimi Eldrazzici**: pool comune di 3, evocazione a 0 mana con N sacrifici (uno obbligatorio su Cerchio Rituale)
+- Effetti a inizio turno (Santuario +1 HP, Fenditura 1 danno, Growth, Regenerate)
+- CLI aggiornata con comando `x` per i Mostrissimi
+
+## Come testare
 
 ```bash
 cd backend
-cp .env.example .env   # compila SUPABASE\_URL, SUPABASE\_SERVICE\_KEY, PORT
-npm install
-npm run dev            # o build + start secondo package.json
+python3 main.py
 ```
 
-Variabili essenziali:
+### Comandi CLI
 
-|Variabile|Uso|
-|-|-|
-|`SUPABASE\_URL`|Progetto Supabase|
-|`SUPABASE\_SERVICE\_KEY`|Service role (solo server)|
-|`PORT`|Default `3000`|
+| Comando | Descrizione |
+|---------|-------------|
+| `m B5 C4` | Muovi unità da B5 a C4 (solo diagonale, costa 1 mana) |
+| `p 0` | Gioca la carta indice 0 della mano (Mostro → zona Tempio automatica) |
+| `p 2 B5` | Gioca carta 2 su casella B5 (Trappole / Maledizioni con target) |
+| `x 0 A1 B5` | Evoca Mostrissimo indice 0 sacrificando le creature su A1 e B5 (una deve essere su Cerchio Rituale) |
+| `s` | Stampa stato completo (mappa, mana, mano, Mostrissimi) |
+| `e` | Fine turno |
+| `q` | Esci |
 
-Frontend: apri `docs/` con un server statico oppure punta GitHub Pages; in `docs/js/config.js` imposta l’URL dell’API.
+## Stack previsto
 
-\---
+| Layer | Tecnologia |
+|-------|------------|
+| Logica | Python 3.12 (questa cartella) |
+| API | FastAPI (prossimo) |
+| Frontend | Next.js |
+| DB / Auth / Realtime | Supabase |
+| Hosting | Render |
+| Repo | GitHub (`/backend` + `/docs`) |
 
-## Catalogo carte
+## Prossimi passi (v3+)
 
-1. Tabella Supabase `public.cards` (colonne: `id`, `name`, `card\_type`, `faction\_code`, `mana\_cost`, `attack`, `hp`, `abilities` jsonb, `enabled`, …).
-2. All’avvio il backend carica le carte `enabled = true`, adatta `abilities` → `effect\_json`, tiene cache in memoria.
-3. Se Supabase è vuoto o non configurato → fallback `catalog-seed.ts`.
+1. IA base con priorità (difesa Corona, Altare, Main Quest)
+2. FastAPI + WebSocket
+3. Schema Supabase
+4. Frontend griglia interattiva
+5. Deploy Render
 
-### Abilità (modello a 2 pezzi)
-
-```json
-{
-  "abilities": \[
-    {
-      "trigger\_id": "on\_enter",
-      "effect\_id": "draw",
-      "amount": 1
-    }
-  ]
-}
-```
-
-**Trigger (lab):** `on\_enter` · `on\_enchanted\_attack` · `on\_death` · `on\_ally\_enters` · `on\_opponent\_turn\_end`
-
-**Effetti (lab):** `draw` · `opponent\_discard` · `heal\_self` · `damage` · `buff\_creature`
-
-**Pesca:** in partita scegli sempre chi pesca (Tu / avversario) — `target: any\_player`.
-
-**Colori / fazioni:** CHI (cura) · INF (pesca) · PES (scarto) · BUL (danno) · GRO (buff +X/+X) · CLO (giallo, tutte le varianti).
-
-\---
-
-## Flusso Partita base
-
-1. Login
-2. Scelta tre colori (primario / secondario / terziario)
-3. Moneta del destino (chi inizia)
-4. Camera di dialogo (placeholder)
-5. Partita: griglia 3×3, mana, mano, trappole, fine partita
-
-Stato partita **in memoria + Supabase** (`matches.state\_json`).  
-Su Render Free la RAM si azzera al sleep, ma le partite non terminate si recuperano da DB («RIPRENDI le tue spoglie»).
-
-\---
-
-## Health check
-
-```text
-GET /health
-→ { ok, service, mode, catalog, build }
-```
-
-`catalog`: `supabase` | `seed` | `mixed`  
-`build`: etichetta deploy (es. `v8-start-dialog-body`)
-
-\---
-
-
-
-\---
-
-## Recupero partite («le spoglie»)
-
-1. Alla creazione e a ogni mossa lo stato completo viene scritto in `public.matches` (colonna `state\_json`).
-2. Il profilo utente tiene `last\_match\_id`.
-3. Al click sulla piramide «Partita base» il client chiama `/me/profile` e prova `GET /match/:id` (il dialog non si apre da solo al login).
-4. Se il server ha perso la RAM (cold start), `load()` ripristina lo stato da Supabase.
-
-### SQL da eseguire una volta (SQL Editor Supabase)
-
-```sql
-create table if not exists public.matches (
-  id uuid primary key,
-  player\_id uuid not null,
-  opponent\_type text default 'ai',
-  opponent\_name text,
-  status text not null default 'running',
-  state\_json jsonb not null,
-  state\_revision int not null default 0,
-  created\_at timestamptz default now(),
-  updated\_at timestamptz default now()
-);
-create index if not exists matches\_player\_status on public.matches(player\_id, status);
-```
-
-Il backend usa la **service role**: non serve RLS per il lab (o disabilita RLS su `matches`).
-
-Senza questa tabella il gioco funziona ancora, ma le spoglie restano solo in RAM (comportamento precedente).
-
-
-
-\---
-
-## Note v7 (UI recupero)
-
-* Click su **Partita base** → sempre `startScreen()` (probe `last\_match\_id` + dialog RIPRENDI).
-* Dopo «Sono io» / login → `startScreen()` anche se non c’è partita da riprendere.
-* Persistenza DB: ancora richiede deploy di `backend/engine-storage.ts` + tabella `matches` (vedi sopra). Senza quello, RIPRENDI funziona solo finché Render tiene la partita in RAM.
-
-## Deploy
-
-|Componente|Dove|Note|
-|-|-|-|
-|Frontend|push su `main` → GitHub Pages da `/docs`|Dopo cambi a `game.js`, alza `?v=` in `index.html`|
-|Backend|Render (root `backend/` o comando da `package.json`)|Env Supabase; restart dopo deploy catalogo|
-|Carte|SQL Editor Supabase|Seed / fix script|
-
-\---
-
-## Debug rapido (F12)
-
-Con frontend aggiornato:
-
-```js
-window.\_\_penombraDebug?.version
-window.\_\_penombraDebug?.hasDrawUi()
-await window.\_\_penombraDebug?.card('lab-inf-m2')
-window.\_\_penombraDebug?.pendingTarget()
-```
-
-Health API:
-
-```js
-fetch('https://penombra-api.onrender.com/health').then(r => r.json()).then(console.log)
-```
-
-\---
-
-## Licenza e autori
-
-Progetto personale / lab di sviluppo.  
-Motore e client derivati dall’ecosistema Bellum Penumbrum, adattati a Penombra.
-
+Leggi anche **`architettura.md`** per la mappa completa del codice.
