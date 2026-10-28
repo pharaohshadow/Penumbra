@@ -5,9 +5,8 @@
 - Aggiornare README, ROADMAP, architettura, istruzioni_per_IA.
 - Niente modifiche manuali per l'utente.
 
-## Regole chiave
-- Mappa 7×7 logica; UI nasconde cornice; muri edge + perimetro.
-- Movimento e **attacco** non attraversano i muri.
-- Combattimento = entrare su casella avversaria.
-- Spawn Tempio solo se libero.
-- Fog raggio 2; neutrali colorati; Signore; artefatto/indizi.
+## Regole
+- Templi parte del campo (accesso alla mappa).
+- Avvizzito = moved_this_turn; UI bordo grigio vs bordo verde pulsante se ready.
+- Layout a colonna centrale su landscape e mobile.
+- Muri bloccano movimento e attacco; combattimento entrando sulla casella.

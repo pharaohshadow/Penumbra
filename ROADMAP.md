@@ -2,8 +2,8 @@
 
 | Step | Stato |
 |------|--------|
-| Neutrali colorati + Signore | v30 |
-| UI senza cornice, muri perimetro, no attack through walls, nomi puliti | **v31** |
-| Effetto incontro Signore / testi indizi / quest | da definire |
+| UI cornice nascosta, muri, no attack through walls | v31 |
+| Tempio accessibile, layout colonna, avvizzito | **v32** |
+| Effetto Signore / indizi / quest | da definire |
 
-Prossima: **v32**
+Prossima: **v33**

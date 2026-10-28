@@ -129,6 +129,8 @@ def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:
                         "coord": unit.coord,
                         "color": unit.card.color.value if unit.card.color else None,
                         "signore": "signore" in unit.statuses,
+                        "withered": bool(unit.moved_this_turn),
+                        "ready": (not unit.moved_this_turn) and unit.is_alive,
                     }
             else:
                 # Fuori fog: nascondi tipo tile giocabile (mostra solo Cornice/Tempio noti)

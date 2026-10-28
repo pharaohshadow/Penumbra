@@ -75,6 +75,42 @@
     .mode-btn .sub { display: block; font-size: 0.8rem; font-weight: 400; color: var(--muted); margin-top: 4px; }
     .mode-btn:disabled { opacity: 0.45; }
     .mode-btn.active-mode { border: 1px solid var(--accent); }
+  
+    /* Layout: colonna centrale unica (mobile e desktop landscape) */
+    body { margin: 0; }
+    .app-shell {
+      display: flex; justify-content: center; width: 100%; min-height: 100vh;
+      box-sizing: border-box; padding: 8px;
+    }
+    .app-col {
+      width: 100%; max-width: 440px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    @media (orientation: landscape) and (min-width: 900px) {
+      .app-shell {
+        display: grid;
+        grid-template-columns: 1fr minmax(320px, 440px) 1fr;
+        padding: 8px 0;
+      }
+      .app-col { grid-column: 2; max-width: 440px; margin: 0 auto; }
+    }
+    /* Avvizzito / pronto */
+    .unit.ready {
+      box-shadow: 0 0 0 2px #4ade80, 0 0 10px 2px rgba(74,222,128,0.55);
+      animation: pulse-ready 1.4s ease-in-out infinite;
+      border-radius: 4px;
+    }
+    .unit.withered {
+      box-shadow: 0 0 0 2px #6b7280;
+      opacity: 0.72;
+      filter: grayscale(0.35);
+      border-radius: 4px;
+    }
+    @keyframes pulse-ready {
+      0%, 100% { box-shadow: 0 0 0 2px #4ade80, 0 0 8px 1px rgba(74,222,128,0.4); }
+      50% { box-shadow: 0 0 0 2px #86efac, 0 0 14px 3px rgba(74,222,128,0.7); }
+    }
+
   </style>
 </head>
 <body>
@@ -132,6 +168,7 @@
   </div>
 
   <!-- ============ GIOCO ============ -->
+  <div class="app-shell"><div class="app-col">
   <div id="cluePopup"><div class="box"><h2>Indizio</h2><p id="cluePopupText">GGWP</p><button id="cluePopupOk">OK</button></div></div>
   <div id="gameRoot">
     <div id="authUserBar" class="panel">
@@ -434,8 +471,12 @@
           let ucls = u.owner === 0 ? "p0" : u.owner === 1 ? "p1" : "neutral";
           if (u.signore) ucls += " signore";
           if (u.color) ucls += " col-" + u.color;
+          // Avvizzito = già usata nel turno (come "tappata"); ready = ancora attivabile
+          if (u.owner === playerId) {
+            if (u.withered) ucls += " withered";
+            else if (u.ready !== false) ucls += " ready";
+          }
           const hpShow = u.signore ? "∞" : u.hp;
-          // Nome senza stats ripetute (es. "Soldato" non "Soldato 1/1")
           let uname = (u.name || "").replace(/\s*\d+\/\d+\s*$/, "").trim() || u.name;
           html += `<div class="unit ${ucls}">${u.crown ? '<span class="crown">👑</span>' : ""}${u.evolved ? "✦ " : ""}${uname}<div class="stats">${u.atk}/${hpShow}</div></div>`;
         } else if (cell.fog) {
@@ -667,5 +708,6 @@
       });
     })();
   </script>
+</div></div>
 </body>
 </html>

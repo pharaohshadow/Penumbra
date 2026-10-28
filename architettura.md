@@ -1,6 +1,5 @@
-# Architettura – v31
+# Architettura – v32
 
-- UI: skip `TileType.FRAME`; grid 7×7 con solo celle utili posizionate.
-- `edge_walls`: muri xlsx + perimetro playable (1..5)×(1..5) verso cornice.
-- `try_move`: check muro prima di move/combat.
-- Spawn free: nome `Soldato` (stats solo in UI).
+- Edge walls perimetro con aperture ai templi (discard muri angolo A6/B5 e G0/F1).
+- Serialize unit: `withered`, `ready`.
+- UI: `.app-shell` / `.app-col`; `.unit.ready` pulse; `.unit.withered` grigio.

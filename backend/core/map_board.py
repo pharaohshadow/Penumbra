@@ -100,7 +100,14 @@ class Board:
         for r in range(1, 6):
             self.edge_walls.add(_edge_key((r, 1), (r, 0)))  # left
             self.edge_walls.add(_edge_key((r, 5), (r, 6)))  # right
-        # Angoli interni playable ↔ frame diagonali non servono (edge walls solo ortogonali)
+
+        # v32: i Templi fanno parte del campo — apri accesso diagonale Tempio ↔ mappa
+        # P1 A6 (6,0) ↔ B5 (5,1); P2 G0 (0,6) ↔ F1 (1,5)
+        for edge in [
+            ((5, 1), (5, 0)), ((5, 1), (6, 1)), ((6, 0), (5, 0)), ((6, 0), (6, 1)),
+            ((1, 5), (1, 6)), ((1, 5), (0, 5)), ((0, 6), (0, 5)), ((0, 6), (1, 6)),
+        ]:
+            self.edge_walls.discard(_edge_key(*edge))
 
         # 6. Portali / eventi di base (sulla zona giocabile, posizioni libere)
         # Portale bianco e nero come prima, adattati
