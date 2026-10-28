@@ -526,11 +526,26 @@ async def api_end(body: EndReq, user: Dict[str, Any] = Depends(require_user)):
         raise HTTPException(400, "Non è il tuo turno")
     try:
         gs.end_turn()
+        # Turni IA in sequenza (max 1 per richiesta)
         if gs.phase != Phase.GAME_OVER and gs.players[gs.current_player_id].is_ai:
-            ai = BasicAI(gs, player_id=gs.current_player_id)
-            ai.take_turn()
-        _persist(body.game_id, gs, "end_turn")
-        return serialize_state(gs, body.game_id, viewer_id=getattr(body, 'player_id', 0))
+            try:
+                ai = BasicAI(gs, player_id=gs.current_player_id)
+                ai.take_turn()
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                gs.log_msg(f"[AI] errore: {e}")
+                # se l'IA fallisce, passa comunque avanti se ancora il suo turno
+                if gs.current_player_id != body.player_id and gs.phase != Phase.GAME_OVER:
+                    try:
+                        gs.end_turn()
+                    except Exception:
+                        pass
+        try:
+            _persist(body.game_id, gs, "end_turn")
+        except Exception as e:
+            print(f"[warn] persist end: {e}")
+        return serialize_state(gs, body.game_id, viewer_id=getattr(body, "player_id", 0))
     except HTTPException:
         raise
     except Exception as e:

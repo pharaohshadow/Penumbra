@@ -151,6 +151,24 @@ class TileType(Enum):
     FRAME = "Cornice"
     ILLUSION_WALL = "MuroIllusione"
     NEUTRAL_TERRAIN = "TerrenoNeutrale"
+    # Legacy (eventi/trappole – non usati sulla mappa hex attuale, ma referenziati dal codice)
+    EVENT = "Evento"
+    BUFF = "Buff"
+    RITUAL = "Rituale"
+    PORTAL_WHITE = "PortaleBianco"
+    PORTAL_BLACK = "PortaleNero"
+    PORTAL_GRAY = "PortaleGrigio"
+    PORTAL_UNSTABLE = "PortaleInstabile"
+    SANCTUARY = "Santuario"
+    FISSURE = "Fenditura"
+    SWAMP = "Palude"
+    MAGMA = "Magma"
+    SPIKE_PIT = "FossaSpine"
+    TOWER = "Torre"
+    SHADOW_REFUGE = "RifugioOmbroso"
+    MANA_STEAL = "RunaFurto"
+    TRAP = "Trappola"
+    GROWTH = "Crescita"
 
 
 class Phase(Enum):

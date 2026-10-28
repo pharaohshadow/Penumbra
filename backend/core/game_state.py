@@ -313,6 +313,16 @@ class GameState:
         # Spawn gratuito 1/1
         self._spawn_free_1_1(p)
 
+        # Auto-corona se manca
+        if (p.crown_unit is None or not p.crown_unit.is_alive):
+            units = self.board.get_units_of_player(p.id)
+            if units:
+                p.place_fragment(units[0])
+                try:
+                    self._sync_fragment_card(p.id)
+                except Exception:
+                    pass
+
         # Neutrali: spawn/attivazione a FINE turno (v29), non a inizio
 
         # Effetti a inizio turno (Santuario, Fenditura, Growth, ecc.)
@@ -339,10 +349,10 @@ class GameState:
             tile = self.board.get_tile(unit.col, unit.row)
             if not tile:
                 continue
-            if tile.tile_type == getattr(TileType, 'SANCTUARY', None) or tile.permanent_effect == "sanctuary":
+            if tile.tile_type == TileType.SANCTUARY or tile.permanent_effect == "sanctuary":
                 unit.heal(1)
                 self.log_msg(f"  Santuario: {unit.card.name} +1 HP")
-            if tile.tile_type == getattr(TileType, 'FISSURE', None) or tile.permanent_effect == "fissure":
+            if tile.tile_type == TileType.FISSURE or tile.permanent_effect == "fissure":
                 unit.take_damage(1)
                 self.log_msg(f"  Fenditura: {unit.card.name} subisce 1 danno")
                 if not unit.is_alive:
@@ -603,8 +613,13 @@ class GameState:
                 if coord == "none":
                     return None
                 try:
-                    r, c = coord_to_pos(coord)
-                    u = self.board.get_unit_at(r, c)
+                    pos = self.board.resolve_pos(coord)
+                    if not pos and "," in coord:
+                        q, r = map(int, coord.split(",", 1))
+                        pos = (q, r)
+                    if not pos:
+                        return None
+                    u = self.board.get_unit_at(pos[0], pos[1])
                     if u and u.is_alive and u.owner_id != -1:
                         return u
                 except Exception:
@@ -662,7 +677,7 @@ class GameState:
             # --- SIGNORE: solo vagabondaggio casuale ---
             if "signore" in neu.statuses:
                 adj = self.board.get_adjacent(neu.col, neu.row)
-                free = [(r, c) for r, c in adj if self.board.get_unit_at(r, c) is None]
+                free = [(q, r) for q, r in adj if self.board.get_unit_at(q, r) is None]
                 # Se adiacente a un giocatore, "interazione"
                 for r, c in adj:
                     other = self.board.get_unit_at(r, c)
@@ -684,7 +699,7 @@ class GameState:
 
             if target is None:
                 adj = self.board.get_adjacent(neu.col, neu.row)
-                free = [(r, c) for r, c in adj if self.board.get_unit_at(r, c) is None]
+                free = [(q, r) for q, r in adj if self.board.get_unit_at(q, r) is None]
                 if free:
                     nr, nc = random.choice(free)
                     self.board.move_unit(neu, nr, nc)
@@ -744,24 +759,30 @@ class GameState:
 
     def end_turn(self):
         p = self.players[self.current_player_id]
-        # Controllo sconfitta (nessun frammento)
-        if p.crown_unit is None or not p.crown_unit.is_alive:
-            # Ha ancora frammenti da piazzare?
-            if p.fragments_remaining > 0 and p.can_afford(p.next_fragment_cost() or 999):
-                self.log_msg(f"{p.name} deve piazzare un nuovo Frammento prima di fine turno!")
-                # In prototipo forziamo la sconfitta se non lo fa
+        # Sconfitta solo se nessuna corona viva E nessun frammento rimanente
+        crown_dead = p.crown_unit is None or not p.crown_unit.is_alive
+        if crown_dead:
+            if p.fragments_remaining > 0:
+                self.log_msg(f"{p.name}: nessuna Corona in campo (puoi ripiazzare un Frammento).")
             else:
-                p.has_lost = True
-                self.winner = 1 - p.id
-                self.phase = Phase.GAME_OVER
-                self.log_msg(f"*** {p.name} ha perso! Nessun Frammento in campo. ***")
-                return
+                # Ultimo controllo: se non ha creature, perde
+                if not self.board.get_units_of_player(p.id):
+                    p.has_lost = True
+                    self.winner = 1 - p.id
+                    self.phase = Phase.GAME_OVER
+                    self.log_msg(f"*** {p.name} ha perso! Nessun Frammento e nessuna creatura. ***")
+                    return
 
-        # v29: a fine turno di ogni giocatore → attivazione neutrali + spawn Altare
-        self._activate_altar_neutrals()
-        self._spawn_altar_neutral()
+        # Neutrali + spawn altare (non devono far crashare il turno)
+        try:
+            self._activate_altar_neutrals()
+        except Exception as e:
+            self.log_msg(f"[warn] neutrali: {type(e).__name__}: {e}")
+        try:
+            self._spawn_altar_neutral()
+        except Exception as e:
+            self.log_msg(f"[warn] spawn altare: {type(e).__name__}: {e}")
 
-        # Passa al giocatore successivo
         self.current_player_id = 1 - self.current_player_id
         if self.current_player_id == 0:
             self.turn += 1
@@ -897,7 +918,7 @@ class GameState:
             tile.trap_card_id = None  # consumata
 
         # Esplorazione tessera Evento
-        if not tile.explored and tile.tile_type == getattr(TileType, 'EVENT', None):
+        if not tile.explored and tile.tile_type == TileType.EVENT:
             tile.explored = True
             if self.event_deck:
                 event = self.event_deck.pop(0)
@@ -955,8 +976,8 @@ class GameState:
             "PortaleInstabile": TileType.PORTAL_UNSTABLE,
             "Palude": TileType.SWAMP,
             "TorreLancio": TileType.TOWER,
-            "SantuarioVita": getattr(TileType, 'SANCTUARY', None),
-            "Fenditura": getattr(TileType, 'FISSURE', None),
+            "SantuarioVita": TileType.SANCTUARY,
+            "Fenditura": TileType.FISSURE,
             "MuroIllusione": TileType.ILLUSION_WALL,
             "RifugioOmbroso": TileType.SHADOW_REFUGE,
             "FossaSpine": TileType.SPIKE_PIT,
@@ -1080,14 +1101,14 @@ class GameState:
             return
         # Preferisci colore opposto bianco/nero, altrimenti primo disponibile
         exit_pos = None
-        if tile.tile_type == getattr(TileType, 'PORTAL_WHITE', None):
+        if tile.tile_type == TileType.PORTAL_WHITE:
             for r, c, t in portals:
-                if t.tile_type == getattr(TileType, 'PORTAL_BLACK', None):
+                if t.tile_type == TileType.PORTAL_BLACK:
                     exit_pos = (r, c)
                     break
-        elif tile.tile_type == getattr(TileType, 'PORTAL_BLACK', None):
+        elif tile.tile_type == TileType.PORTAL_BLACK:
             for r, c, t in portals:
-                if t.tile_type == getattr(TileType, 'PORTAL_WHITE', None):
+                if t.tile_type == TileType.PORTAL_WHITE:
                     exit_pos = (r, c)
                     break
         if exit_pos is None:
@@ -1123,7 +1144,7 @@ class GameState:
                 tile = self.board.get_tile(u.row, u.col)
                 if not tile:
                     continue
-                if tile.tile_type == getattr(TileType, 'BUFF', None):
+                if tile.tile_type == TileType.BUFF:
                     buff_count += 1
                 if tile.tile_type == TileType.ALTAR:
                     has_altar = True
