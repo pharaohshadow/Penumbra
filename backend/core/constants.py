@@ -1,10 +1,10 @@
 """
 Costanti e Enum del gioco Penumbra
-v1.2 – compatibilità massima con map_board.py (tutte le funzioni esagonali richieste fino a ora)
+v1.3 – massima compatibilità con qualsiasi versione di map_board.py
 """
 
 from enum import Enum, auto
-from typing import Tuple, List
+from typing import Tuple, List, Any
 from dataclasses import dataclass
 
 # ============================================================
@@ -37,6 +37,11 @@ class HexPos:
         return [HexPos(self.q + dq, self.r + dr) for dq, dr in HEX_DIRECTIONS]
 
 
+def hex_key(q: int, r: int) -> Tuple[int, int]:
+    """Restituisce una chiave immutabile per usare (q,r) come chiave di dizionario."""
+    return (q, r)
+
+
 def hex_neighbors(q: int, r: int) -> List[Tuple[int, int]]:
     """Restituisce le 6 celle vicine in coordinate (q, r)."""
     return [(q + dq, r + dr) for dq, dr in HEX_DIRECTIONS]
@@ -61,7 +66,7 @@ def hex_in_radius(radius: int) -> List[Tuple[int, int]]:
 
 
 def all_hexes(radius: int = HEX_RADIUS) -> List[Tuple[int, int]]:
-    """Alias di hex_in_radius (richiesto da alcune versioni di map_board)."""
+    """Alias di hex_in_radius."""
     return hex_in_radius(radius)
 
 
@@ -78,11 +83,9 @@ COORD_LETTERS = "ABCDE"
 COORD_NUMBERS = "12345"
 
 def pos_to_coord(row: int, col: int) -> str:
-    """Converte (row, col) 0-based in coordinata tipo 'C3'"""
     return f"{COORD_LETTERS[col]}{COORD_NUMBERS[row]}"
 
 def coord_to_pos(coord: str) -> Tuple[int, int]:
-    """Converte 'C3' in (row, col) 0-based"""
     col = COORD_LETTERS.index(coord[0].upper())
     row = COORD_NUMBERS.index(coord[1])
     return row, col
@@ -149,7 +152,6 @@ class Phase(Enum):
     GAME_OVER = auto()
 
 class Direction(Enum):
-    """Direzioni movimento base (re degli scacchi) – legacy 5×5"""
     N  = (-1, 0)
     S  = (1, 0)
     E  = (0, 1)
@@ -159,36 +161,19 @@ class Direction(Enum):
     SE = (1, 1)
     SW = (1, -1)
 
-# Mana
+# Mana / Frammenti
 MANA_CAP = 6
 STARTING_MANA = 1
-
-# Frammenti
 FRAGMENT_COSTS = [0, 3, 6]
 
-# Coordinate speciali (legacy 5×5)
+# Coordinate speciali legacy
 ALTAR_POS = (2, 2)
 TEMPLE_P1_POSITIONS = [(4, 1), (4, 2), (4, 3)]
 TEMPLE_P2_POSITIONS = [(0, 1), (0, 2), (0, 3)]
 
-# Colori ANSI
 ANSI = {
-    "reset": "\033[0m",
-    "bold": "\033[1m",
-    "red": "\033[91m",
-    "green": "\033[92m",
-    "yellow": "\033[93m",
-    "blue": "\033[94m",
-    "magenta": "\033[95m",
-    "cyan": "\033[96m",
-    "white": "\033[97m",
-    "gray": "\033[90m",
-    "bg_red": "\033[41m",
-    "bg_green": "\033[42m",
-    "bg_yellow": "\033[43m",
-    "bg_blue": "\033[44m",
-    "bg_magenta": "\033[45m",
-    "bg_cyan": "\033[46m",
-    "bg_white": "\033[47m",
-    "bg_gray": "\033[100m",
+    "reset": "\033[0m", "bold": "\033[1m",
+    "red": "\033[91m", "green": "\033[92m", "yellow": "\033[93m",
+    "blue": "\033[94m", "magenta": "\033[95m", "cyan": "\033[96m",
+    "white": "\033[97m", "gray": "\033[90m",
 }

@@ -1,6 +1,6 @@
 # Istruzioni per IA – Penumbra
 
-**Versione attuale: v1.2**
+**Versione attuale: v1.3**
 
 Queste istruzioni sono **obbligatorie**.  
 Prima di consegnare qualsiasi file, l’IA **deve** rileggere questo documento.
@@ -16,39 +16,27 @@ Prima di consegnare qualsiasi file, l’IA **deve** rileggere questo documento.
    - `architettura.md`
    - `istruzioni_per_IA.md`
    - `roadmap.md`
-4. Il numero di versione deve comparire in alto in tutti e 4 i file. Questo obbliga l’IA ad aggiornarli ogni volta.
-5. Se l’utente scrive qualcosa tipo «passiamo alla versione X», da quel momento le consegne vanno messe in una cartella `vX.n` (dove n parte da 1 e cresce).
-6. Non proporre funzionalità PvP finché l’utente non lo chiede esplicitamente.
-7. Spiega sempre cosa stai facendo in italiano semplice.
-8. Non inventare URL, chiavi o impostazioni. Se mancano dati importanti, chiedili e poi aggiorna `architettura.md`.
-9. Quando completi l’ultimo sotto-punto di un punto principale della roadmap, segna il punto come chiuso e **chiedi conferma** all’utente prima di passare al punto successivo.
+4. Il numero di versione deve comparire in alto in tutti e 4 i file.
+5. Non proporre funzionalità PvP finché l’utente non lo chiede esplicitamente.
+6. Spiega sempre cosa stai facendo in italiano semplice.
+7. Non inventare URL, chiavi o impostazioni.
+8. Quando completi l’ultimo sotto-punto di un punto principale della roadmap, segna il punto come chiuso e **chiedi conferma** all’utente prima di passare al punto successivo.
+
+**Se incontri difficoltà o ti serve leggere altri file del repository per poter completare la richiesta, chiedili pure e ti saranno forniti.**
 
 ---
 
 ## Come aggiornare i file a ogni consegna
 
-- Alza il numero di versione (es. da v1.0 a v1.2)
+- Alza il numero di versione (es. da v1.2 a v1.3)
 - Aggiorna lo stato nella `roadmap.md`
 - Aggiorna eventuali dettagli tecnici in `architettura.md` se sono cambiati
 - Mantieni coerenti tutti e 4 i file
 
 ---
 
-## Passaggio di consegne
-
-Quando l’utente dà a una nuova chat il link del repository, quella chat deve:
-1. Leggere solo i 4 file indicati nel README
-2. Dichiarare di averli letti
-3. Fare domande se ha dubbi
-4. Non esplorare altri file finché non viene autorizzata
-
----
-
 ## Comanda imperativo categorico finale assoluto
 
 Ogni volta che devi consegnarmi dei file è fondamentale e categorico che tu rilegga questo file!  
-Dunque come sistema di controllo, affinché l’utente possa verificare che tu abbia effettivamente letto questo file ti scrivo qui questo ordine:  
 
 **«ognivolta che finisci di leggere questo file devi scrivere HO LETTO NUOVAMENTE LE ISTRUZIONI»**
-
-Se non scrivi questa frase so che non hai letto questo file e la cosa sarebbe molto grave.

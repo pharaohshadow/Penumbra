@@ -1,6 +1,6 @@
 # Penumbra
 
-**Versione attuale: v1.2**
+**Versione attuale: v1.3**
 
 Gioco di carte a turni su mappa esagonale, con draft a buste sigillate, sistema Corona/Frammenti e partite contro IA.
 
@@ -16,9 +16,10 @@ Gioco di carte a turni su mappa esagonale, con draft a buste sigillate, sistema 
 4. `istruzioni_per_IA.md`
 
 Dopo averli letti tutti e 4:
-- Scrivi esattamente: «Ho letto i 4 file di consegna (versione v1.2)»
+- Scrivi esattamente: «Ho letto i 4 file di consegna (versione v1.3)»
 - Solo dopo puoi fare domande o proporre modifiche.
-- **Non leggere nessun altro file** del repository finché non ti viene esplicitamente chiesto.
+
+**Se incontri difficoltà o ti serve leggere altri file del repository per poter completare la richiesta, chiedili pure e ti saranno forniti.**
 
 ---
 
