@@ -336,13 +336,13 @@ class GameState:
             unit.moved_this_turn = False
             unit.can_attack_this_turn = True
             unit.summoning_sickness = False  # scade a inizio del tuo turno
-            tile = self.board.get_tile(unit.row, unit.col)
+            tile = self.board.get_tile(unit.col, unit.row)
             if not tile:
                 continue
-            if tile.tile_type == TileType.SANCTUARY or tile.permanent_effect == "sanctuary":
+            if tile.tile_type == getattr(TileType, 'SANCTUARY', None) or tile.permanent_effect == "sanctuary":
                 unit.heal(1)
                 self.log_msg(f"  Santuario: {unit.card.name} +1 HP")
-            if tile.tile_type == TileType.FISSURE or tile.permanent_effect == "fissure":
+            if tile.tile_type == getattr(TileType, 'FISSURE', None) or tile.permanent_effect == "fissure":
                 unit.take_damage(1)
                 self.log_msg(f"  Fenditura: {unit.card.name} subisce 1 danno")
                 if not unit.is_alive:
@@ -644,7 +644,7 @@ class GameState:
         """Se un'unità giocatore entra su casella con artefatto → raccoglie indizio."""
         if unit.owner_id not in (0, 1):
             return
-        tile = self.board.get_tile(unit.row, unit.col)
+        tile = self.board.get_tile(unit.col, unit.row)
         if not tile or not getattr(tile, "has_artifact", False):
             return
         tile.has_artifact = False
@@ -883,7 +883,7 @@ class GameState:
 
     def _on_enter_tile(self, unit: Unit):
         self._try_pickup_artifact(unit)
-        tile = self.board.get_tile(unit.row, unit.col)
+        tile = self.board.get_tile(unit.col, unit.row)
         if not tile:
             return
 
@@ -897,7 +897,7 @@ class GameState:
             tile.trap_card_id = None  # consumata
 
         # Esplorazione tessera Evento
-        if not tile.explored and tile.tile_type == TileType.EVENT:
+        if not tile.explored and tile.tile_type == getattr(TileType, 'EVENT', None):
             tile.explored = True
             if self.event_deck:
                 event = self.event_deck.pop(0)
@@ -955,8 +955,8 @@ class GameState:
             "PortaleInstabile": TileType.PORTAL_UNSTABLE,
             "Palude": TileType.SWAMP,
             "TorreLancio": TileType.TOWER,
-            "SantuarioVita": TileType.SANCTUARY,
-            "Fenditura": TileType.FISSURE,
+            "SantuarioVita": getattr(TileType, 'SANCTUARY', None),
+            "Fenditura": getattr(TileType, 'FISSURE', None),
             "MuroIllusione": TileType.ILLUSION_WALL,
             "RifugioOmbroso": TileType.SHADOW_REFUGE,
             "FossaSpine": TileType.SPIKE_PIT,
@@ -1080,14 +1080,14 @@ class GameState:
             return
         # Preferisci colore opposto bianco/nero, altrimenti primo disponibile
         exit_pos = None
-        if tile.tile_type == TileType.PORTAL_WHITE:
+        if tile.tile_type == getattr(TileType, 'PORTAL_WHITE', None):
             for r, c, t in portals:
-                if t.tile_type == TileType.PORTAL_BLACK:
+                if t.tile_type == getattr(TileType, 'PORTAL_BLACK', None):
                     exit_pos = (r, c)
                     break
-        elif tile.tile_type == TileType.PORTAL_BLACK:
+        elif tile.tile_type == getattr(TileType, 'PORTAL_BLACK', None):
             for r, c, t in portals:
-                if t.tile_type == TileType.PORTAL_WHITE:
+                if t.tile_type == getattr(TileType, 'PORTAL_WHITE', None):
                     exit_pos = (r, c)
                     break
         if exit_pos is None:
@@ -1123,7 +1123,7 @@ class GameState:
                 tile = self.board.get_tile(u.row, u.col)
                 if not tile:
                     continue
-                if tile.tile_type == TileType.BUFF:
+                if tile.tile_type == getattr(TileType, 'BUFF', None):
                     buff_count += 1
                 if tile.tile_type == TileType.ALTAR:
                     has_altar = True

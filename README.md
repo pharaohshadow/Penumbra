@@ -1,10 +1,11 @@
-# Penumbra – Consegna v41
+# Penumbra – Consegna v42
 
-## Fix movimento
-- `try_move` usava **q/r invertite** su `get_unit_at`, `get_tile`, `move_unit` → 400/500 su `/api/move`.
-- Ora tutto in convenzione hex: **col=q, row=r**.
-- Messaggi di errore più chiari da `/api/move`.
+## Fix fine draft → 500 / "partita finita"
+1. **`TileType.SANCTUARY`** (e altri tipi legacy) non esistono sulla mappa hex → crash in `start_turn` a fine draft.
+2. Lookup tile con **q/r invertite** in alcuni punti.
+3. **Supabase 400** su `update_game` non deve più far fallire la richiesta (persist “soft”).
+4. `/api/draft` con errori più chiari.
 
-Mappa utente e muri su bordo (v39–v40) restano.
+Dopo il draft la partita entra in **MAIN** turno 1 con spawn sul Tempio1.
 
-**Nessuna modifica manuale.** Cartella: `penumbra_v41/`
+**Nessuna modifica manuale.** Cartella: `penumbra_v42/`

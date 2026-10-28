@@ -217,17 +217,20 @@ def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:
 def _persist(game_id: str, gs: GameState, action: str = "update", payload: Optional[dict] = None):
     if not supabase_store.enabled():
         return
-    snap = serialize_state(gs, game_id)
-    mode = _modes.get(game_id, {})
-    supabase_store.update_game(
-        game_id,
-        snap,
-        player0_uid=mode.get("player0_uid"),
-        player1_uid=mode.get("player1_uid"),
-        p1_is_ai=mode.get("p1_ai"),
-    )
-    if action != "update":
-        supabase_store.log_move(game_id, snap.get("current_player", 0), action, payload or {})
+    try:
+        snap = serialize_state(gs, game_id)
+        mode = _modes.get(game_id, {})
+        supabase_store.update_game(
+            game_id,
+            snap,
+            player0_uid=mode.get("player0_uid"),
+            player1_uid=mode.get("player1_uid"),
+            p1_is_ai=mode.get("p1_ai"),
+        )
+        if action != "update":
+            supabase_store.log_move(game_id, snap.get("current_player", 0), action, payload or {})
+    except Exception as e:
+        print(f"[supabase] persist skipped: {type(e).__name__}: {e}")
 
 
 def _load_from_supabase(game_id: str) -> Optional[GameState]:
@@ -579,11 +582,25 @@ async def api_draft(body: DraftReq, user: Dict[str, Any] = Depends(require_user)
     idx = body.pack_index if body.pack_index is not None else body.card_index
     if idx is None:
         raise HTTPException(400, "Serve pack_index")
-    ok = gs.draft_pick(body.player_id, idx)
+    try:
+        ok = gs.draft_pick(body.player_id, idx)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Errore draft: {type(e).__name__}: {e}")
     if not ok:
         raise HTTPException(400, "Scelta busta non valida")
-    _persist(body.game_id, gs, "draft", {"pack_index": idx})
-    return serialize_state(gs, body.game_id, viewer_id=getattr(body, 'player_id', 0))
+    try:
+        _persist(body.game_id, gs, "draft", {"pack_index": idx})
+    except Exception as e:
+        # Supabase 400 non deve bloccare la partita
+        print(f"[warn] persist draft: {e}")
+    try:
+        return serialize_state(gs, body.game_id, viewer_id=getattr(body, "player_id", 0))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Errore serializzazione post-draft: {type(e).__name__}: {e}")
 
 
 static_dir = ROOT / "static"
