@@ -22,9 +22,10 @@
     .cell.frame { background: #151820; opacity: 0.45; cursor: default; }
     .cell.temple { border-color: #fbbf24; }
     .cell.altar { border-color: #4ade80; box-shadow: inset 0 0 8px rgba(74,222,128,0.25); }
-    .wall-h, .wall-v { position: absolute; background: #1e293b; z-index: 2; pointer-events: none; }
-    .wall-h { height: 4px; }
-    .wall-v { width: 4px; }
+    .cell.wall-right { border-right: 4px solid #94a3b8 !important; }
+    .cell.wall-bottom { border-bottom: 4px solid #94a3b8 !important; }
+    .cell.wall-left { border-left: 4px solid #94a3b8 !important; }
+    .cell.wall-top { border-top: 4px solid #94a3b8 !important; }
     .cell { background: var(--tile); border: 1px solid var(--border); border-radius: 6px; min-height: 52px; padding: 4px; cursor: pointer; font-size: 0.7rem; display: flex; flex-direction: column; justify-content: space-between; }
     .cell:hover { border-color: var(--accent); } .cell.selected { outline: 2px solid var(--accent); }
     .cell .coord { color: var(--muted); font-size: 0.65rem; } .cell .tile-label { color: var(--muted); opacity: 0.7; }
@@ -411,18 +412,29 @@
           html += `<span class="tile-label">${cell.altar ? "✦Altare" : cell.tile}${cell.ritual ? " ✧" : ""}${cell.trap ? " ⚠" : ""}</span>`;
         }
         div.innerHTML = html;
+        // Applica classi muro edge (linee scure tra celle)
+        if (walls.length) {
+          const coord = cell.coord;
+          walls.forEach(w => {
+            const a = w.a, b = w.b;
+            if (a === coord || b === coord) {
+              const other = a === coord ? b : a;
+              // Determina direzione relativa
+              const letters = "ABCDEFG";
+              const numbers = "0123456";
+              const c0 = letters.indexOf(coord[0]), r0 = numbers.indexOf(coord[1]);
+              const c1 = letters.indexOf(other[0]), r1 = numbers.indexOf(other[1]);
+              if (c1 === c0 + 1 && r1 === r0) div.classList.add("wall-right");
+              if (c1 === c0 - 1 && r1 === r0) div.classList.add("wall-left");
+              if (r1 === r0 + 1 && c1 === c0) div.classList.add("wall-bottom");
+              if (r1 === r0 - 1 && c1 === c0) div.classList.add("wall-top");
+            }
+          });
+        }
         if (cell.tile !== "Cornice") {
           div.onclick = () => onCellClick(cell.coord);
         }
         boardEl.appendChild(div);
-      }
-      // Muri edge come linee scure (semplice overlay testuale per ora)
-      // I muri sono già rispettati dal backend; in UI mostriamo un indicatore sulle celle adiacenti se serve
-      // Per v28 le linee scure pure richiedono calcolo pixel; qui aggiungiamo un bordo più scuro sulle celle coinvolte
-      if (walls.length) {
-        const wallSet = new Set();
-        walls.forEach(w => { wallSet.add(w.a); wallSet.add(w.b); });
-        // opzionale: evidenziare caselle con muro vicino
       }
 
       const handEl = document.getElementById("hand");

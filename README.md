@@ -1,26 +1,18 @@
-# Penumbra – Consegna v28.1 (hotfix)
+# Penumbra – Consegna v28.2
 
-## Cosa cambia (rispetto a v27)
+## Cosa cambia
 
-1. **Mappa 7×7**
-   - Cornice esterna non giocabile
-   - Zona interna 5×5 giocabile
-   - Templi agli **angoli**:
-     - Tempio 1 (tu) = basso-sinistra `A6`
-     - Tempio 2 (IA) = alto-destra `G0`
-   - Spawn creature **solo** sulla casella del Tempio
-   - Altare al centro della zona giocabile `D3`
+### Mappa 7×7 (da v28)
+- Cornice non giocabile, zona interna 5×5
+- Templi angoli: tu `A6`, IA `G0`
+- Altare `D3`
+- Spawn solo sul Tempio
+- Muri = edge walls (linee tra celle)
 
-2. **Muri non sono più celle**
-   - Diventano **linee tra le caselle** (edge walls)
-   - Layout = bordi blu del tuo map.xlsx
-   - Le creature non possono attraversarli
-
-3. Coordinate nuove: **A–G / 0–6**
-
-4. **Hotfix 500 su /api/end**
-   - Corrette posizioni tempio ancora hardcodate a 5×5 in evocazione mostri
-   - `/api/end` ora restituisce il messaggio di errore reale invece di un 500 generico
+### Hotfix errori
+- **v28.1**: posizioni tempio hardcodate + messaggio errore chiaro su `/api/end`
+- **v28.2**: implementato `_sync_fragment_card` mancante (causa del crash `AttributeError`)
+- **v28.2**: muri ora visibili in UI come bordi grigi spessi tra le celle
 
 **Nessuna modifica manuale richiesta.**
 
@@ -45,7 +37,10 @@
 
 ## Cosa fare dopo
 
-1. Sostituisci i file (cartella `penumbra_v28` negli artifacts).
-2. Riavvia / ridistribuisci su Render.
-3. Fai una **nuova partita base vs IA**.
-4. Se esce ancora errore, copia il **testo completo** del messaggio (ora sarà leggibile, es. `Errore fine turno: ...`) e incollamelo.
+1. Sostituisci i file dalla cartella `penumbra_v28`.
+2. Ridistribuisci su Render.
+3. Nuova partita base vs IA.
+4. Controlla:
+   - che non esca più l’errore su Fine turno
+   - che i muri si vedano come linee grigie tra le celle
+   - che templi/altare siano al posto giusto

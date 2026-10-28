@@ -216,6 +216,12 @@ class GameState:
         units = self.board.get_units_of_player(0)
         if units:
             self.players[0].place_fragment(units[0])
+            self._sync_fragment_card(0)
+        # IA: stesso trattamento se ha già unità
+        units1 = self.board.get_units_of_player(1)
+        if units1 and self.players[1].crown_unit is None:
+            self.players[1].place_fragment(units1[0])
+            self._sync_fragment_card(1)
 
     # ------------------------------------------------------------------
     # Turno
@@ -960,6 +966,35 @@ class GameState:
         self.log_msg(f"{player.name} piazza la Corona su {unit.card.name} ({unit.coord}) per {cost} mana")
         self._sync_fragment_card(player.id)
         return True
+
+
+    def _sync_fragment_card(self, player_id: int) -> None:
+        """
+        Mantiene in mano la carta «Frammento / Corona» con il costo corretto.
+        - Se restano frammenti e non c'è già la carta in mano → la aggiunge (costo next).
+        - Se non restano frammenti → rimuove eventuali carte Frammento dalla mano.
+        - Aggiorna il costo della carta già presente.
+        """
+        from .card import Card
+        from .constants import CardType, Color, FRAGMENT_COSTS
+        p = self.players[player_id]
+        # Rimuovi eventuali duplicate / vecchie
+        p.hand = [c for c in p.hand if c.card_type != CardType.FRAGMENT]
+        cost = p.next_fragment_cost()
+        if cost is None or p.fragments_remaining <= 0:
+            return
+        frag = Card(
+            id=7000 + player_id * 10 + (3 - p.fragments_remaining),
+            name="Frammento / Corona",
+            cost=cost,
+            card_type=CardType.FRAGMENT,
+            color=Color.GRAY,
+            atk=0,
+            hp=0,
+            text=f"Piazza la Corona su una tua creatura. Costo attuale: {cost}.",
+        )
+        p.hand.append(frag)
+        self.log_msg(f"  [Corona] carta in mano (costo {cost}, frammenti restanti {p.fragments_remaining})")
 
     def _play_trap(self, player: Player, hand_index: int, card: Card, target_coord: Optional[str]) -> bool:
 
