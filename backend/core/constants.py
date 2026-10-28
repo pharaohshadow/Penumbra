@@ -1,37 +1,44 @@
 """
 Costanti e Enum del gioco Penumbra
-Aggiornato in v1.0 per supportare la mappa esagonale.
-La vecchia griglia 5×5 è mantenuta temporaneamente per compatibilità.
+v1.0 – hotfix: aggiunto HexPos per compatibilità con map_board.py
 """
 
 from enum import Enum, auto
 from typing import Tuple
+from dataclasses import dataclass
 
 # ============================================================
-# NUOVO SISTEMA ESAGONALE (v1.0+)
+# COORDINATE ESAGONALI (per compatibilità)
 # ============================================================
-HEX_RADIUS = 5              # raggio totale (include frame)
-PLAYABLE_RADIUS = 4         # raggio giocabile
+
+@dataclass(frozen=True)
+class HexPos:
+    """Alias di Hex – usato da alcune versioni di map_board.py"""
+    q: int
+    r: int
+
+    def __str__(self) -> str:
+        return f"({self.q},{self.r})"
 
 # ============================================================
-# VECCHIO SISTEMA 5×5 (da rimuovere dopo migrazione completa)
+# VECCHIO SISTEMA 5×5 (ancora in uso)
 # ============================================================
 GRID_SIZE = 5
 COORD_LETTERS = "ABCDE"
 COORD_NUMBERS = "12345"
 
 def pos_to_coord(row: int, col: int) -> str:
-    """Converte (row, col) 0-based in coordinata tipo 'C3' (sistema vecchio)."""
+    """Converte (row, col) 0-based in coordinata tipo 'C3'"""
     return f"{COORD_LETTERS[col]}{COORD_NUMBERS[row]}"
 
 def coord_to_pos(coord: str) -> Tuple[int, int]:
-    """Converte 'C3' in (row, col) 0-based (sistema vecchio)."""
+    """Converte 'C3' in (row, col) 0-based"""
     col = COORD_LETTERS.index(coord[0].upper())
     row = COORD_NUMBERS.index(coord[1])
     return row, col
 
 # ============================================================
-# ENUM COMUNI
+# ENUM
 # ============================================================
 
 class Color(Enum):
@@ -40,8 +47,8 @@ class Color(Enum):
     RED = "Rosso"
     BLACK = "Nero"
     GREEN = "Verde"
-    YELLOW = "Giallo"  # Meta: carte random dagli altri 5, bordo giallo in UI
-    GRAY = "Grigio"  # Eldrazzi / Neutrali
+    YELLOW = "Giallo"
+    GRAY = "Grigio"
 
 class CardType(Enum):
     MONSTER = "Mostro"
@@ -54,8 +61,8 @@ class CardType(Enum):
 
 class TileType(Enum):
     EMPTY = "Vuoto"
-    TEMPLE_P1 = "Tempio1"      # Spawn giocatore basso (umano) - legacy
-    TEMPLE_P2 = "Tempio2"      # Spawn giocatore alto (IA) - legacy
+    TEMPLE_P1 = "Tempio1"
+    TEMPLE_P2 = "Tempio2"
     TEMPLE_1 = "Tempio1"
     TEMPLE_2 = "Tempio2"
     TEMPLE_3 = "Tempio3"
@@ -79,8 +86,8 @@ class TileType(Enum):
     MANA_STEAL = "RunaFurto"
     NEUTRAL_TERRAIN = "TerrenoNeutrale"
     MAGMA = "Magma"
-    FRAME = "Cornice"          # nuovo: cornice non walkable
-    TERRAIN = "Terreno"        # nuovo: terreno generico esagonale
+    FRAME = "Cornice"
+    TERRAIN = "Terreno"
 
 class Phase(Enum):
     DRAFT = auto()
@@ -92,7 +99,7 @@ class Phase(Enum):
     GAME_OVER = auto()
 
 class Direction(Enum):
-    """Direzioni movimento base (re degli scacchi: 8 caselle adiacenti) - legacy 5×5"""
+    """Direzioni movimento base (re degli scacchi) – legacy 5×5"""
     N  = (-1, 0)
     S  = (1, 0)
     E  = (0, 1)
@@ -107,14 +114,18 @@ MANA_CAP = 6
 STARTING_MANA = 1
 
 # Frammenti
-FRAGMENT_COSTS = [0, 3, 6]  # Commander Tax
+FRAGMENT_COSTS = [0, 3, 6]
 
 # Coordinate speciali (legacy 5×5)
-ALTAR_POS = (2, 2)  # C3
+ALTAR_POS = (2, 2)
 TEMPLE_P1_POSITIONS = [(4, 1), (4, 2), (4, 3)]
 TEMPLE_P2_POSITIONS = [(0, 1), (0, 2), (0, 3)]
 
-# Colori ANSI per console
+# Nuovo sistema esagonale
+HEX_RADIUS = 5
+PLAYABLE_RADIUS = 4
+
+# Colori ANSI
 ANSI = {
     "reset": "\033[0m",
     "bold": "\033[1m",
