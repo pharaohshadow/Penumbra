@@ -6,19 +6,20 @@ Gioco di carte a turni su griglia (movimento tipo re), con draft a buste, sistem
 
 ---
 
-## Istruzioni per la nuova chat / IA
+## Istruzioni obbligatorie per ogni chat / IA
 
 Ciao! Se stai leggendo questo readme probabilmente sei una nuova chat di una IA e ti ho chiesto di leggere questo file. 
 Ora il tuo compito è leggere i seguenti file, in quest'ordine:
+
+**Devi leggere IMMEDIATAMENTE e senza chiedere conferma questi 4 file, in questo ordine:**
 
 1. `Questo `README.md`
 2. `architettura.md`
 3. `roadmap.md`
 4. `istruzioni_per_IA.md`
-
 Dopo averli letti tutti e 4:
-- Scrivi: «Ho letto i 4 file di consegna (versione X)» (dove "X" è l'attuale numero di versione) 
-- Se hai dubbi, fai domande.
+- Scrivi esattamente: «Ho letto i 4 file di consegna (versione v1)»
+- Solo dopo puoi fare domande o proporre modifiche.
 - **Non leggere nessun altro file** del repository finché non ti viene esplicitamente chiesto.
 
 ---
