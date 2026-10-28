@@ -1,9 +1,10 @@
-# Penumbra – Consegna v40
+# Penumbra – Consegna v41
 
-## Fix
-- **Muri in UI**: disegnati sul **bordo condiviso** tra due esagoni (non più da centro a centro).
-- Stessa geometria dell'editor mappa.
+## Fix movimento
+- `try_move` usava **q/r invertite** su `get_unit_at`, `get_tile`, `move_unit` → 400/500 su `/api/move`.
+- Ora tutto in convenzione hex: **col=q, row=r**.
+- Messaggi di errore più chiari da `/api/move`.
 
-Mappa utente v39 invariata (`backend/data/map.json`).
+Mappa utente e muri su bordo (v39–v40) restano.
 
-**Nessuna modifica manuale.** Cartella: `penumbra_v40/`
+**Nessuna modifica manuale.** Cartella: `penumbra_v41/`

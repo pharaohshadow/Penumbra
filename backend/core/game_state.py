@@ -771,71 +771,74 @@ class GameState:
     # Movimento e Combattimento (core)
     # ------------------------------------------------------------------
     def try_move(self, unit: Unit, target_row: int, target_col: int) -> bool:
+        """Muove/attacca verso (target_row=r, target_col=q) in convenzione hex."""
         if unit.owner_id != self.current_player_id:
             return False
         if "stun" in unit.statuses:
             self.log_msg(f"{unit.card.name} è stunnata e non può muoversi.")
             return False
         if unit.moved_this_turn and not unit.has_keyword("DoubleMove"):
+            self.log_msg(f"{unit.card.name} ha già agito in questo turno.")
             return False
-        # Movimento esagonale: 1 passo verso un hex adiacente (6 direzioni)
+
+        # Convenzione: unit.col=q, unit.row=r ; args target_row=r, target_col=q
         uq, ur = unit.col, unit.row
         tq, tr = target_col, target_row
+
         if hex_distance((uq, ur), (tq, tr)) != 1:
-            # prova ordine invertito se dati legacy
-            if hex_distance((unit.row, unit.col), (target_row, target_col)) != 1:
-                self.log_msg("Movimento non valido: serve 1 passo esagonale adiacente.")
-                return False
-            tq, tr = target_row, target_col
+            self.log_msg("Movimento non valido: serve 1 passo esagonale adiacente.")
+            return False
+
         if not self.players[unit.owner_id].can_afford(1):
             self.log_msg("Mana insufficiente.")
             return False
 
-        target_unit = self.board.get_unit_at(target_row, target_col)
-        # Muro edge tra due hex adiacenti
-        a = (unit.col, unit.row)
-        b = (target_col, target_row)
-        if self.board.has_edge_wall(a, b) or self.board.has_edge_wall((unit.row, unit.col), (target_row, target_col)):
+        if self.board.has_edge_wall((uq, ur), (tq, tr)):
             self.log_msg("Un muro blocca il passaggio.")
             return False
+
+        target_unit = self.board.get_unit_at(tq, tr)
 
         if target_unit is not None:
             if "signore" in target_unit.statuses or "untargetable" in target_unit.statuses:
                 self.log_msg("Il Signore non può essere attaccato.")
                 return False
-            # Non si attaccano gli alleati
             if target_unit.owner_id == unit.owner_id:
                 self.log_msg("Non puoi attaccare una creatura alleata.")
                 return False
-            # Neutrale o nemico: serve poter attaccare
             if unit.summoning_sickness or not unit.can_attack_this_turn:
                 self.log_msg(f"{unit.card.name} non può attaccare in questo turno.")
                 return False
-            # Combattimento = entrare sulla casella avversaria (già adiacenti e senza muro)
-        if target_unit is None:
-            # Muro d'Illusione: attacca il muro invece di entrare
-            dest = self.board.get_tile(target_row, target_col)
-            if dest and dest.tile_type == TileType.ILLUSION_WALL and dest.wall_hp > 0:
-                self.players[unit.owner_id].spend_mana(1)
-                unit.moved_this_turn = True
-                dest.wall_hp -= unit.current_atk
-                self.log_msg(f"{unit.card.name} colpisce Muro d'Illusione (−{unit.current_atk}, HP muro {max(0, dest.wall_hp)})")
-                if dest.wall_hp <= 0:
-                    dest.tile_type = TileType.EMPTY
-                    dest.wall_hp = 0
-                    self.log_msg("  Muro d'Illusione distrutto!")
-                return True
-            # Movimento libero
-            if self.board.move_unit(unit, target_row, target_col):
-                self.players[unit.owner_id].spend_mana(1)
-                unit.moved_this_turn = True
-                self.log_msg(f"{unit} si muove su {pos_to_coord(target_row, target_col)}")
-                self._on_enter_tile(unit)
-                return True
-            return False
-        else:
-            # Combattimento
             return self._resolve_combat(unit, target_unit)
+
+        # Casella libera
+        dest = self.board.get_tile(tq, tr)
+        if not dest or not self.board.is_walkable(tq, tr):
+            self.log_msg("Casella non calpestabile.")
+            return False
+        if dest.tile_type == TileType.ILLUSION_WALL and getattr(dest, "wall_hp", 0) > 0:
+            self.players[unit.owner_id].spend_mana(1)
+            unit.moved_this_turn = True
+            dest.wall_hp -= unit.current_atk
+            self.log_msg(f"{unit.card.name} colpisce Muro d'Illusione (−{unit.current_atk})")
+            if dest.wall_hp <= 0:
+                dest.tile_type = TileType.EMPTY
+                dest.wall_hp = 0
+                self.log_msg("  Muro d'Illusione distrutto!")
+            return True
+
+        if not self.board.move_unit(unit, tq, tr):
+            self.log_msg("Impossibile muovere (casella occupata o bloccata).")
+            return False
+        self.players[unit.owner_id].spend_mana(1)
+        unit.moved_this_turn = True
+        self.log_msg(f"{unit.card.name} si muove su {self.cell_name(tq, tr)}")
+        try:
+            self._on_enter_tile(unit)
+        except Exception as e:
+            self.log_msg(f"[warn] on_enter: {e}")
+        return True
+
 
     def _resolve_combat(self, attacker: Unit, defender: Unit) -> bool:
         self.log_msg(f"COMBATTIMENTO: {attacker} → {defender}")
@@ -849,7 +852,7 @@ class GameState:
         if not defender.is_alive:
             self.log_msg(f"  {defender.card.name} eliminato! {attacker} conquista la casella.")
             self._destroy_unit(defender)
-            self.board.move_unit(attacker, defender.row, defender.col)
+            self.board.move_unit(attacker, defender.col, defender.row)  # q,r
             attacker.moved_this_turn = True
             return True
 

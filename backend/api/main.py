@@ -453,17 +453,31 @@ async def api_move(body: MoveReq, user: Dict[str, Any] = Depends(require_user)):
     from_pos = gs.resolve_coord(body.from_coord)
     to_pos = gs.resolve_coord(body.to_coord)
     if not from_pos or not to_pos:
-        raise HTTPException(400, "Coordinate non valide")
+        raise HTTPException(400, f"Coordinate non valide: {body.from_coord!r} → {body.to_coord!r}")
     fq, fr = from_pos  # q, r
     tq, tr = to_pos
     unit = gs.board.get_unit_at(fq, fr)
     if not unit or unit.owner_id != body.player_id:
         raise HTTPException(400, "Nessuna tua unità su quella casella")
-    ok = gs.try_move(unit, tr, tq)  # try_move(unit, target_row=r, target_col=q)
+    try:
+        ok = gs.try_move(unit, tr, tq)  # target_row=r, target_col=q
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Errore mossa: {type(e).__name__}: {e}")
     if not ok:
-        raise HTTPException(400, "Mossa non valida")
-    _persist(body.game_id, gs, "move", {"from": body.from_coord, "to": body.to_coord})
-    return serialize_state(gs, body.game_id, viewer_id=getattr(body, 'player_id', 0))
+        last = (gs.log[-1] if gs.log else "Mossa non valida")
+        raise HTTPException(400, last if isinstance(last, str) else "Mossa non valida")
+    try:
+        _persist(body.game_id, gs, "move", {"from": body.from_coord, "to": body.to_coord})
+    except Exception:
+        pass
+    try:
+        return serialize_state(gs, body.game_id, viewer_id=getattr(body, "player_id", 0))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Errore serializzazione: {type(e).__name__}: {e}")
 
 
 @app.post("/api/play")
