@@ -440,7 +440,7 @@ class GameState:
         from .constants import CardType, Color
         free_card = Card(
             id=9000 + self.turn,
-            name="Soldato 1/1",
+            name="Soldato",
             cost=0,
             card_type=CardType.MONSTER,
             color=Color.GRAY,
@@ -774,6 +774,22 @@ class GameState:
             return False
 
         target_unit = self.board.get_unit_at(target_row, target_col)
+        # Muro edge tra le due caselle → non si può né muovere né attaccare attraverso
+        if abs(unit.row - target_row) + abs(unit.col - target_col) == 1:
+            if self.board.has_edge_wall((unit.row, unit.col), (target_row, target_col)):
+                self.log_msg("Un muro blocca il passaggio.")
+                return False
+        elif abs(unit.row - target_row) == 1 and abs(unit.col - target_col) == 1:
+            mid1 = (unit.row, target_col)
+            mid2 = (target_row, unit.col)
+            blocked = (
+                (self.board.has_edge_wall((unit.row, unit.col), mid1) and self.board.has_edge_wall((unit.row, unit.col), mid2))
+                or (self.board.has_edge_wall(mid1, (target_row, target_col)) and self.board.has_edge_wall(mid2, (target_row, target_col)))
+            )
+            if blocked:
+                self.log_msg("Un muro blocca il passaggio.")
+                return False
+
         if target_unit is not None:
             if "signore" in target_unit.statuses or "untargetable" in target_unit.statuses:
                 self.log_msg("Il Signore non può essere attaccato.")
@@ -786,6 +802,7 @@ class GameState:
             if unit.summoning_sickness or not unit.can_attack_this_turn:
                 self.log_msg(f"{unit.card.name} non può attaccare in questo turno.")
                 return False
+            # Combattimento = entrare sulla casella avversaria (già adiacenti e senza muro)
         if target_unit is None:
             # Muro d'Illusione: attacca il muro invece di entrare
             dest = self.board.get_tile(target_row, target_col)

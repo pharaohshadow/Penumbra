@@ -1,33 +1,13 @@
-# Penumbra – Consegna v30
+# Penumbra – Consegna v31
 
-## Neutrali colorati (Altare)
-- A fine turno di ogni giocatore: attivazione + spawn sull’Altare
-- **Stats**: `atk = floor(media_atk di TUTTI i mostri giocatori) − 1` (min 0), `hp = floor(media_hp)` (min 1) → minimo **0/1**
-- **Colore** casuale tra i non ancora usciti nel ciclo: Bianco, Blu, Rosso, Nero, Verde, **Giallo**
-- Dopo i 6 colori → **Il Signore**; poi il ciclo colori si azzera
-
-## Il Signore
-- Spawna su **casella casuale** libera (non sull’Altare)
-- Sulla stessa casella lascia un **artefatto** (◆)
-- Stats: **ATK = 0, +2 a ogni comparsa successiva**; **HP = infinito**
-- Non bersagliabile, non attaccabile
-- Vaga a caso a fine turno; interazione se condivide/adiacenza con un giocatore (log per ora)
-
-## Artefatto e indizi
-- Entrando sulla casella dell’artefatto, la creatura del giocatore lo raccoglie
-- +1 indizio + **popup “GGWP”** (placeholder testo indizio)
-- Contatore indizi in status bar
+## Cambiamenti
+1. **Celle cornice nascoste** in UI (A1–A5, B0–F0, ecc. non si vedono più)
+2. **Muri perimetrali** attorno alla zona giocabile 5×5
+3. **Nomi creature** puliti: es. `Soldato` + stats `2/1` sotto (niente “Soldato 1/1”)
+4. **Niente attacco attraverso i muri** (stesso blocco del movimento)
+5. Combattimento solo entrando su casella occupata da avversario (invariato, ora anche bloccato dai muri)
+6. Spawn inizio turno sul Tempio: se occupato, non spawna (già così)
 
 **Nessuna modifica manuale richiesta.**
 
-Cartella: `penumbra_v30/`
-
-### File principali
-| File | Azione |
-|------|--------|
-| `backend/core/game_state.py` | Sostituisci |
-| `backend/core/player.py` | Sostituisci |
-| `backend/core/tile.py` | Sostituisci |
-| `backend/api/main.py` | Sostituisci |
-| `backend/static/index.html` | Sostituisci |
-| docs | Sostituisci |
+Cartella: `penumbra_v31/`

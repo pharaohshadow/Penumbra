@@ -93,6 +93,15 @@ class Board:
         for a, b in edges:
             self.edge_walls.add(_edge_key(a, b))
 
+        # Perimetro zona giocabile (v31): muri tra MAPPA e cornice
+        for c in range(1, 6):
+            self.edge_walls.add(_edge_key((1, c), (0, c)))  # top
+            self.edge_walls.add(_edge_key((5, c), (6, c)))  # bottom
+        for r in range(1, 6):
+            self.edge_walls.add(_edge_key((r, 1), (r, 0)))  # left
+            self.edge_walls.add(_edge_key((r, 5), (r, 6)))  # right
+        # Angoli interni playable ↔ frame diagonali non servono (edge walls solo ortogonali)
+
         # 6. Portali / eventi di base (sulla zona giocabile, posizioni libere)
         # Portale bianco e nero come prima, adattati
         if self.grid[1][1].tile_type == TileType.EMPTY:

@@ -18,7 +18,7 @@
     .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
     .status { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; font-size: 0.9rem; }
     .status span { color: var(--muted); } .status strong { color: var(--text); }
-    .board { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; aspect-ratio: 1; max-width: 520px; position: relative; }
+    .board { display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(7, 1fr); gap: 3px; aspect-ratio: 1; max-width: 520px; position: relative; background: #0a0c10; border-radius: 8px; padding: 4px; }
     .cell.frame { background: #151820; opacity: 0.45; cursor: default; }
     .cell.temple { border-color: #fbbf24; }
     .cell.altar { border-color: #4ade80; box-shadow: inset 0 0 8px rgba(74,222,128,0.25); }
@@ -46,7 +46,8 @@
     .cell { background: var(--tile); border: 1px solid var(--border); border-radius: 6px; min-height: 52px; padding: 4px; cursor: pointer; font-size: 0.7rem; display: flex; flex-direction: column; justify-content: space-between; }
     .cell:hover { border-color: var(--accent); } .cell.selected { outline: 2px solid var(--accent); }
     .cell .coord { color: var(--muted); font-size: 0.65rem; } .cell .tile-label { color: var(--muted); opacity: 0.7; }
-    .unit { font-weight: 600; font-size: 0.75rem; line-height: 1.2; }
+    .unit { font-weight: 600; font-size: 0.72rem; line-height: 1.15; }
+    .unit .stats { font-weight: 700; font-size: 0.8rem; opacity: 0.95; margin-top: 2px; }
     .unit.p0 { color: var(--p0); } .unit.p1 { color: var(--p1); } .unit.neutral { color: var(--muted); } .unit .crown { color: var(--crown); }
     .hand { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; }
     .card { background: #12151a; border: 1px solid var(--border); border-radius: 6px; padding: 8px; cursor: pointer; font-size: 0.8rem; }
@@ -415,10 +416,13 @@
       for (let r = 0; r < gs; r++) for (let c = 0; c < gs; c++) {
         const cell = state.board[r][c];
         if (!cell) continue;
+        // v31: non mostrare celle cornice (non calpestabili) — restano solo mappa + templi
+        if (cell.tile === "Cornice") continue;
         const div = document.createElement("div");
+        div.style.gridColumn = (c + 1);
+        div.style.gridRow = (r + 1);
         let cls = "cell";
         if (selectedCoord === cell.coord) cls += " selected";
-        if (cell.tile === "Cornice") cls += " frame";
         if (cell.tile && cell.tile.startsWith("Tempio")) cls += " temple";
         if (cell.altar) cls += " altar";
         if (cell.fog) cls += " fog";
@@ -431,7 +435,9 @@
           if (u.signore) ucls += " signore";
           if (u.color) ucls += " col-" + u.color;
           const hpShow = u.signore ? "∞" : u.hp;
-          html += `<div class="unit ${ucls}">${u.crown ? '<span class="crown">👑</span>' : ""}${u.evolved ? "✦" : ""}${u.name}<br/>${u.atk}/${hpShow}</div>`;
+          // Nome senza stats ripetute (es. "Soldato" non "Soldato 1/1")
+          let uname = (u.name || "").replace(/\s*\d+\/\d+\s*$/, "").trim() || u.name;
+          html += `<div class="unit ${ucls}">${u.crown ? '<span class="crown">👑</span>' : ""}${u.evolved ? "✦ " : ""}${uname}<div class="stats">${u.atk}/${hpShow}</div></div>`;
         } else if (cell.fog) {
           html += `<span class="tile-label">░</span>`;
         } else if (cell.tile !== "Cornice") {
