@@ -1,6 +1,6 @@
 # Istruzioni per IA – Penumbra
 
-**Versione attuale: v1.1**
+**Versione attuale: v1.2**
 
 Queste istruzioni sono **obbligatorie**.  
 Prima di consegnare qualsiasi file, l’IA **deve** rileggere questo documento.
@@ -27,7 +27,7 @@ Prima di consegnare qualsiasi file, l’IA **deve** rileggere questo documento.
 
 ## Come aggiornare i file a ogni consegna
 
-- Alza il numero di versione (es. da v1.0 a v1.1)
+- Alza il numero di versione (es. da v1.0 a v1.2)
 - Aggiorna lo stato nella `roadmap.md`
 - Aggiorna eventuali dettagli tecnici in `architettura.md` se sono cambiati
 - Mantieni coerenti tutti e 4 i file

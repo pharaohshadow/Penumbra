@@ -1,6 +1,6 @@
 # Roadmap – Penumbra
 
-**Versione attuale: v1.1**
+**Versione attuale: v1.2**
 
 Questo file viene aggiornato obbligatoriamente a ogni consegna.  
 Indica lo stato reale dei lavori.
@@ -8,8 +8,8 @@ Indica lo stato reale dei lavori.
 ---
 
 ## Stato attuale
-v1.1 – Hotfix di stabilizzazione.  
-Risolti gli errori di importazione (`HexPos`, `hex_neighbors`, `hex_in_radius`, ecc.) che impedivano l’avvio su Render.
+v1.2 – Hotfix aggiuntivo: aggiunto all_hexes e altre alias.  
+Risolti ulteriori errori di importazione (all_hexes e alias).
 
 ---
 

@@ -1,10 +1,10 @@
-# Architettura – v1.1
+# Architettura – v1.2
 
 ## Stato attuale (ottobre 2026)
 
 Il progetto è in **fase di stabilizzazione** dopo errori di importazione causati da versioni miste di `map_board.py` e `constants.py`.
 
-### Problema risolto in v1.1
+### Problema risolto in v1.2
 `map_board.py` presente sul server Render richiedeva funzioni esagonali (`HexPos`, `hex_neighbors`, `hex_in_radius`, ecc.) non presenti in `constants.py`.  
 In questa versione `constants.py` è stato reso **pienamente compatibile** con tutte le richieste osservate.
 

@@ -1,6 +1,6 @@
 """
 Costanti e Enum del gioco Penumbra
-v1.1 – compatibilità completa con map_board.py (tutte le funzioni esagonali richieste)
+v1.2 – compatibilità massima con map_board.py (tutte le funzioni esagonali richieste fino a ora)
 """
 
 from enum import Enum, auto
@@ -58,6 +58,11 @@ def hex_in_radius(radius: int) -> List[Tuple[int, int]]:
         for r in range(r1, r2 + 1):
             result.append((q, r))
     return result
+
+
+def all_hexes(radius: int = HEX_RADIUS) -> List[Tuple[int, int]]:
+    """Alias di hex_in_radius (richiesto da alcune versioni di map_board)."""
+    return hex_in_radius(radius)
 
 
 def is_hex_within_radius(q: int, r: int, radius: int) -> bool:
