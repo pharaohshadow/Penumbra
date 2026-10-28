@@ -1,14 +1,14 @@
-# Architettura – v1.3
+# Architettura – v1.4
 
 ## Stato attuale
 
-Il progetto è in fase di stabilizzazione degli errori di importazione tra `map_board.py` e `constants.py`.
+`constants.py` è stato completamente allineato al `map_board.py` esagonale (versione v39) fornito dall’utente.
 
-In v1.3 `constants.py` contiene **tutte** le funzioni esagonali richieste fino a ora (`HexPos`, `hex_neighbors`, `hex_in_radius`, `all_hexes`, `hex_key`, ecc.).
+### Import supportati
+- HEX_RADIUS, PLAYABLE_RADIUS
+- HexPos, hex_neighbors, hex_in_radius, all_hexes, hex_key, hex_distance
+- ALTAR_POS, TEMPLE_P1_POS … TEMPLE_P4_POS
+- FLAVOR_NAMES, TileType, load_user_map
 
 ### Supabase
 - URL: `https://favrmxwyaxklfiruyvqz.supabase.co`
-
-### Render
-- Servizio: `penumbra-backend`
-- Root directory: `backend`

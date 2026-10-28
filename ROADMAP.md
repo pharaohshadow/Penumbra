@@ -1,9 +1,10 @@
 # Roadmap – Penumbra
 
-**Versione attuale: v1.3**
+**Versione attuale: v1.4**
 
 ## Stato attuale
-v1.3 – Aggiornate le istruzioni (rimossa la restrizione sulla lettura dei file) e reso `constants.py` ancora più completo (`hex_key` e alias aggiuntivi).
+v1.4 – `constants.py` allineato al vero `map_board.py` esagonale.  
+Dovrebbe risolvere la catena di ImportError.
 
 ---
 
@@ -15,17 +16,15 @@ v1.3 – Aggiornate le istruzioni (rimossa la restrizione sulla lettura dei file
 ## 2. Migrazione completa alla mappa esagonale (in corso)
 
 ### 2.1 Core della mappa
-- [x] 2.1.1 Sistema coordinate esagonali + massima compatibilità
-- [ ] 2.1.2 Caricamento e validazione di `map.json`
-- [ ] 2.1.3 Riscrivere `Tile`
-- [ ] 2.1.4 Riscrivere completamente `Board`
-- [ ] 2.1.5 Aggiornare `Unit`
+- [x] 2.1.1 Sistema coordinate + compatibilità completa con map_board v39
+- [ ] 2.1.2 Verifica caricamento map.json
+- [ ] 2.1.3 – 2.1.5 (Tile, Board, Unit) – in gran parte già presenti nel map_board fornito
 
-### 2.2 – 2.5
-(Ancora da fare)
+### 2.2 Logica di gioco
+Da verificare dopo che il deploy parte.
 
 ---
 
 ## Rischi e note
 - L’utente non è tecnico.
-- Se servono altri file per risolvere i problemi di deploy, l’IA può e deve chiederli.
+- Ora l’IA può e deve chiedere i file necessari.

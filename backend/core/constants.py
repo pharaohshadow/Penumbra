@@ -1,11 +1,13 @@
 """
 Costanti e Enum del gioco Penumbra
-v1.3 – massima compatibilità con qualsiasi versione di map_board.py
+v1.4 – allineato al map_board.py esagonale (v39)
 """
 
 from enum import Enum, auto
-from typing import Tuple, List, Any
+from typing import Tuple, List, Optional, Dict, Any
 from dataclasses import dataclass
+from pathlib import Path
+import json
 
 # ============================================================
 # COORDINATE ESAGONALI
@@ -23,39 +25,51 @@ HEX_DIRECTIONS = [
 HEX_RADIUS = 5
 PLAYABLE_RADIUS = 4
 
+# Posizioni speciali (coordinate assiali)
+ALTAR_POS: Tuple[int, int] = (0, 0)
+TEMPLE_P1_POS: Tuple[int, int] = (-3, 4)   # da map.json temple1
+TEMPLE_P2_POS: Tuple[int, int] = (3, -4)   # temple2
+TEMPLE_P3_POS: Tuple[int, int] = (-4, 0)   # temple3
+TEMPLE_P4_POS: Tuple[int, int] = (4, 0)    # temple4
+
+# Alias legacy (per compatibilità con codice vecchio)
+TEMPLE_P1_POSITIONS = [TEMPLE_P1_POS]
+TEMPLE_P2_POSITIONS = [TEMPLE_P2_POS]
+ALTAR_POS_LEGACY = (2, 2)  # vecchio 5x5
+
 
 @dataclass(frozen=True)
 class HexPos:
-    """Coordinate assiali di un esagono."""
     q: int
     r: int
 
     def __str__(self) -> str:
         return f"({self.q},{self.r})"
 
+    def __le__(self, other: "HexPos") -> bool:
+        return (self.q, self.r) <= (other.q, other.r)
+
     def neighbors(self) -> List["HexPos"]:
         return [HexPos(self.q + dq, self.r + dr) for dq, dr in HEX_DIRECTIONS]
 
 
 def hex_key(q: int, r: int) -> Tuple[int, int]:
-    """Restituisce una chiave immutabile per usare (q,r) come chiave di dizionario."""
     return (q, r)
 
 
 def hex_neighbors(q: int, r: int) -> List[Tuple[int, int]]:
-    """Restituisce le 6 celle vicine in coordinate (q, r)."""
     return [(q + dq, r + dr) for dq, dr in HEX_DIRECTIONS]
 
 
-def hex_distance(q1: int, r1: int, q2: int, r2: int) -> int:
-    """Distanza esagonale tra due celle."""
+def hex_distance(a: Tuple[int, int], b: Tuple[int, int]) -> int:
+    q1, r1 = a
+    q2, r2 = b
     s1 = -q1 - r1
     s2 = -q2 - r2
     return max(abs(q1 - q2), abs(r1 - r2), abs(s1 - s2))
 
 
 def hex_in_radius(radius: int) -> List[Tuple[int, int]]:
-    """Restituisce tutte le celle entro un certo raggio (incluso il centro)."""
     result = []
     for q in range(-radius, radius + 1):
         r1 = max(-radius, -q - radius)
@@ -66,17 +80,40 @@ def hex_in_radius(radius: int) -> List[Tuple[int, int]]:
 
 
 def all_hexes(radius: int = HEX_RADIUS) -> List[Tuple[int, int]]:
-    """Alias di hex_in_radius."""
     return hex_in_radius(radius)
 
 
-def is_hex_within_radius(q: int, r: int, radius: int) -> bool:
-    """True se la cella (q,r) è entro il raggio indicato."""
-    return hex_distance(q, r, 0, 0) <= radius
+# ============================================================
+# CARICAMENTO MAPPA UTENTE
+# ============================================================
+
+def load_user_map() -> Optional[Dict[str, Any]]:
+    """Carica backend/data/map.json se esiste."""
+    candidates = [
+        Path(__file__).resolve().parent.parent / "data" / "map.json",
+        Path("backend/data/map.json"),
+        Path("data/map.json"),
+    ]
+    for p in candidates:
+        if p.exists():
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                continue
+    return None
+
+
+# Nomi "flavor" per le caselle di terreno
+FLAVOR_NAMES = [
+    "Pianura", "Collina", "Bosco", "Lago", "Rovina", "Palude",
+    "Cava", "Altura", "Sentiero", "Radura", "Anfratto", "Sorgente",
+    "Crocevia", "Osservatorio", "Campo", "Rifugio", "Promontorio",
+]
 
 
 # ============================================================
-# VECCHIO SISTEMA 5×5 (ancora in uso)
+# VECCHIO SISTEMA 5×5 (ancora referenziato da alcuni moduli)
 # ============================================================
 GRID_SIZE = 5
 COORD_LETTERS = "ABCDE"
@@ -89,6 +126,7 @@ def coord_to_pos(coord: str) -> Tuple[int, int]:
     col = COORD_LETTERS.index(coord[0].upper())
     row = COORD_NUMBERS.index(coord[1])
     return row, col
+
 
 # ============================================================
 # ENUM
@@ -116,10 +154,8 @@ class TileType(Enum):
     EMPTY = "Vuoto"
     TEMPLE_P1 = "Tempio1"
     TEMPLE_P2 = "Tempio2"
-    TEMPLE_1 = "Tempio1"
-    TEMPLE_2 = "Tempio2"
-    TEMPLE_3 = "Tempio3"
-    TEMPLE_4 = "Tempio4"
+    TEMPLE_P3 = "Tempio3"
+    TEMPLE_P4 = "Tempio4"
     ALTAR = "Altare"
     BUFF = "Buff"
     EVENT = "Evento"
@@ -165,11 +201,6 @@ class Direction(Enum):
 MANA_CAP = 6
 STARTING_MANA = 1
 FRAGMENT_COSTS = [0, 3, 6]
-
-# Coordinate speciali legacy
-ALTAR_POS = (2, 2)
-TEMPLE_P1_POSITIONS = [(4, 1), (4, 2), (4, 3)]
-TEMPLE_P2_POSITIONS = [(0, 1), (0, 2), (0, 3)]
 
 ANSI = {
     "reset": "\033[0m", "bold": "\033[1m",
