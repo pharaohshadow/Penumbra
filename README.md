@@ -1,10 +1,37 @@
-# Penumbra – Consegna v43
+# Penumbra
 
-## Fix
-1. **`TileType.PORTAL_WHITE`** (e tutti i tipi legacy) di nuovo nell’enum → niente più crash a fine turno.
-2. **Fine turno**: non perde più automaticamente se manca solo la Corona ma hai ancora frammenti/creature.
-3. Neutrali: coordinate hex corrette.
-4. Corona auto-piazzata a inizio turno se manca.
-5. Errore IA non lascia la partita bloccata sul turno avversario.
+**Versione attuale: v1**
 
-**Nessuna modifica manuale.** Cartella: `penumbra_v43/`
+Gioco di carte a turni su griglia (movimento tipo re), con draft a buste, sistema di Corona/Frammenti e partite contro IA.
+
+---
+
+## Istruzioni per la nuova chat / IA
+
+**Leggi SOLO questi 4 file e poi fermati:**
+
+1. `istruzioni_per_IA.md`
+2. `architettura.md`
+3. `roadmap.md`
+4. Questo `README.md`
+
+Dopo averli letti tutti e 4:
+- Scrivi: «Ho letto i 4 file di consegna (versione v1)»
+- Se hai dubbi, fai domande.
+- **Non leggere nessun altro file** del repository finché non ti viene esplicitamente chiesto.
+
+---
+
+## Link utili
+- Repository: https://github.com/pharaohshadow/Penumbra
+- (Gli URL di Supabase e Render sono scritti in `architettura.md`)
+
+---
+
+## File di consegna obbligatori
+Ogni volta che l’IA consegna modifiche, deve obbligatoriamente consegnare questi 4 file aggiornati con la stessa versione:
+
+- `README.md`
+- `architettura.md`
+- `istruzioni_per_IA.md`
+- `roadmap.md`
