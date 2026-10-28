@@ -62,29 +62,27 @@ class GameState:
 
 
     # ------------------------------------------------------------------
-    # Fog of War (v28.3)
+    # Fog of War (v28.4 – fix coordinate tempio/unità)
     # Visibilità: raggio Chebyshev 2 da qualsiasi creatura del giocatore
     # o dal suo Tempio. Unità/caselle fuori fog non sono bersagliabili.
     # ------------------------------------------------------------------
     def vision_sources(self, player_id: int):
-        """Posizioni (row=r, col=q) che generano visione."""
+        """Posizioni (q, r) che generano visione: tempio del giocatore + sue creature vive."""
         sources = []
-        temple = TEMPLE_P1_POS if player_id == 0 else TEMPLE_P2_POS  # (q,r)
-        sources.append((temple[1], temple[0]))  # (r, q) for is_visible_to(row,col)
+        temple = TEMPLE_P1_POS if player_id == 0 else TEMPLE_P2_POS  # già (q, r)
+        sources.append((int(temple[0]), int(temple[1])))
         for u in self.board.get_units_of_player(player_id):
             if u.is_alive:
-                sources.append((u.row, u.col))
+                # Convenzione hex: unit.col = q, unit.row = r
+                sources.append((int(u.col), int(u.row)))
         return sources
 
     def is_visible_to(self, player_id: int, row: int, col: int, radius: int = 2) -> bool:
-        """True se hex (col=q,row=r) entro `radius` esagonale da una fonte di visione."""
-        # Convenzione hex: unit.col = q, unit.row = r  →  args (row=r, col=q)
-        target = (col, row)
-        for sr, sc in self.vision_sources(player_id):
-            # vision_sources returns (row,col)=(r,q) historically — normalize
-            src = (sc, sr)  # to (q,r)
-            # also try as already (q,r) if sr is q-like
-            if hex_distance(src, target) <= radius or hex_distance((sr, sc), target) <= radius:
+        """True se hex (col=q, row=r) è entro `radius` esagonale da una fonte di visione del player."""
+        # Chiamata tipica: is_visible_to(viewer_id, r, q)  → target (q, r)
+        target = (int(col), int(row))
+        for q, r in self.vision_sources(player_id):
+            if hex_distance((q, r), target) <= radius:
                 return True
         return False
 

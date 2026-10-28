@@ -1,15 +1,20 @@
-# Architettura – v1.9
+# Architettura – v1.10
 
 ## Stato attuale
 
-Rifinitura grafica mappa (28/10/2026) su richiesta utente:
+### Fix Fog of War (bug visioni “doppie”)
+In `game_state.py` la funzione `is_visible_to` controllava la distanza **due volte** con le coordinate invertite.
+Effetto: oltre alla tua zona (basso a sinistra, Tempio 1) si “accendeva” anche un’area in alto a destra vicino al Tempio 2.
 
-1. **Niente buchi neri** tra le tessere → esagoni leggermente più grandi / sovrapposti, sfondo del board del colore del terreno.
-2. **Muri = montagne** → non più linee rosse, ma creste rocciose (marrone/beige) sul bordo tra caselle.
-3. **Bordo esterno (Cornice)** → aspetto montagna, distinto dal fog of war (che resta blu-scuro).
+**Fix v28.4:** le fonti di visione sono solo `(q, r)` del tuo tempio + delle tue creature. Nessun doppio check invertito.
 
-### File toccati
-- `backend/static/index.html` (solo aspetto mappa)
+### Grafica mappa (stato intermedio)
+- Esagoni flat-top, colori scuri
+- Ostacoli ancora disegnati come linee (creste) → da sostituire con montagne irregolari (vedi roadmap §3)
+- Bordo esterno stile montagna, distinto dal fog
+
+### File toccati in questa consegna
+- `backend/core/game_state.py` (solo Fog of War)
 
 ### Supabase
 - URL: `https://favrmxwyaxklfiruyvqz.supabase.co`
