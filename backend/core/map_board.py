@@ -1,258 +1,195 @@
 """
-Board - griglia 7×7 con cornice, templi agli angoli e muri edge (v28)
+Board esagonale pointy-top – Penumbra v33
 """
-
 from __future__ import annotations
-from typing import List, Optional, Tuple, Dict, Set
+from typing import Dict, List, Optional, Set, Tuple
+
+from .constants import (
+    HEX_RADIUS, HEX_DIRS, HexPos, hex_neighbors, hex_in_radius, all_hexes,
+    hex_key, hex_distance, ALTAR_POS, TEMPLE_P1_POS, TEMPLE_P2_POS,
+    TEMPLE_P3_POS, TEMPLE_P4_POS, FLAVOR_NAMES, TileType,
+)
 from .tile import Tile
 from .unit import Unit
-from .constants import (
-    GRID_SIZE, TileType, ALTAR_POS, TEMPLE_P1_POS, TEMPLE_P2_POS,
-    TEMPLE_P3_POS, TEMPLE_P4_POS, PLAYABLE_ROWS, PLAYABLE_COLS,
-    pos_to_coord, coord_to_pos, Direction
-)
 
 
-def _edge_key(a: Tuple[int, int], b: Tuple[int, int]) -> Tuple[Tuple[int, int], Tuple[int, int]]:
-    """Chiave ordinata per un bordo tra due celle adiacenti."""
+def _edge_key(a: HexPos, b: HexPos) -> Tuple[HexPos, HexPos]:
     return (a, b) if a <= b else (b, a)
 
 
 class Board:
     def __init__(self):
-        self.grid: List[List[Tile]] = [
-            [Tile(r, c) for c in range(GRID_SIZE)] for r in range(GRID_SIZE)
+        self.tiles: Dict[HexPos, Tile] = {}
+        self.units: Dict[HexPos, Unit] = {}  # key = (q,r)
+        self.edge_walls: Set[Tuple[HexPos, HexPos]] = set()
+        self._flavor_by_pos: Dict[HexPos, str] = {}
+        self._pos_by_flavor: Dict[str, HexPos] = {}
+        self._setup_hex_layout()
+
+    def _setup_hex_layout(self):
+        cells = all_hexes(HEX_RADIUS)
+        flavor_pool = list(FLAVOR_NAMES)
+        fi = 0
+
+        for q, r in cells:
+            if (q, r) == ALTAR_POS:
+                ttype = TileType.ALTAR
+                name = "Altare"
+            elif (q, r) == TEMPLE_P1_POS:
+                ttype = TileType.TEMPLE_P1
+                name = "Tempio1"
+            elif (q, r) == TEMPLE_P2_POS:
+                ttype = TileType.TEMPLE_P2
+                name = "Tempio2"
+            elif (q, r) == TEMPLE_P3_POS:
+                ttype = TileType.TEMPLE_P3
+                name = "Tempio3"
+            elif (q, r) == TEMPLE_P4_POS:
+                ttype = TileType.TEMPLE_P4
+                name = "Tempio4"
+            else:
+                ttype = TileType.EMPTY
+                name = flavor_pool[fi % len(flavor_pool)]
+                fi += 1
+
+            tile = Tile(row=r, col=q, tile_type=ttype)  # row=r, col=q axial
+            tile.flavor_name = name
+            tile.explored = True
+            self.tiles[(q, r)] = tile
+            self._flavor_by_pos[(q, r)] = name
+            self._pos_by_flavor[name] = (q, r)
+
+        # Muri perimetrali: spigoli tra hex di bordo e "fuori" non servono
+        # (non esistono celle fuori). Muri interni di delimitazione / choke.
+        self._setup_walls()
+
+    def _setup_walls(self):
+        """Alcuni muri interni + anello soft vicino al bordo."""
+        # Choke intorno all'altare (non tutti i 6 lati – 3 aperture)
+        altar_neighbors = hex_neighbors(*ALTAR_POS)
+        # Muri su 3 lati dell'altare (aperture alternate)
+        for i, nb in enumerate(altar_neighbors):
+            if i % 2 == 0 and hex_in_radius(*nb):
+                self.edge_walls.add(_edge_key(ALTAR_POS, nb))
+
+        # Qualche muro a metà strada nord/sud per dare forma
+        candidates = [
+            ((0, 2), (0, 1)),
+            ((1, 1), (1, 0)),
+            ((-1, 2), (-1, 1)),
+            ((0, -2), (0, -1)),
+            ((1, -2), (1, -1)),
+            ((-1, -1), (-1, 0)),
+            ((2, 0), (1, 0)),
+            ((-2, 1), (-1, 1)),
         ]
-        self.units: Dict[Tuple[int, int], Unit] = {}
-        # Muri edge: set di chiavi ((r1,c1),(r2,c2)) ordinate
-        self.edge_walls: Set[Tuple[Tuple[int, int], Tuple[int, int]]] = set()
-        self._setup_fixed_layout()
+        for a, b in candidates:
+            if hex_in_radius(*a) and hex_in_radius(*b):
+                self.edge_walls.add(_edge_key(a, b))
 
-    def _setup_fixed_layout(self):
-        """Layout 7×7 da map.xlsx dell'utente (v28)."""
-        # 1. Tutta la griglia parte come Cornice (non giocabile)
-        for r in range(GRID_SIZE):
-            for c in range(GRID_SIZE):
-                self.grid[r][c].tile_type = TileType.FRAME
-                self.grid[r][c].explored = True
+        # Non murare i templi verso l'interno: rimuovi eventuali muri tempio↔vicini
+        for temple in (TEMPLE_P1_POS, TEMPLE_P2_POS, TEMPLE_P3_POS, TEMPLE_P4_POS):
+            for nb in hex_neighbors(*temple):
+                self.edge_walls.discard(_edge_key(temple, nb))
 
-        # 2. Zona giocabile interna 5×5 (righe 1-5, colonne 1-5) → EMPTY
-        for r in PLAYABLE_ROWS:
-            for c in PLAYABLE_COLS:
-                self.grid[r][c].tile_type = TileType.EMPTY
-                self.grid[r][c].explored = False
+    # --- query ---
+    def get_tile(self, q: int, r: int) -> Optional[Tile]:
+        return self.tiles.get((q, r))
 
-        # 3. Templi agli angoli
-        self.grid[TEMPLE_P1_POS[0]][TEMPLE_P1_POS[1]].tile_type = TileType.TEMPLE_P1
-        self.grid[TEMPLE_P1_POS[0]][TEMPLE_P1_POS[1]].owner_id = 0
-        self.grid[TEMPLE_P1_POS[0]][TEMPLE_P1_POS[1]].explored = True
+    def get_unit_at(self, q: int, r: int) -> Optional[Unit]:
+        return self.units.get((q, r))
 
-        self.grid[TEMPLE_P2_POS[0]][TEMPLE_P2_POS[1]].tile_type = TileType.TEMPLE_P2
-        self.grid[TEMPLE_P2_POS[0]][TEMPLE_P2_POS[1]].owner_id = 1
-        self.grid[TEMPLE_P2_POS[0]][TEMPLE_P2_POS[1]].explored = True
+    def is_walkable(self, q: int, r: int) -> bool:
+        if not hex_in_radius(q, r):
+            return False
+        tile = self.tiles.get((q, r))
+        if not tile:
+            return False
+        if tile.tile_type == TileType.FRAME:
+            return False
+        return True
 
-        # Futuri 4 giocatori (presenti ma non usati)
-        self.grid[TEMPLE_P3_POS[0]][TEMPLE_P3_POS[1]].tile_type = TileType.TEMPLE_P3
-        self.grid[TEMPLE_P3_POS[0]][TEMPLE_P3_POS[1]].explored = True
-        self.grid[TEMPLE_P4_POS[0]][TEMPLE_P4_POS[1]].tile_type = TileType.TEMPLE_P4
-        self.grid[TEMPLE_P4_POS[0]][TEMPLE_P4_POS[1]].explored = True
-
-        # 4. Altare al centro della zona MAPPA
-        ar, ac = ALTAR_POS
-        self.grid[ar][ac].tile_type = TileType.ALTAR
-        self.grid[ar][ac].explored = True
-
-        # 5. Muri edge – esattamente i bordi blu dell'xlsx
-        # Excel 1-based → 0-based: Excel (row,col) → (row-1, col-1)
-        # Bordi rilevati:
-        # (2,2) R → tra (1,1)-(1,2)
-        # (2,3) B → tra (1,2)-(2,2)
-        # (2,4) B → tra (1,3)-(2,3)
-        # (3,6) L+T → tra (2,4)-(2,5) e tra (1,5)-(2,5)
-        # (4,2) R → tra (3,1)-(3,2)
-        # (4,6) L → tra (3,4)-(3,5)
-        # (5,2) R → tra (4,1)-(4,2)
-        # (6,2) T → tra (4,1)-(5,1)
-        # (6,4) T → tra (4,3)-(5,3)
-        # (6,5) T → tra (4,4)-(5,4)
-        # (6,6) L → tra (5,4)-(5,5)
-        edges = [
-            ((1, 1), (1, 2)),
-            ((1, 2), (2, 2)),
-            ((1, 3), (2, 3)),
-            ((2, 4), (2, 5)),
-            ((1, 5), (2, 5)),
-            ((3, 1), (3, 2)),
-            ((3, 4), (3, 5)),
-            ((4, 1), (4, 2)),
-            ((4, 1), (5, 1)),
-            ((4, 3), (5, 3)),
-            ((4, 4), (5, 4)),
-            ((5, 4), (5, 5)),
-        ]
-        for a, b in edges:
-            self.edge_walls.add(_edge_key(a, b))
-
-        # Perimetro zona giocabile (v31): muri tra MAPPA e cornice
-        for c in range(1, 6):
-            self.edge_walls.add(_edge_key((1, c), (0, c)))  # top
-            self.edge_walls.add(_edge_key((5, c), (6, c)))  # bottom
-        for r in range(1, 6):
-            self.edge_walls.add(_edge_key((r, 1), (r, 0)))  # left
-            self.edge_walls.add(_edge_key((r, 5), (r, 6)))  # right
-
-        # v32: i Templi fanno parte del campo — apri accesso diagonale Tempio ↔ mappa
-        # P1 A6 (6,0) ↔ B5 (5,1); P2 G0 (0,6) ↔ F1 (1,5)
-        for edge in [
-            ((5, 1), (5, 0)), ((5, 1), (6, 1)), ((6, 0), (5, 0)), ((6, 0), (6, 1)),
-            ((1, 5), (1, 6)), ((1, 5), (0, 5)), ((0, 6), (0, 5)), ((0, 6), (1, 6)),
-        ]:
-            self.edge_walls.discard(_edge_key(*edge))
-
-        # 6. Portali / eventi di base (sulla zona giocabile, posizioni libere)
-        # Portale bianco e nero come prima, adattati
-        if self.grid[1][1].tile_type == TileType.EMPTY:
-            self.grid[1][1].tile_type = TileType.PORTAL_WHITE
-            self.grid[1][1].explored = False
-        if self.grid[5][5].tile_type == TileType.EMPTY:
-            self.grid[5][5].tile_type = TileType.PORTAL_BLACK
-            self.grid[5][5].explored = False
-        for r, c in [(1, 3), (3, 1), (5, 3)]:
-            if self.grid[r][c].tile_type == TileType.EMPTY:
-                self.grid[r][c].tile_type = TileType.EVENT
-                self.grid[r][c].explored = False
-
-    def has_edge_wall(self, a: Tuple[int, int], b: Tuple[int, int]) -> bool:
+    def has_edge_wall(self, a: HexPos, b: HexPos) -> bool:
         return _edge_key(a, b) in self.edge_walls
 
-    def get_tile(self, row: int, col: int) -> Optional[Tile]:
-        if 0 <= row < GRID_SIZE and 0 <= col < GRID_SIZE:
-            return self.grid[row][col]
-        return None
-
-    def get_tile_by_coord(self, coord: str) -> Optional[Tile]:
-        try:
-            r, c = coord_to_pos(coord)
-            return self.get_tile(r, c)
-        except (ValueError, IndexError):
-            return None
-
-    def is_valid_pos(self, row: int, col: int) -> bool:
-        return 0 <= row < GRID_SIZE and 0 <= col < GRID_SIZE
-
-    def is_walkable(self, row: int, col: int) -> bool:
-        tile = self.get_tile(row, col)
-        if tile is None:
-            return False
-        return tile.is_walkable
-
-    def get_unit_at(self, row: int, col: int) -> Optional[Unit]:
-        return self.units.get((row, col))
+    def get_adjacent(self, q: int, r: int) -> List[HexPos]:
+        out = []
+        for nq, nr in hex_neighbors(q, r):
+            if not self.is_walkable(nq, nr):
+                continue
+            if self.has_edge_wall((q, r), (nq, nr)):
+                continue
+            out.append((nq, nr))
+        return out
 
     def place_unit(self, unit: Unit) -> bool:
-        pos = (unit.row, unit.col)
-        if pos in self.units:
+        pos = (unit.col, unit.row)  # Unit stores row=r, col=q in hex mode
+        # Support both: unit.row = r, unit.col = q
+        q, r = unit.col, unit.row
+        if (q, r) not in self.tiles and (unit.row, unit.col) in self.tiles:
+            q, r = unit.row, unit.col
+        if not self.is_walkable(q, r):
             return False
-        if not self.is_walkable(unit.row, unit.col):
+        if (q, r) in self.units:
             return False
-        self.units[pos] = unit
+        unit.row = r
+        unit.col = q
+        self.units[(q, r)] = unit
         return True
 
-    def remove_unit(self, unit: Unit):
-        pos = (unit.row, unit.col)
-        if pos in self.units and self.units[pos] is unit:
-            del self.units[pos]
+    def remove_unit(self, unit: Unit) -> None:
+        key = (unit.col, unit.row)
+        if key in self.units and self.units[key] is unit:
+            del self.units[key]
+            return
+        key2 = (unit.row, unit.col)
+        if key2 in self.units and self.units[key2] is unit:
+            del self.units[key2]
 
-    def move_unit(self, unit: Unit, new_row: int, new_col: int) -> bool:
-        if not self.is_valid_pos(new_row, new_col):
+    def move_unit(self, unit: Unit, tq: int, tr: int) -> bool:
+        if not self.is_walkable(tq, tr):
             return False
-        if not self.is_walkable(new_row, new_col):
+        if (tq, tr) in self.units:
             return False
-        if (new_row, new_col) in self.units:
-            return False
-        # Blocca se c'è un muro edge tra le due celle (solo per mosse ortogonali)
-        old = (unit.row, unit.col)
-        new = (new_row, new_col)
-        if abs(old[0] - new[0]) + abs(old[1] - new[1]) == 1:  # ortogonale
-            if self.has_edge_wall(old, new):
+        if self.has_edge_wall((unit.col, unit.row), (tq, tr)):
+            # also try (row,col) order
+            if self.has_edge_wall((unit.row, unit.col), (tq, tr)):
                 return False
-        # Diagonale: blocca se entrambi i percorsi ortogonali sono murati
-        elif abs(old[0] - new[0]) == 1 and abs(old[1] - new[1]) == 1:
-            mid1 = (old[0], new[1])
-            mid2 = (new[0], old[1])
-            if self.has_edge_wall(old, mid1) and self.has_edge_wall(old, mid2):
-                return False
-            if self.has_edge_wall(mid1, new) and self.has_edge_wall(mid2, new):
-                return False
-        old_pos = (unit.row, unit.col)
-        if old_pos in self.units:
-            del self.units[old_pos]
-        unit.row = new_row
-        unit.col = new_col
-        self.units[(new_row, new_col)] = unit
+        old = (unit.col, unit.row)
+        if old not in self.units:
+            old = (unit.row, unit.col)
+        if old in self.units:
+            del self.units[old]
+        unit.col, unit.row = tq, tr
+        self.units[(tq, tr)] = unit
         return True
 
-    def get_adjacent(self, row: int, col: int) -> List[Tuple[int, int]]:
-        """Caselle raggiungibili con 1 passo come il re (8 direzioni), rispettando muri edge."""
-        result = []
-        for d in Direction:
-            nr, nc = row + d.value[0], col + d.value[1]
-            if not self.is_valid_pos(nr, nc) or not self.is_walkable(nr, nc):
-                continue
-            # Controllo muro
-            if abs(d.value[0]) + abs(d.value[1]) == 1:  # ortogonale
-                if self.has_edge_wall((row, col), (nr, nc)):
-                    continue
-            else:  # diagonale
-                mid1 = (row, nc)
-                mid2 = (nr, col)
-                blocked = (
-                    (self.has_edge_wall((row, col), mid1) and self.has_edge_wall((row, col), mid2))
-                    or (self.has_edge_wall(mid1, (nr, nc)) and self.has_edge_wall(mid2, (nr, nc)))
-                )
-                if blocked:
-                    continue
-            result.append((nr, nc))
-        return result
+    def get_units_of_player(self, player_id: int) -> List[Unit]:
+        return [u for u in self.units.values() if u.owner_id == player_id and u.is_alive]
 
-    def get_adjacent_diagonal(self, row: int, col: int) -> List[Tuple[int, int]]:
-        return self.get_adjacent(row, col)
+    def resolve_pos(self, coord: str) -> Optional[HexPos]:
+        """Nome flavor oppure 'q,r'."""
+        if coord in self._pos_by_flavor:
+            return self._pos_by_flavor[coord]
+        if "," in coord:
+            try:
+                q, r = map(int, coord.split(",", 1))
+                if (q, r) in self.tiles:
+                    return (q, r)
+            except ValueError:
+                return None
+        return None
 
-    def get_units_of_player(self, owner_id: int) -> List[Unit]:
-        return [u for u in self.units.values() if u.owner_id == owner_id]
+    def flavor_of(self, q: int, r: int) -> str:
+        return self._flavor_by_pos.get((q, r), hex_key(q, r))
 
     def get_edge_walls_for_ui(self) -> List[dict]:
-        """Lista di muri per la UI: {from, to, dir}."""
         out = []
         for a, b in self.edge_walls:
             out.append({
-                "a": pos_to_coord(*a),
-                "b": pos_to_coord(*b),
+                "a": self.flavor_of(*a),
+                "b": self.flavor_of(*b),
+                "a_qr": hex_key(*a),
+                "b_qr": hex_key(*b),
             })
         return out
-
-    def print_board(self, show_coords: bool = True) -> str:
-        lines = []
-        header = "    " + "  ".join(f" {c} " for c in COORD_LETTERS)
-        lines.append(header)
-        lines.append("   +" + "----+" * GRID_SIZE)
-        for r in range(GRID_SIZE):
-            row_str = f" {COORD_NUMBERS[r]} |"
-            for c in range(GRID_SIZE):
-                tile = self.grid[r][c]
-                unit = self.get_unit_at(r, c)
-                if unit:
-                    symbol = f"P{unit.owner_id}"
-                    if unit.has_fragment:
-                        symbol = "👑"
-                    cell = f"{symbol:^4}"
-                else:
-                    cell = f"{str(tile):^4}"
-                row_str += cell + "|"
-            lines.append(row_str)
-            lines.append("   +" + "----+" * GRID_SIZE)
-        return "\n".join(lines)
-
-
-# Import locale per print_board
-from .constants import COORD_LETTERS, COORD_NUMBERS

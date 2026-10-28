@@ -1,131 +1,165 @@
 """
-Costanti e Enum del gioco Tactical Card Game – griglia 7×7 (v28)
+Costanti globali – Penumbra v33 (mappa esagonale pointy-top)
 """
+from __future__ import annotations
+from enum import Enum
+from typing import Tuple, List, Dict, Optional
 
-from enum import Enum, auto
-from typing import Tuple
+# --- Hex grid (axial q, r) pointy-top ---
+HEX_RADIUS = 3  # ~37 esagoni (vicino/sopra alla vecchia zona 5×5)
 
-# Griglia 7×7 (cornice + zona giocabile 5×5 interna)
-GRID_SIZE = 7
+# 6 direzioni axial pointy-top
+HEX_DIRS = [
+    (+1,  0),  # E
+    (+1, -1),  # NE
+    ( 0, -1),  # NW
+    (-1,  0),  # W
+    (-1, +1),  # SW
+    ( 0, +1),  # SE
+]
+
+HexPos = Tuple[int, int]  # (q, r)
+
+
+def hex_s(q: int, r: int) -> int:
+    return -q - r
+
+
+def hex_distance(a: HexPos, b: HexPos) -> int:
+    aq, ar = a
+    bq, br = b
+    return (abs(aq - bq) + abs(ar - br) + abs(hex_s(aq, ar) - hex_s(bq, br))) // 2
+
+
+def hex_neighbors(q: int, r: int) -> List[HexPos]:
+    return [(q + dq, r + dr) for dq, dr in HEX_DIRS]
+
+
+def hex_in_radius(q: int, r: int, radius: int = HEX_RADIUS) -> bool:
+    return hex_distance((0, 0), (q, r)) <= radius
+
+
+def all_hexes(radius: int = HEX_RADIUS) -> List[HexPos]:
+    cells = []
+    for q in range(-radius, radius + 1):
+        for r in range(-radius, radius + 1):
+            if hex_in_radius(q, r, radius):
+                cells.append((q, r))
+    return cells
+
+
+# Pixel layout pointy-top (per UI)
+def hex_to_pixel(q: int, r: int, size: float = 28.0) -> Tuple[float, float]:
+    x = size * (3 ** 0.5) * (q + r / 2.0)
+    y = size * (3 / 2.0) * r
+    return x, y
+
+
+# Compatibilità legacy (alcuni import usano ancora questi nomi)
+GRID_SIZE = HEX_RADIUS * 2 + 1  # 7
 COORD_LETTERS = "ABCDEFG"
 COORD_NUMBERS = "0123456"
 
+
 def pos_to_coord(row: int, col: int) -> str:
-    """Converte (row, col) 0-based in coordinata tipo 'C3'"""
-    return f"{COORD_LETTERS[col]}{COORD_NUMBERS[row]}"
+    """Legacy – preferire hex_key."""
+    if 0 <= row < len(COORD_NUMBERS) and 0 <= col < len(COORD_LETTERS):
+        return f"{COORD_LETTERS[col]}{COORD_NUMBERS[row]}"
+    return f"{col},{row}"
+
 
 def coord_to_pos(coord: str) -> Tuple[int, int]:
-    """Converte 'C3' in (row, col) 0-based"""
-    col = COORD_LETTERS.index(coord[0].upper())
-    row = COORD_NUMBERS.index(coord[1])
-    return row, col
+    """Accetta 'A3' legacy oppure 'q,r' axial."""
+    coord = coord.strip()
+    if "," in coord:
+        q, r = coord.split(",", 1)
+        return int(q), int(r)
+    if len(coord) >= 2 and coord[0].upper() in COORD_LETTERS:
+        col = COORD_LETTERS.index(coord[0].upper())
+        row = COORD_NUMBERS.index(coord[1])
+        return row, col
+    raise ValueError(f"Coordinata non valida: {coord}")
+
+
+def hex_key(q: int, r: int) -> str:
+    return f"{q},{r}"
+
+
+def parse_hex_key(key: str) -> HexPos:
+    q, r = key.split(",", 1)
+    return int(q), int(r)
+
 
 class Color(Enum):
     WHITE = "Bianco"
     BLUE = "Blu"
-    RED = "Rosso"
     BLACK = "Nero"
+    RED = "Rosso"
     GREEN = "Verde"
-    YELLOW = "Giallo"  # Meta: carte random dagli altri 5, bordo giallo in UI
-    GRAY = "Grigio"  # Eldrazzi / Neutrali
+    YELLOW = "Giallo"
+    GRAY = "Grigio"
+
 
 class CardType(Enum):
     MONSTER = "Mostro"
-    TRAP = "Trappola"
-    CURSE = "Maledizione"
     BOSS = "Boss"
+    CURSE = "Maledizione"
+    TRAP = "Trappola"
     ELDRAZI = "Mostrissimo"
-    FRAGMENT = "Frammento"
     NEUTRAL = "Neutrale"
+    FRAGMENT = "Frammento"
+
 
 class TileType(Enum):
-    EMPTY = "Vuoto"           # casella giocabile vuota
-    FRAME = "Cornice"         # bordo esterno non giocabile
-    TEMPLE_P1 = "Tempio1"     # Spawn giocatore 0 (umano) – angolo basso-sinistra
-    TEMPLE_P2 = "Tempio2"     # Spawn giocatore 1 (IA) – angolo alto-destra
-    TEMPLE_P3 = "Tempio3"     # futuro 4 giocatori
-    TEMPLE_P4 = "Tempio4"     # futuro 4 giocatori
-    ALTAR = "Altare"          # centro zona MAPPA – Evoluzione
-    BUFF = "Buff"             # Cerchio Rituale / angoli gialli
-    EVENT = "Evento"          # Rosa (da esplorare)
-    WALL = "Muro"             # legacy cell-wall (non più usato come cella)
-    PORTAL_WHITE = "PortaleBianco"
-    PORTAL_BLACK = "PortaleNero"
-    PORTAL_GRAY = "PortaleGrigio"
-    PORTAL_UNSTABLE = "PortaleInstabile"
-    RITUAL = "CerchioRituale"
-    SWAMP = "Palude"
-    TOWER = "TorreLancio"
-    SANCTUARY = "SantuarioVita"
-    FISSURE = "Fenditura"
+    EMPTY = "Terreno"          # terreno base
+    TEMPLE_P1 = "Tempio1"      # basso (sud)
+    TEMPLE_P2 = "Tempio2"      # alto (nord)
+    TEMPLE_P3 = "Tempio3"      # sinistra (ovest) – futuro
+    TEMPLE_P4 = "Tempio4"      # destra (est) – futuro
+    ALTAR = "Altare"
+    FRAME = "Cornice"          # non usato in hex
     ILLUSION_WALL = "MuroIllusione"
-    SHADOW_REFUGE = "RifugioOmbroso"
-    SPIKE_PIT = "FossaSpine"
-    MANA_STEAL = "RunaFurto"
     NEUTRAL_TERRAIN = "TerrenoNeutrale"
-    MAGMA = "Magma"
+
 
 class Phase(Enum):
-    DRAFT = auto()
-    SETUP = auto()
-    TURN_START = auto()
-    MAIN = auto()
-    COMBAT = auto()
-    END_TURN = auto()
-    GAME_OVER = auto()
+    DRAFT = "DRAFT"
+    SETUP = "SETUP"
+    TURN_START = "TURN_START"
+    MAIN = "MAIN"
+    GAME_OVER = "GAME_OVER"
+
 
 class Direction(Enum):
-    """Direzioni movimento base (re degli scacchi: 8 caselle adiacenti)"""
-    N  = (-1, 0)
-    S  = (1, 0)
-    E  = (0, 1)
-    W  = (0, -1)
-    NE = (-1, 1)
-    NW = (-1, -1)
-    SE = (1, 1)
-    SW = (1, -1)
+    N = "N"
+    NE = "NE"
+    E = "E"
+    SE = "SE"
+    S = "S"
+    SW = "SW"
+    W = "W"
+    NW = "NW"
 
-# Mana
-MANA_CAP = 6
-STARTING_MANA = 1
 
-# Frammenti
-FRAGMENT_COSTS = [0, 3, 6]  # Commander Tax
+MANA_CAP = 10
+FRAGMENT_COSTS = [0, 3, 6]
 
-# Coordinate speciali (0-based, griglia 7×7)
-# Excel: riga1=alto → row0, colonna1=sinistra → col0
-ALTAR_POS = (3, 3)                 # centro zona MAPPA
-TEMPLE_P1_POS = (6, 0)             # basso-sinistra (umano)
-TEMPLE_P2_POS = (0, 6)             # alto-destra (IA)
-TEMPLE_P3_POS = (6, 6)             # basso-destra (futuro)
-TEMPLE_P4_POS = (0, 0)             # alto-sinistra (futuro)
+# Posizioni axial (q, r) – radius 3
+ALTAR_POS: HexPos = (0, 0)
+TEMPLE_P1_POS: HexPos = (0, 3)    # sud – giocatore 0
+TEMPLE_P2_POS: HexPos = (0, -3)   # nord – giocatore 1
+TEMPLE_P3_POS: HexPos = (-3, 0)   # ovest – futuro
+TEMPLE_P4_POS: HexPos = (3, -3)   # est – futuro
 
-# Compatibilità con codice che si aspetta liste
 TEMPLE_P1_POSITIONS = [TEMPLE_P1_POS]
 TEMPLE_P2_POSITIONS = [TEMPLE_P2_POS]
 
-# Zona giocabile interna (righe/colonne 1..5)
-PLAYABLE_ROWS = range(1, 6)
-PLAYABLE_COLS = range(1, 6)
-
-# Colori ANSI per console
-ANSI = {
-    "reset": "\033[0m",
-    "bold": "\033[1m",
-    "red": "\033[91m",
-    "green": "\033[92m",
-    "yellow": "\033[93m",
-    "blue": "\033[94m",
-    "magenta": "\033[95m",
-    "cyan": "\033[96m",
-    "white": "\033[97m",
-    "gray": "\033[90m",
-    "bg_red": "\033[41m",
-    "bg_green": "\033[42m",
-    "bg_yellow": "\033[43m",
-    "bg_blue": "\033[44m",
-    "bg_magenta": "\033[45m",
-    "bg_cyan": "\033[46m",
-    "bg_white": "\033[47m",
-    "bg_gray": "\033[100m",
-}
+# Nomi flavor (ambiente) – assegnati alle caselle terreno
+FLAVOR_NAMES = [
+    "Palude", "Montagna", "Fiume", "Bosco", "Collina", "Rovine",
+    "Brughiera", "Gola", "Lago", "Sentiero", "Cripta", "Radura",
+    "Crepaccio", "Torrente", "Ciglio", "Nebbia", "Alture", "Bassura",
+    "Catacombe", "Sorgente", "Rupe", "Valle", "Ponte", "Arena",
+    "Ossario", "Giardino", "Forgia", "Osservatorio", "Reliquiario",
+    "Anfratto", "Duna", "Marea",
+]

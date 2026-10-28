@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from core.game_state import GameState
-from core.constants import Phase, pos_to_coord, coord_to_pos, GRID_SIZE
+from core.constants import Phase, pos_to_coord, coord_to_pos, GRID_SIZE, hex_to_pixel, HEX_RADIUS, all_hexes, hex_key
 from ai.basic_ai import BasicAI
 from api import supabase_store
 from api.restore import hydrate
@@ -93,86 +93,51 @@ def _quest_progress(gs: GameState) -> dict:
 
 def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:
     board = []
-    for r in range(GRID_SIZE):
-        row = []
-        for c in range(GRID_SIZE):
-            tile = gs.board.get_tile(r, c)
-            unit = gs.board.get_unit_at(r, c)
+    for q, r in all_hexes(HEX_RADIUS):
+        tile = gs.board.get_tile(q, r)
+        unit = gs.board.get_unit_at(q, r)
+        visible = True
+        try:
+            visible = gs.is_visible_to(viewer_id, r, q)
+        except Exception:
             visible = True
-            try:
-                visible = gs.is_visible_to(viewer_id, r, c)
-            except Exception:
-                visible = True
-            cell = {
-                "coord": pos_to_coord(r, c),
-                "tile": tile.tile_type.value if tile else "Vuoto",
-                "explored": tile.explored if tile else True,
-                "trap": False,  # trappole nemiche nascoste
-                "ritual": bool(tile and tile.is_ritual) if visible else False,
-                "altar": bool(tile and tile.tile_type.value == "Altare") if visible else False,
-                "unit": None,
-                "visible": visible,
-                "fog": not visible,
-                "artifact": bool(tile and getattr(tile, "has_artifact", False)) if visible else False,
-            }
-            if visible:
-                # Trappole proprie sempre visibili se sulla casella; nemiche solo se esplorate? per ora solo se visible
-                cell["trap"] = tile.trap_card_id is not None if tile else False
-                if unit:
-                    cell["unit"] = {
-                        "name": unit.card.name,
-                        "atk": unit.current_atk,
-                        "hp": unit.current_hp,
-                        "owner": unit.owner_id,
-                        "crown": unit.has_fragment,
-                        "evolved": "evolved" in unit.statuses,
-                        "coord": unit.coord,
-                        "color": unit.card.color.value if unit.card.color else None,
-                        "signore": "signore" in unit.statuses,
-                        "withered": bool(unit.moved_this_turn),
-                        "ready": (not unit.moved_this_turn) and unit.is_alive,
-                    }
-            else:
-                # Fuori fog: nascondi tipo tile giocabile (mostra solo Cornice/Tempio noti)
-                if tile and tile.tile_type.value not in ("Cornice", "Tempio1", "Tempio2", "Tempio3", "Tempio4"):
-                    cell["tile"] = "?"
-                    cell["explored"] = False
-            row.append(cell)
-        board.append(row)
-
-    def player_data(p):
-        color_counts = {}
-        for c in p.hand:
-            color_counts[c.color.value] = color_counts.get(c.color.value, 0) + 1
-        dominant = max(color_counts, key=color_counts.get) if color_counts else None
-        return {
-            "id": p.id,
-            "name": p.name,
-            "mana": p.mana,
-            "mana_max": p.mana_max,
-            "fragments": p.fragments_remaining,
-            "next_fragment_cost": p.next_fragment_cost(),
-            "has_crown": p.crown_unit is not None and p.crown_unit.is_alive,
-            "dominant_color": dominant,
-            "hand": [
-                {
-                    "index": i,
-                    "id": c.id,
-                    "name": c.name,
-                    "cost": c.cost,
-                    "type": c.card_type.value,
-                    "color": c.color.value,
-                    "atk": c.atk,
-                    "hp": c.hp,
-                    "text": (c.text or "")[:80],
-                }
-                for i, c in enumerate(p.hand)
-            ],
-            "crown": p.crown_unit.coord if p.crown_unit and p.crown_unit.is_alive else None,
-            "is_ai": p.is_ai,
-            "lost": p.has_lost,
-            "clues": getattr(p, "clues", 0),
+        px, py = hex_to_pixel(q, r, size=28.0)
+        cell = {
+            "coord": gs.board.flavor_of(q, r),
+            "qr": hex_key(q, r),
+            "q": q,
+            "r": r,
+            "x": round(px, 1),
+            "y": round(py, 1),
+            "tile": tile.tile_type.value if tile else "Terreno",
+            "flavor": getattr(tile, "flavor_name", "") if tile else "",
+            "explored": True,
+            "trap": False,
+            "ritual": False,
+            "altar": bool(tile and tile.tile_type.value == "Altare") if visible else False,
+            "unit": None,
+            "visible": visible,
+            "fog": not visible,
+            "artifact": bool(tile and getattr(tile, "has_artifact", False)) if visible else False,
         }
+        if visible and unit:
+            cell["unit"] = {
+                "name": unit.card.name,
+                "atk": unit.current_atk,
+                "hp": unit.current_hp,
+                "owner": unit.owner_id,
+                "crown": unit.has_fragment,
+                "evolved": "evolved" in unit.statuses,
+                "coord": cell["coord"],
+                "color": unit.card.color.value if unit.card.color else None,
+                "signore": "signore" in unit.statuses,
+                "withered": bool(unit.moved_this_turn),
+                "ready": (not unit.moved_this_turn) and unit.is_alive,
+            }
+        if not visible and tile and not str(tile.tile_type.value).startswith("Tempio") and tile.tile_type.value != "Altare":
+            cell["tile"] = "?"
+            cell["flavor"] = "?"
+        board.append(cell)
 
     eldrazi = [
         {"index": i, "name": e.name, "atk": e.atk, "hp": e.hp, "sacrifice": e.sacrifice_cost}
@@ -201,6 +166,8 @@ def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:
         "player1_uid": mode.get("player1_uid"),
         "edge_walls": gs.board.get_edge_walls_for_ui() if hasattr(gs.board, "get_edge_walls_for_ui") else [],
         "grid_size": GRID_SIZE,
+        "map_type": "hex",
+        "hex_radius": HEX_RADIUS,
         "pending_popups": popups,
     }
 
@@ -442,15 +409,16 @@ async def api_move(body: MoveReq, user: Dict[str, Any] = Depends(require_user)):
         raise HTTPException(400, "Partita finita")
     if gs.current_player_id != body.player_id:
         raise HTTPException(400, "Non è il tuo turno")
-    try:
-        fr, fc = coord_to_pos(body.from_coord.upper())
-        tr, tc = coord_to_pos(body.to_coord.upper())
-    except Exception:
+    from_pos = gs.resolve_coord(body.from_coord)
+    to_pos = gs.resolve_coord(body.to_coord)
+    if not from_pos or not to_pos:
         raise HTTPException(400, "Coordinate non valide")
-    unit = gs.board.get_unit_at(fr, fc)
+    fq, fr = from_pos  # q, r
+    tq, tr = to_pos
+    unit = gs.board.get_unit_at(fq, fr)
     if not unit or unit.owner_id != body.player_id:
         raise HTTPException(400, "Nessuna tua unità su quella casella")
-    ok = gs.try_move(unit, tr, tc)
+    ok = gs.try_move(unit, tr, tq)  # try_move(unit, target_row=r, target_col=q)
     if not ok:
         raise HTTPException(400, "Mossa non valida")
     _persist(body.game_id, gs, "move", {"from": body.from_coord, "to": body.to_coord})

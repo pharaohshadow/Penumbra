@@ -1,12 +1,24 @@
-# Penumbra – Consegna v32
+# Penumbra – Consegna v33
 
-## Cambiamenti
-1. **Templi nel campo**: accesso aperto dal Tempio alle caselle di mappa adiacenti (es. A6 → B5). I templi fanno parte del perimetro di battaglia.
-2. **Layout responsive**: su desktop landscape 3 colonne, gioco solo in quella centrale (stessa colonna stretta del mobile).
-3. **Avvizzito** (come “tappare” in Magic):
-   - creatura **pronta** → bordo **verde fosforescente che pulsa**
-   - creatura **avvizzita** (già usata nel turno) → bordo **grigio**
+## Mappa esagonale (pointy-top)
+- Raggio 3 → **37 esagoni** (vicino/sopra alla vecchia zona 5×5)
+- **Altare** al centro
+- **Tempio1** sud (P1), **Tempio2** nord (P2)
+- **Tempio3** ovest e **Tempio4** est già presenti (futuri giocatori)
+- Tutte le altre caselle = **Terreno** con **nomi flavor** (Palude, Montagna, Fiume, …)
+- Niente Evento/Trappola/ecc. per ora sulle caselle
+- **Muri** tra alcuni esagoni (choke + aperture templi)
 
-**Nessuna modifica manuale richiesta.**
+## UI
+- Layout a **colonna centrale** (mobile + desktop landscape)
+- **In basso**: nome, medaglione placeholder, mana/frammenti/corona/indizi, **mano**
+- Medaglione: *«Medaglione random»* / *«Effetto del medaglione»*
+- **Mostrissimi**: non in mano; pannello solo su Cerchio Rituale (nessun cerchio ancora → nascosti)
 
-Cartella: `penumbra_v32/`
+## Regole confermate
+- Fog raggio **2** (distanza esagonale)
+- Spawn inizio turno **solo sul Tempio** se libero
+- Neutrali colorati → Signore come v30
+- Movimento 1 passo esagonale; muri bloccano move/attacco
+
+**Nessuna modifica manuale.** Cartella: `penumbra_v33/`

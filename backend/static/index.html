@@ -1,713 +1,395 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Penumbra – Tactical Card Game 7×7</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    :root {
-      --bg: #0f1115; --panel: #1a1d24; --border: #2a2f3a; --text: #e8eaed;
-      --muted: #9aa0a6; --accent: #7c9cff; --p0: #4ade80; --p1: #f87171; --crown: #fbbf24; --tile: #252a33;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 12px; }
-    h1 { font-size: 1.25rem; margin: 0 0 8px; }
-    .layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; max-width: 1100px; margin: 0 auto; }
-    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
-    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
-    .status { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; font-size: 0.9rem; }
-    .status span { color: var(--muted); } .status strong { color: var(--text); }
-    .board { display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(7, 1fr); gap: 3px; aspect-ratio: 1; max-width: 520px; position: relative; background: #0a0c10; border-radius: 8px; padding: 4px; }
-    .cell.frame { background: #151820; opacity: 0.45; cursor: default; }
-    .cell.temple { border-color: #fbbf24; }
-    .cell.altar { border-color: #4ade80; box-shadow: inset 0 0 8px rgba(74,222,128,0.25); }
-    .cell.wall-right { border-right: 4px solid #94a3b8 !important; }
-    .cell.wall-bottom { border-bottom: 4px solid #94a3b8 !important; }
-    .cell.wall-left { border-left: 4px solid #94a3b8 !important; }
-    .cell.wall-top { border-top: 4px solid #94a3b8 !important; }
-    .cell.fog { background: #0a0c10; opacity: 0.55; }
-    .cell.artifact::after { content: "◆"; color: #fbbf24; position: absolute; top: 2px; right: 4px; font-size: 0.75rem; }
-    .cell { position: relative; }
-    .unit.signore { color: #f472b6; text-shadow: 0 0 6px #f472b6; }
-    .unit.col-Bianco { border-left: 3px solid #e8e8e8; padding-left: 2px; }
-    .unit.col-Blu { border-left: 3px solid #60a5fa; padding-left: 2px; }
-    .unit.col-Rosso { border-left: 3px solid #f87171; padding-left: 2px; }
-    .unit.col-Nero { border-left: 3px solid #a78bfa; padding-left: 2px; }
-    .unit.col-Verde { border-left: 3px solid #4ade80; padding-left: 2px; }
-    .unit.col-Giallo { border-left: 3px solid #fbbf24; padding-left: 2px; }
-    #cluePopup { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:100; align-items:center; justify-content:center; }
-    #cluePopup.show { display:flex; }
-    #cluePopup .box { background:#1a1d24; border:1px solid #fbbf24; border-radius:12px; padding:24px 28px; max-width:360px; text-align:center; }
-    #cluePopup .box h2 { margin:0 0 8px; color:#fbbf24; font-size:1.1rem; }
-    #cluePopup .box p { margin:0 0 16px; color:var(--text); }
-
-    .cell.fog .tile-label, .cell.fog .coord { color: #3a3f4a; }
-    .cell { background: var(--tile); border: 1px solid var(--border); border-radius: 6px; min-height: 52px; padding: 4px; cursor: pointer; font-size: 0.7rem; display: flex; flex-direction: column; justify-content: space-between; }
-    .cell:hover { border-color: var(--accent); } .cell.selected { outline: 2px solid var(--accent); }
-    .cell .coord { color: var(--muted); font-size: 0.65rem; } .cell .tile-label { color: var(--muted); opacity: 0.7; }
-    .unit { font-weight: 600; font-size: 0.72rem; line-height: 1.15; }
-    .unit .stats { font-weight: 700; font-size: 0.8rem; opacity: 0.95; margin-top: 2px; }
-    .unit.p0 { color: var(--p0); } .unit.p1 { color: var(--p1); } .unit.neutral { color: var(--muted); } .unit .crown { color: var(--crown); }
-    .hand { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; }
-    .card { background: #12151a; border: 1px solid var(--border); border-radius: 6px; padding: 8px; cursor: pointer; font-size: 0.8rem; }
-    .card:hover { border-color: var(--accent); } .card.selected { border-color: var(--accent); background: #1e2430; }
-    .card .cost { display: inline-block; background: var(--accent); color: #000; font-weight: 700; border-radius: 4px; padding: 0 6px; margin-right: 6px; font-size: 0.75rem; }
-    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-    button { background: var(--accent); color: #0f1115; border: none; border-radius: 6px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
-    button:disabled { opacity: 0.4; cursor: not-allowed; } button.secondary { background: var(--border); color: var(--text); }
-    .log { font-size: 0.75rem; color: var(--muted); max-height: 160px; overflow-y: auto; white-space: pre-wrap; margin-top: 12px; }
-    .msg { color: var(--crown); font-size: 0.85rem; margin: 8px 0; min-height: 1.2em; }
-    .gid { font-size: 0.7rem; color: var(--muted); word-break: break-all; }
-    /* Auth */
-    #authGate { max-width: 380px; margin: 40px auto; }
-    #authGate input { width: 100%; padding: 10px; margin: 6px 0 12px; border-radius: 6px; border: 1px solid var(--border); background: #12151a; color: var(--text); }
-    #authGate label { font-size: 0.85rem; color: var(--muted); }
-    #authUserBar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.85rem; color: var(--muted); }
-    #gameRoot { display: none; }
-    #authGate.hidden { display: none; }
-    #gameRoot.visible { display: block; }
-    #homeScreen { display: none; max-width: 520px; margin: 40px auto; }
-    #homeScreen.visible { display: block; }
-    #homeScreen.hidden { display: none; }
-    .mode-grid { display: grid; gap: 10px; margin-top: 16px; }
-    .mode-btn { text-align: left; padding: 14px 16px; font-size: 1rem; }
-    .mode-btn .sub { display: block; font-size: 0.8rem; font-weight: 400; color: var(--muted); margin-top: 4px; }
-    .mode-btn:disabled { opacity: 0.45; }
-    .mode-btn.active-mode { border: 1px solid var(--accent); }
-  
-    /* Layout: colonna centrale unica (mobile e desktop landscape) */
-    body { margin: 0; }
-    .app-shell {
-      display: flex; justify-content: center; width: 100%; min-height: 100vh;
-      box-sizing: border-box; padding: 8px;
-    }
-    .app-col {
-      width: 100%; max-width: 440px;
-      display: flex; flex-direction: column; gap: 10px;
-    }
-    @media (orientation: landscape) and (min-width: 900px) {
-      .app-shell {
-        display: grid;
-        grid-template-columns: 1fr minmax(320px, 440px) 1fr;
-        padding: 8px 0;
-      }
-      .app-col { grid-column: 2; max-width: 440px; margin: 0 auto; }
-    }
-    /* Avvizzito / pronto */
-    .unit.ready {
-      box-shadow: 0 0 0 2px #4ade80, 0 0 10px 2px rgba(74,222,128,0.55);
-      animation: pulse-ready 1.4s ease-in-out infinite;
-      border-radius: 4px;
-    }
-    .unit.withered {
-      box-shadow: 0 0 0 2px #6b7280;
-      opacity: 0.72;
-      filter: grayscale(0.35);
-      border-radius: 4px;
-    }
-    @keyframes pulse-ready {
-      0%, 100% { box-shadow: 0 0 0 2px #4ade80, 0 0 8px 1px rgba(74,222,128,0.4); }
-      50% { box-shadow: 0 0 0 2px #86efac, 0 0 14px 3px rgba(74,222,128,0.7); }
-    }
-
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<title>Penumbra</title>
+<style>
+  :root {
+    --bg: #0b0d12; --panel: #141820; --text: #e5e7eb; --muted: #9ca3af;
+    --accent: #818cf8; --p0: #4ade80; --p1: #f87171; --border: #2a2f3a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+  .app-shell { display: flex; justify-content: center; min-height: 100vh; padding: 8px; }
+  .app-col { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 8px; }
+  @media (orientation: landscape) and (min-width: 900px) {
+    .app-shell { display: grid; grid-template-columns: 1fr minmax(320px, 440px) 1fr; }
+    .app-col { grid-column: 2; }
+  }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  header h1 { font-size: 1.1rem; margin: 0; color: var(--accent); }
+  .btn { background: #312e81; color: #fff; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 0.85rem; }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn.secondary { background: #1f2937; }
+  #loginBox, #homeBox { background: var(--panel); border-radius: 12px; padding: 16px; border: 1px solid var(--border); }
+  #loginBox input { width: 100%; padding: 8px; margin: 6px 0; border-radius: 6px; border: 1px solid var(--border); background: #0f1218; color: var(--text); }
+  #hexBoard {
+    position: relative; width: 100%; aspect-ratio: 1.15; background: #0a0c10;
+    border-radius: 12px; border: 1px solid var(--border); overflow: hidden;
+  }
+  .hex {
+    position: absolute; width: 52px; height: 60px; margin-left: -26px; margin-top: -30px;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    background: #1a1f2a; border: none; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 0.58rem; cursor: pointer;
+    color: var(--muted); text-align: center; line-height: 1.1; padding: 4px;
+  }
+  .hex.altar { background: #14532d; color: #86efac; }
+  .hex.temple { background: #1e3a5f; color: #93c5fd; box-shadow: inset 0 0 0 2px #fbbf24; }
+  .hex.selected { outline: 2px solid #fbbf24; z-index: 5; }
+  .hex.fog { background: #0a0c10; color: #333; opacity: 0.5; }
+  .hex.artifact::after { content: "◆"; color: #fbbf24; position: absolute; top: 8px; font-size: 0.7rem; }
+  .hex .fname { font-size: 0.55rem; opacity: 0.85; max-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .unit { font-weight: 700; font-size: 0.62rem; line-height: 1.1; border-radius: 3px; padding: 1px 2px; }
+  .unit.p0 { color: var(--p0); }
+  .unit.p1 { color: var(--p1); }
+  .unit.neutral { color: #d1d5db; }
+  .unit.signore { color: #f472b6; }
+  .unit.ready { box-shadow: 0 0 0 2px #4ade80, 0 0 8px rgba(74,222,128,0.5); animation: pulse 1.4s infinite; }
+  .unit.withered { box-shadow: 0 0 0 2px #6b7280; opacity: 0.7; filter: grayscale(0.3); }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 2px #4ade80, 0 0 6px rgba(74,222,128,0.35); }
+    50% { box-shadow: 0 0 0 2px #86efac, 0 0 12px rgba(74,222,128,0.7); }
+  }
+  .player-panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .player-panel .name { font-weight: 700; font-size: 1rem; }
+  .player-panel .medallion {
+    background: #0f1218; border: 1px dashed #fbbf24; border-radius: 8px;
+    padding: 6px 8px; font-size: 0.78rem; color: #fbbf24;
+  }
+  .player-panel .medallion .eff { color: var(--muted); font-size: 0.72rem; }
+  .stats-row { display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.8rem; color: var(--muted); }
+  .stats-row strong { color: var(--text); }
+  #hand { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; min-height: 72px; }
+  .card {
+    flex: 0 0 auto; width: 88px; background: #1a1f2a; border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px; font-size: 0.7rem; cursor: pointer;
+  }
+  .card.selected { border-color: #fbbf24; }
+  .card .cname { font-weight: 700; }
+  .card .ccost { color: var(--accent); }
+  #log {
+    background: #0f1218; border-radius: 8px; padding: 8px; font-size: 0.72rem;
+    color: var(--muted); max-height: 100px; overflow-y: auto; white-space: pre-wrap;
+  }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  #cluePopup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 100; align-items: center; justify-content: center; }
+  #cluePopup.show { display: flex; }
+  #cluePopup .box { background: #1a1d24; border: 1px solid #fbbf24; border-radius: 12px; padding: 24px; max-width: 320px; text-align: center; }
+  #draftBox { background: var(--panel); border-radius: 12px; padding: 12px; border: 1px solid var(--border); }
+  .draft-card { display: inline-block; margin: 4px; padding: 8px; background: #1a1f2a; border-radius: 8px; cursor: pointer; font-size: 0.75rem; border: 1px solid var(--border); }
+  .draft-card:hover { border-color: var(--accent); }
+  #eldraziBox { display: none; background: #1a1020; border: 1px solid #a78bfa; border-radius: 8px; padding: 8px; font-size: 0.75rem; }
+  #eldraziBox.show { display: block; }
+</style>
 </head>
 <body>
+<div class="app-shell"><div class="app-col">
+  <div id="cluePopup"><div class="box"><h2>Indizio</h2><p id="cluePopupText">GGWP</p><button class="btn" id="cluePopupOk">OK</button></div></div>
 
-  <!-- ============ LOGIN ============ -->
-  <div id="authGate" class="panel">
+  <div id="loginBox">
     <h1>Penumbra</h1>
-    <p style="color:var(--muted);font-size:0.9rem;margin:0 0 16px">Accedi o registrati per giocare.</p>
-    <label>Email</label>
-    <input type="email" id="authEmail" autocomplete="email" placeholder="tu@email.com" />
-    <label>Password</label>
-    <input type="password" id="authPassword" autocomplete="current-password" placeholder="minimo 6 caratteri" />
+    <p style="color:var(--muted);font-size:0.85rem">Accedi per giocare</p>
+    <input id="email" type="email" placeholder="Email"/>
+    <input id="password" type="password" placeholder="Password"/>
+    <button class="btn" id="btnLogin">Login</button>
+    <p id="loginErr" style="color:#f87171;font-size:0.8rem"></p>
+  </div>
+
+  <div id="homeBox" style="display:none">
+    <header><h1>Penumbra</h1><button class="btn secondary" id="btnLogout">Esci</button></header>
+    <button class="btn" id="btnNew">Nuova partita vs IA</button>
+  </div>
+
+  <div id="gameRoot" style="display:none">
+    <header>
+      <h1>Penumbra</h1>
+      <span id="turnInfo" style="font-size:0.8rem;color:var(--muted)"></span>
+    </header>
+    <div id="draftBox" style="display:none"></div>
+    <div id="hexBoard"></div>
+    <div id="eldraziBox"><strong>Mostrissimi (Cerchio Rituale)</strong><div id="eldraziList"></div></div>
+    <div class="player-panel" id="playerPanel">
+      <div class="name" id="pName">—</div>
+      <div class="medallion">
+        <div id="medName">Medaglione random</div>
+        <div class="eff" id="medEff">Effetto del medaglione</div>
+      </div>
+      <div class="stats-row" id="pStats"></div>
+      <div id="hand"></div>
+    </div>
     <div class="actions">
-      <button id="btnLogin">Accedi</button>
-      <button class="secondary" id="btnRegister">Registrati</button>
+      <button class="btn" id="btnEnd">Fine turno</button>
+      <button class="btn secondary" id="btnHome">Menu</button>
     </div>
-    <div class="msg" id="authMsg"></div>
-    <p style="font-size:0.75rem;color:var(--muted);margin-top:16px">
-      Se vedi un errore sulle chiavi Supabase, apri questo file e inserisci URL e anon key del tuo progetto (vedi README v19).
-    </p>
+    <div id="log"></div>
   </div>
-
-
-  <!-- ============ HOME MODALITÀ ============ -->
-  <div id="homeScreen" class="panel">
-    <h1>Penumbra</h1>
-    <p style="color:var(--muted);font-size:0.9rem;margin:0 0 8px">Scegli una modalità</p>
-    <div id="homeUser" style="font-size:0.85rem;color:var(--muted);margin-bottom:8px"></div>
-    <div class="mode-grid">
-      <button class="mode-btn active-mode" id="modeBase">
-        Partita base
-        <span class="sub">Partita classica vs IA — regole complete</span>
-      </button>
-      <button class="mode-btn" id="modeTutorial" disabled>
-        Tutorial
-        <span class="sub">In arrivo</span>
-      </button>
-      <button class="mode-btn" id="modePvp" disabled>
-        PvP
-        <span class="sub">In arrivo</span>
-      </button>
-      <button class="mode-btn" id="modeStoria" disabled>
-        Storia
-        <span class="sub">In arrivo</span>
-      </button>
-      <button class="mode-btn" id="modeEndless" disabled>
-        Endless
-        <span class="sub">In arrivo</span>
-      </button>
-    </div>
-    <div class="actions" style="margin-top:16px">
-      <button class="secondary" id="btnHomeLogout">Esci</button>
-    </div>
-    <div class="msg" id="homeMsg"></div>
-  </div>
-
-  <!-- ============ GIOCO ============ -->
-  <div class="app-shell"><div class="app-col">
-  <div id="cluePopup"><div class="box"><h2>Indizio</h2><p id="cluePopupText">GGWP</p><button id="cluePopupOk">OK</button></div></div>
-  <div id="gameRoot">
-    <div id="authUserBar" class="panel">
-      <span>Loggato come <strong id="userEmail">—</strong></span>
-      <button class="secondary" id="btnLogout" style="padding:4px 10px;font-size:0.8rem">Esci</button>
-    </div>
-    <div class="layout">
-      <div>
-        <h1>Penumbra – 7×7</h1>
-        <div class="status panel" id="status">Caricamento…</div>
-        <div class="panel" id="draftPanel" style="display:none;margin-bottom:12px;border-color:var(--accent)">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-            <strong style="color:var(--accent)">📦 Scelta buste</strong>
-            <span id="draftInfo" style="font-size:0.85rem;color:var(--muted)"></span>
-          </div>
-          <div id="draftPack" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:10px"></div>
-          <div id="draftPicks" style="font-size:0.75rem;color:var(--muted);margin-top:10px;line-height:1.4"></div>
-        </div>
-        <div class="panel" id="questPanel" style="margin-bottom:12px;font-size:0.85rem">
-          <strong style="color:var(--crown)">★ Main Quest</strong>
-          <div id="questBody" style="margin-top:6px;color:var(--muted)"></div>
-        </div>
-        <div class="board" id="board"></div>
-        <div class="actions">
-          <button id="btnEnd">Fine turno</button>
-          <button class="secondary" id="btnNewAi">Nuova vs IA</button>
-        </div>
-        <div class="msg" id="msg"></div>
-        <div class="gid" id="gid"></div>
-        <div class="log panel" id="log"></div>
-      </div>
-      <div class="panel">
-        <h1 style="font-size:1rem">La tua mano</h1>
-        <div class="hand" id="hand"></div>
-        <div id="eldrazi" style="font-size:0.8rem;margin-top:8px"></div>
-        <p style="font-size:0.75rem;color:var(--muted);margin-top:12px">
-          Click unità → casella adiacente (come il re degli scacchi) = muovi/attacca.<br/>
-          Click carta Mostro = evoca. Trappola/Maledizione/Corona = poi click casella.<br/>
-          Carta «Frammento / Corona» in mano (costo 0, poi 3, poi 6).<br/>
-          Mostrissimi: click sul pool → seleziona sacrifici (✧ = Rituale) → Conferma.
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // ========== Supabase (progetto Penumbra) ==========
-    const SUPABASE_URL = "https://favrmxwyaxklfiruyvqz.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhdnJteHd5YXhrbGZpcnV5dnF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MTA4OTYsImV4cCI6MjEwODM4Njg5Nn0.HLR7eYKscg6ldoYkuFpRx9LMWzSGeSCZ1Jl0Rgu9N-0";
-    // ===============================================================
-
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    let accessToken = null;
-    let state = null;
-    let gameId = localStorage.getItem("penumbra_game_id") || null;
-    let playerId = parseInt(localStorage.getItem("penumbra_player_id") || "0", 10);
-    let selectedCoord = null;
-    let selectedCard = null;
-    let eldraziMode = null;
-    let pollTimer = null;
-
-    function setAuthMsg(t) { document.getElementById("authMsg").textContent = t || ""; }
-    function setMsg(t) { document.getElementById("msg").textContent = t || ""; }
-
-    function showLogin() {
-      document.getElementById("authGate").classList.remove("hidden");
-      document.getElementById("homeScreen").classList.remove("visible");
-      document.getElementById("homeScreen").classList.add("hidden");
-      document.getElementById("gameRoot").classList.remove("visible");
-      accessToken = null;
-      state = null;
-      if (pollTimer) clearInterval(pollTimer);
-    }
-
-    function showHome(email) {
-      document.getElementById("authGate").classList.add("hidden");
-      document.getElementById("gameRoot").classList.remove("visible");
-      document.getElementById("homeScreen").classList.remove("hidden");
-      document.getElementById("homeScreen").classList.add("visible");
-      document.getElementById("homeUser").textContent = "Loggato come " + (email || "utente");
-      document.getElementById("homeMsg").textContent = "";
-    }
-
-    function showGame(email) {
-      document.getElementById("authGate").classList.add("hidden");
-      document.getElementById("homeScreen").classList.remove("visible");
-      document.getElementById("homeScreen").classList.add("hidden");
-      document.getElementById("gameRoot").classList.add("visible");
-      document.getElementById("userEmail").textContent = email || "utente";
-    }
-
-    async function api(path, method = "GET", body = null) {
-      if (!accessToken) throw new Error("Devi essere loggato");
-      const opts = {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + accessToken,
-        },
-      };
-      if (body) opts.body = JSON.stringify(body);
-      const r = await fetch(path, opts);
-      const text = await r.text();
-      if (!r.ok) {
-        let msg = text || r.statusText;
-        try { const j = JSON.parse(text); msg = j.detail || j.message || msg; } catch (_) {}
-        throw new Error(msg);
-      }
-      return text ? JSON.parse(text) : {};
-    }
-
-    // ---- Auth buttons ----
-    document.getElementById("btnLogin").onclick = async () => {
-      setAuthMsg("Accesso…");
-      const email = document.getElementById("authEmail").value.trim();
-      const password = document.getElementById("authPassword").value;
-      const { data, error } = await sb.auth.signInWithPassword({ email, password });
-      if (error) { setAuthMsg(error.message); return; }
-      accessToken = data.session.access_token;
-      showGame(data.user.email);
-      setAuthMsg("");
-      await loadGame();
-    };
-
-    document.getElementById("btnRegister").onclick = async () => {
-      setAuthMsg("Registrazione…");
-      const email = document.getElementById("authEmail").value.trim();
-      const password = document.getElementById("authPassword").value;
-      const { data, error } = await sb.auth.signUp({ email, password });
-      if (error) { setAuthMsg(error.message); return; }
-      if (data.session) {
-        accessToken = data.session.access_token;
-        showGame(data.user.email);
-        setAuthMsg("");
-        await loadGame();
-      } else {
-        setAuthMsg("Controlla la email per confermare l’account, poi accedi.");
-      }
-    };
-
-    document.getElementById("btnLogout").onclick = async () => {
-      await sb.auth.signOut();
-      showLogin();
-    };
-
-    document.getElementById("btnHomeLogout").onclick = async () => {
-      await sb.auth.signOut();
-      showLogin();
-    };
-
-    document.getElementById("modeBase").onclick = async () => {
-      showGame(document.getElementById("homeUser").textContent.replace("Loggato come ", ""));
-      try {
-        playerId = 0;
-        localStorage.setItem("penumbra_player_id", "0");
-        state = await api("/api/new", "POST", { vs_ai: true, name: "Tu" });
-        selectedCoord = null; selectedCard = null;
-        render();
-        setMsg("Partita base vs IA");
-        startPolling();
-      } catch (e) {
-        setMsg(e.message);
-      }
-    };
-
-    function placeholderMode(name) {
-      document.getElementById("homeMsg").textContent = name + " — in arrivo. Per ora è disponibile solo Partita base.";
-    }
-    document.getElementById("modeTutorial").onclick = () => placeholderMode("Tutorial");
-    document.getElementById("modePvp").onclick = () => placeholderMode("PvP");
-    document.getElementById("modeStoria").onclick = () => placeholderMode("Storia");
-    document.getElementById("modeEndless").onclick = () => placeholderMode("Endless");
-
-    // Torna alla home dalla partita (riusa logout bar: aggiungiamo bottone se manca)
-    const backBtn = document.createElement("button");
-    backBtn.className = "secondary";
-    backBtn.id = "btnBackHome";
-    backBtn.style.cssText = "padding:4px 10px;font-size:0.8rem";
-    backBtn.textContent = "Home";
-    backBtn.onclick = () => {
-      if (pollTimer) clearInterval(pollTimer);
-      state = null;
-      const email = document.getElementById("userEmail").textContent;
-      showHome(email);
-    };
-    document.getElementById("authUserBar").appendChild(backBtn);
-
-    // ---- Render / game (stessa logica di prima) ----
-    function render() {
-      if (!state) return;
-      gameId = state.game_id;
-      localStorage.setItem("penumbra_game_id", gameId);
-      const p = state.players[playerId] || state.players[0];
-      const dp = document.getElementById("draftPanel");
-      if (state.phase === "DRAFT" && state.draft) {
-        dp.style.display = "block";
-        const d = state.draft;
-        const myPick = d.picker === playerId;
-        const taken = (d.packs_taken && d.packs_taken[String(playerId)]) || 0;
-        const need = d.packs_needed || 3;
-        document.getElementById("draftInfo").textContent =
-          `Buste prese: ${taken}/${need} · Tocca a P${d.picker}` + (myPick ? " — scegli una busta!" : " — attendi…");
-        const packEl = document.getElementById("draftPack");
-        packEl.innerHTML = "";
-        const packs = d.packs || [];
-        packs.forEach(pk => {
-          const el = document.createElement("div");
-          const isY = pk.color === "Giallo";
-          el.className = "card" + (isY ? " giallo" : "");
-          el.style.minHeight = "100px";
-          el.style.textAlign = "center";
-          if (myPick) {
-            el.style.cursor = "pointer";
-            if (!isY) el.style.borderColor = "var(--accent)";
-          } else {
-            el.style.opacity = "0.55";
-            el.style.cursor = "default";
-          }
-          el.innerHTML = `<div style="font-size:1.5rem;margin:8px 0">📦</div>
-            <strong>Busta ${pk.color}</strong>
-            <div style="color:var(--muted);margin-top:6px">3 carte · colore ${pk.color}</div>
-            <div style="font-size:0.7rem;color:var(--muted);margin-top:4px">Si apre a inizio partita</div>`;
-          if (myPick) {
-            el.onclick = async () => {
-              try {
-                state = await api("/api/draft", "POST", { game_id: gameId, pack_index: pk.index, player_id: playerId });
-                setMsg(`Hai preso busta ${pk.color}`);
-                render();
-              } catch (e) { setMsg(e.message); }
-            };
-          }
-          packEl.appendChild(el);
-        });
-        const mine = (d.picks[String(playerId)] || []).join(", ") || "—";
-        const opp = (d.picks[String(1 - playerId)] || []).join(", ") || "—";
-        document.getElementById("draftPicks").innerHTML =
-          `<div><strong style="color:var(--p0)">Tue buste:</strong> ${mine}</div>
-           <div><strong style="color:var(--p1)">Avversario:</strong> ${opp}</div>`;
-      } else {
-        dp.style.display = "none";
-      }
-      const cur = state.players[state.current_player];
-      document.getElementById("status").innerHTML = `
-        <span>Turno <strong>${state.turn}</strong></span>
-        <span>Gioca: <strong>${cur ? cur.name : "?"}</strong></span>
-        <span>Tu sei <strong>P${playerId}</strong> (${p.name})</span>
-        <span>Mana <strong>${p.mana}/${p.mana_max}</strong></span>
-        <span>Frammenti <strong>${p.fragments}/3</strong>${p.next_fragment_cost != null ? ` (prossimo: ${p.next_fragment_cost} mana)` : ""}</span>
-        <span>Corona: <strong>${p.has_crown ? "sì" : "NO – piazzala!"}</strong></span>
-        <span>Indizi: <strong>${p.clues != null ? p.clues : 0}</strong></span>
-        <span>Colore dominante: <strong>${p.dominant_color || "—"}</strong></span>
-        ${state.winner !== null ? `<span style="color:var(--crown)">Vincitore P${state.winner}</span>` : ""}
-      `;
-      const qp = document.getElementById("questBody");
-      const q = state.quest_progress;
-      if (!q || !q.active) {
-        qp.innerHTML = q ? q.detail : "Esplora le tessere evento per rivelare una Main Quest.";
-      } else {
-        let html = `<div style="color:var(--text)"><strong>${q.label}</strong></div>
-          <div style="margin:4px 0">${q.detail || ""}</div>`;
-        (q.players || []).forEach(pl => {
-          const name = (state.players[pl.player_id] || {}).name || ("P" + pl.player_id);
-          const mine = pl.player_id === playerId;
-          if (q.id === "MainQuest_Dominio") {
-            html += `<div style="${mine ? "color:var(--p0)" : "color:var(--p1)"}">${name}: Buff ${pl.buffs}/2 · Altare ${pl.altar ? "sì" : "no"}${pl.done ? " ✓" : ""}</div>`;
-          } else if (q.id === "MainQuest_Superiorita") {
-            html += `<div style="${mine ? "color:var(--p0)" : "color:var(--p1)"}">${name}: ${pl.units} unità (avv. ${pl.opp}) — serve +3${pl.done ? " ✓" : ""}</div>`;
-          }
-        });
-        qp.innerHTML = html;
-      }
-
-      document.getElementById("gid").textContent = "game_id: " + gameId + (state.p1_is_ai ? " (vs IA)" : " (PvP)");
-
-      const boardEl = document.getElementById("board");
-      boardEl.style.opacity = state.phase === "DRAFT" ? "0.35" : "1";
-      boardEl.style.pointerEvents = state.phase === "DRAFT" ? "none" : "auto";
-      boardEl.innerHTML = "";
-      const gs = state.grid_size || 7;
-      const walls = state.edge_walls || [];
-      for (let r = 0; r < gs; r++) for (let c = 0; c < gs; c++) {
-        const cell = state.board[r][c];
-        if (!cell) continue;
-        // v31: non mostrare celle cornice (non calpestabili) — restano solo mappa + templi
-        if (cell.tile === "Cornice") continue;
-        const div = document.createElement("div");
-        div.style.gridColumn = (c + 1);
-        div.style.gridRow = (r + 1);
-        let cls = "cell";
-        if (selectedCoord === cell.coord) cls += " selected";
-        if (cell.tile && cell.tile.startsWith("Tempio")) cls += " temple";
-        if (cell.altar) cls += " altar";
-        if (cell.fog) cls += " fog";
-        if (cell.artifact) cls += " artifact";
-        div.className = cls;
-        let html = `<span class="coord">${cell.coord}</span>`;
-        if (cell.unit) {
-          const u = cell.unit;
-          let ucls = u.owner === 0 ? "p0" : u.owner === 1 ? "p1" : "neutral";
-          if (u.signore) ucls += " signore";
-          if (u.color) ucls += " col-" + u.color;
-          // Avvizzito = già usata nel turno (come "tappata"); ready = ancora attivabile
-          if (u.owner === playerId) {
-            if (u.withered) ucls += " withered";
-            else if (u.ready !== false) ucls += " ready";
-          }
-          const hpShow = u.signore ? "∞" : u.hp;
-          let uname = (u.name || "").replace(/\s*\d+\/\d+\s*$/, "").trim() || u.name;
-          html += `<div class="unit ${ucls}">${u.crown ? '<span class="crown">👑</span>' : ""}${u.evolved ? "✦ " : ""}${uname}<div class="stats">${u.atk}/${hpShow}</div></div>`;
-        } else if (cell.fog) {
-          html += `<span class="tile-label">░</span>`;
-        } else if (cell.tile !== "Cornice") {
-          html += `<span class="tile-label">${cell.altar ? "✦Altare" : cell.tile}${cell.ritual ? " ✧" : ""}${cell.trap ? " ⚠" : ""}</span>`;
-        }
-        div.innerHTML = html;
-        // Applica classi muro edge (linee scure tra celle)
-        if (walls.length) {
-          const coord = cell.coord;
-          walls.forEach(w => {
-            const a = w.a, b = w.b;
-            if (a === coord || b === coord) {
-              const other = a === coord ? b : a;
-              // Determina direzione relativa
-              const letters = "ABCDEFG";
-              const numbers = "0123456";
-              const c0 = letters.indexOf(coord[0]), r0 = numbers.indexOf(coord[1]);
-              const c1 = letters.indexOf(other[0]), r1 = numbers.indexOf(other[1]);
-              if (c1 === c0 + 1 && r1 === r0) div.classList.add("wall-right");
-              if (c1 === c0 - 1 && r1 === r0) div.classList.add("wall-left");
-              if (r1 === r0 + 1 && c1 === c0) div.classList.add("wall-bottom");
-              if (r1 === r0 - 1 && c1 === c0) div.classList.add("wall-top");
-            }
-          });
-        }
-        if (cell.tile !== "Cornice") {
-          div.onclick = () => onCellClick(cell.coord);
-        }
-        boardEl.appendChild(div);
-      }
-
-      const handEl = document.getElementById("hand");
-      handEl.style.opacity = state.phase === "DRAFT" ? "0.4" : "1";
-      handEl.innerHTML = "";
-      (p.hand || []).forEach(card => {
-        const d = document.createElement("div");
-        const isY = (card.color === "Giallo");
-        d.className = "card" + (selectedCard === card.index ? " selected" : "") + (isY ? " giallo" : "");
-        d.innerHTML = `<span class="cost">${card.cost}</span><strong>${card.name}</strong>
-          <div style="color:var(--muted)">${isY ? "Giallo · " : ""}${card.type}${card.atk || card.hp ? ` ${card.atk}/${card.hp}` : ""}</div>`;
-        d.onclick = () => onCardClick(card.index, card.type);
-        handEl.appendChild(d);
-      });
-
-      const eld = document.getElementById("eldrazi");
-      if ((state.eldrazi || []).length) {
-        eld.innerHTML = "<strong>Mostrissimi</strong> (click per evocare)<br/>";
-        state.eldrazi.forEach(e => {
-          const row = document.createElement("div");
-          row.className = "card";
-          row.style.marginTop = "4px";
-          if (eldraziMode && eldraziMode.index === e.index) row.classList.add("selected");
-          row.innerHTML = `[${e.index}] <strong>${e.name}</strong> (${e.atk}/${e.hp}) — <span class="cost">${e.sacrifice}</span> sacrifici`;
-          row.onclick = () => startEldrazi(e.index, e.sacrifice, e.name);
-          eld.appendChild(row);
-        });
-        if (eldraziMode) {
-          const info = document.createElement("div");
-          info.style.marginTop = "8px";
-          info.style.color = "var(--crown)";
-          info.textContent = `Sacrifici ${eldraziMode.selected.length}/${eldraziMode.need}: ${eldraziMode.selected.join(", ") || "—"} (uno su ✧ Rituale). Click unità, poi Conferma.`;
-          eld.appendChild(info);
-          const conf = document.createElement("button");
-          conf.textContent = "Conferma evocazione";
-          conf.style.marginTop = "6px";
-          conf.onclick = confirmEldrazi;
-          eld.appendChild(conf);
-          const cancel = document.createElement("button");
-          cancel.textContent = "Annulla";
-          cancel.className = "secondary";
-          cancel.style.marginLeft = "6px";
-          cancel.onclick = () => { eldraziMode = null; render(); };
-          eld.appendChild(cancel);
-        }
-      } else eld.innerHTML = "";
-      document.getElementById("log").textContent = (state.log || []).join("\n");
-      // Popups indizi
-      if (state.pending_popups && state.pending_popups.length) {
-        const pop = state.pending_popups.find(p => p.type === "clue" && p.player_id === playerId) || state.pending_popups[0];
-        if (pop) {
-          document.getElementById("cluePopupText").textContent = pop.text || "GGWP";
-          document.getElementById("cluePopup").classList.add("show");
-        }
-      }
-      const inDraft = state.phase === "DRAFT";
-      document.getElementById("btnEnd").disabled = inDraft || state.current_player !== playerId || state.phase === "GAME_OVER";
-      const me = state.players[playerId] || state.players[0];
-    }
-
-    async function onCellClick(coord) {
-      if (!state || state.phase === "DRAFT" || state.phase === "GAME_OVER") return;
-      if (eldraziMode) {
-        if (eldraziMode.selected.includes(coord)) {
-          eldraziMode.selected = eldraziMode.selected.filter(c => c !== coord);
-        } else if (eldraziMode.selected.length < eldraziMode.need) {
-          eldraziMode.selected.push(coord);
-        }
-        render();
-        return;
-      }
-      if (selectedCard != null) {
-        try {
-          state = await api("/api/play", "POST", { game_id: gameId, hand_index: selectedCard, target_coord: coord, player_id: playerId });
-          selectedCard = null;
-          setMsg("");
-          render();
-        } catch (e) { setMsg(e.message); }
-        return;
-      }
-      if (selectedCoord === null) {
-        selectedCoord = coord;
-        render();
-        return;
-      }
-      if (selectedCoord === coord) {
-        selectedCoord = null;
-        render();
-        return;
-      }
-      try {
-        state = await api("/api/move", "POST", { game_id: gameId, from_coord: selectedCoord, to_coord: coord, player_id: playerId });
-        selectedCoord = null;
-        setMsg("");
-        render();
-      } catch (e) { setMsg(e.message); selectedCoord = null; render(); }
-    }
-
-    function onCardClick(index, type) {
-      if (!state || state.current_player !== playerId || state.phase === "DRAFT") return;
-      selectedCard = selectedCard === index ? null : index;
-      selectedCoord = null;
-      render();
-    }
-
-    function startEldrazi(index, need, name) {
-      if (state.current_player !== playerId) return;
-      eldraziMode = { index, need, selected: [], name };
-      selectedCoord = null; selectedCard = null;
-      render();
-    }
-
-    async function confirmEldrazi() {
-      if (!eldraziMode || eldraziMode.selected.length !== eldraziMode.need) {
-        setMsg("Seleziona il numero giusto di sacrifici");
-        return;
-      }
-      try {
-        state = await api("/api/eldrazi", "POST", {
-          game_id: gameId,
-          eldrazi_index: eldraziMode.index,
-          sacrifice_coords: eldraziMode.selected,
-          player_id: playerId,
-        });
-        eldraziMode = null;
-        setMsg("Mostrissimo evocato");
-        render();
-      } catch (e) { setMsg(e.message); }
-    }
-
-    document.getElementById("btnEnd").onclick = async () => {
-      setMsg("…");
-      try {
-        state = await api("/api/end", "POST", { game_id: gameId, player_id: playerId });
-        selectedCoord = null; selectedCard = null; render(); setMsg("");
-      } catch (e) { setMsg(e.message); }
-    };
-
-    document.getElementById("btnNewAi").onclick = async () => {
-      try {
-        playerId = 0; localStorage.setItem("penumbra_player_id", "0");
-        state = await api("/api/new", "POST", { vs_ai: true, name: "Tu" });
-        selectedCoord = null; selectedCard = null; render(); setMsg("Nuova partita vs IA");
-        startPolling();
-      } catch (e) { setMsg(e.message); }
-    };
-
-    document.getElementById("cluePopupOk").onclick = () => {
-      document.getElementById("cluePopup").classList.remove("show");
-    };
-
-    function startPolling() {
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(async () => {
-        if (!gameId || !state || !accessToken) return;
-        if (state.phase === "GAME_OVER") return;
-        if (state.current_player === playerId) return;
-        try {
-          const s = await api(`/api/state?game_id=${encodeURIComponent(gameId)}`);
-          state = s;
-          render();
-        } catch (_) {}
-      }, 2500);
-    }
-
-    async function loadGame() {
-      document.getElementById("status").textContent = "Pronto. Crea una partita o unisciti.";
-      setMsg("Crea una nuova partita (vs IA o PvP) per iniziare.");
-      // Se c’era un game_id salvato, prova a ricaricarlo
-      if (gameId) {
-        try {
-          state = await api(`/api/state?game_id=${encodeURIComponent(gameId)}`);
-          render();
-          startPolling();
-          setMsg("");
-        } catch (e) {
-          // partita non accessibile (403) o inesistente → parti da zero
-          gameId = null;
-          localStorage.removeItem("penumbra_game_id");
-          setMsg("Nessuna partita attiva. Creane una nuova.");
-        }
-      }
-    }
-
-    // Sessione già aperta?
-    (async () => {
-      const { data } = await sb.auth.getSession();
-      if (data.session) {
-        accessToken = data.session.access_token;
-        showHome(data.session.user.email);
-      }
-      sb.auth.onAuthStateChange((event, session) => {
-        if (session) {
-          accessToken = session.access_token;
-        } else {
-          showLogin();
-        }
-      });
-    })();
-  </script>
 </div></div>
+
+<script>
+const API = "";
+let token = localStorage.getItem("pen_token") || "";
+let gameId = null;
+let playerId = 0;
+let state = null;
+let selectedCoord = null;
+let selectedHand = null;
+
+async function api(path, body) {
+  const opts = { method: body ? "POST" : "GET", headers: {} };
+  if (token) opts.headers["Authorization"] = "Bearer " + token;
+  if (body) {
+    opts.headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(API + path, opts);
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { data = { detail: text }; }
+  if (!res.ok) throw new Error(data.detail || data.message || res.status);
+  return data;
+}
+
+document.getElementById("btnLogin").onclick = async () => {
+  try {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    // Supabase-style: backend may accept token from external auth
+    // Try backend login if exists, else store email as demo
+    try {
+      const r = await fetch(API + "/api/auth/login", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ email, password })
+      });
+      if (r.ok) {
+        const d = await r.json();
+        token = d.access_token || d.token;
+        localStorage.setItem("pen_token", token);
+      }
+    } catch (e) {}
+    if (!token) {
+      document.getElementById("loginErr").textContent = "Login richiesto (Supabase). Se già loggato via host, ricarica.";
+      return;
+    }
+    showHome();
+  } catch (e) {
+    document.getElementById("loginErr").textContent = String(e.message || e);
+  }
+};
+
+function showHome() {
+  document.getElementById("loginBox").style.display = "none";
+  document.getElementById("homeBox").style.display = "block";
+  document.getElementById("gameRoot").style.display = "none";
+}
+function showGame() {
+  document.getElementById("loginBox").style.display = "none";
+  document.getElementById("homeBox").style.display = "none";
+  document.getElementById("gameRoot").style.display = "block";
+}
+
+document.getElementById("btnNew").onclick = async () => {
+  try {
+    state = await api("/api/new", { mode: "base", vs_ai: true });
+    gameId = state.game_id;
+    playerId = 0;
+    showGame();
+    render();
+  } catch (e) { alert(e.message); }
+};
+
+document.getElementById("btnHome").onclick = () => showHome();
+document.getElementById("btnLogout").onclick = () => {
+  token = ""; localStorage.removeItem("pen_token"); location.reload();
+};
+document.getElementById("cluePopupOk").onclick = () => {
+  document.getElementById("cluePopup").classList.remove("show");
+};
+
+document.getElementById("btnEnd").onclick = async () => {
+  try {
+    state = await api("/api/end", { game_id: gameId, player_id: playerId });
+    selectedCoord = null;
+    render();
+  } catch (e) { alert(e.message); }
+};
+
+function onHexClick(coord) {
+  if (!state || state.phase === "DRAFT") return;
+  if (selectedHand != null) {
+    playSelected(coord);
+    return;
+  }
+  if (selectedCoord === coord) { selectedCoord = null; render(); return; }
+  if (selectedCoord) {
+    moveTo(coord);
+  } else {
+    selectedCoord = coord;
+    render();
+  }
+}
+
+async function moveTo(coord) {
+  try {
+    state = await api("/api/move", {
+      game_id: gameId, player_id: playerId,
+      from_coord: selectedCoord, to_coord: coord
+    });
+    selectedCoord = null;
+    render();
+  } catch (e) {
+    alert(e.message);
+    selectedCoord = null;
+    render();
+  }
+}
+
+async function playSelected(coord) {
+  try {
+    state = await api("/api/play", {
+      game_id: gameId, player_id: playerId,
+      hand_index: selectedHand, target_coord: coord
+    });
+    selectedHand = null;
+    selectedCoord = null;
+    render();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+function render() {
+  if (!state) return;
+  document.getElementById("turnInfo").textContent =
+    `Turno ${state.turn} · ${state.phase} · P${state.current_player}`;
+
+  // Draft
+  const db = document.getElementById("draftBox");
+  if (state.phase === "DRAFT" && state.draft) {
+    db.style.display = "block";
+    const pack = state.draft.packs && state.draft.packs[playerId];
+    let html = "<strong>Draft – scegli una carta</strong><br/>";
+    (pack || []).forEach((c, i) => {
+      html += `<div class="draft-card" data-i="${i}">${c.name} (${c.cost})</div>`;
+    });
+    db.innerHTML = html;
+    db.querySelectorAll(".draft-card").forEach(el => {
+      el.onclick = async () => {
+        try {
+          state = await api("/api/draft", {
+            game_id: gameId, player_id: playerId,
+            pack_index: +el.dataset.i, card_index: +el.dataset.i
+          });
+          render();
+        } catch (e) { alert(e.message); }
+      };
+    });
+  } else {
+    db.style.display = "none";
+  }
+
+  // Hex board
+  const boardEl = document.getElementById("hexBoard");
+  boardEl.innerHTML = "";
+  const cells = state.board || [];
+  if (!cells.length) return;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  cells.forEach(c => {
+    minX = Math.min(minX, c.x); maxX = Math.max(maxX, c.x);
+    minY = Math.min(minY, c.y); maxY = Math.max(maxY, c.y);
+  });
+  const bw = boardEl.clientWidth || 400;
+  const bh = boardEl.clientHeight || 360;
+  const pad = 36;
+  const scaleX = (bw - pad * 2) / Math.max(1, maxX - minX);
+  const scaleY = (bh - pad * 2) / Math.max(1, maxY - minY);
+  const scale = Math.min(scaleX, scaleY);
+
+  cells.forEach(cell => {
+    const div = document.createElement("div");
+    let cls = "hex";
+    if (cell.altar) cls += " altar";
+    if (cell.tile && String(cell.tile).startsWith("Tempio")) cls += " temple";
+    if (cell.fog) cls += " fog";
+    if (cell.artifact) cls += " artifact";
+    if (selectedCoord === cell.coord) cls += " selected";
+    div.className = cls;
+    const x = pad + (cell.x - minX) * scale;
+    const y = pad + (cell.y - minY) * scale;
+    div.style.left = x + "px";
+    div.style.top = y + "px";
+    // scale hex size slightly with board
+    const hs = Math.max(40, Math.min(56, scale * 0.95));
+    div.style.width = hs + "px";
+    div.style.height = (hs * 1.15) + "px";
+    div.style.marginLeft = (-hs / 2) + "px";
+    div.style.marginTop = (-hs * 0.575) + "px";
+
+    let html = "";
+    if (cell.unit) {
+      const u = cell.unit;
+      let ucls = u.owner === 0 ? "p0" : u.owner === 1 ? "p1" : "neutral";
+      if (u.signore) ucls += " signore";
+      if (u.owner === playerId) ucls += u.withered ? " withered" : " ready";
+      const hp = u.signore ? "∞" : u.hp;
+      let uname = (u.name || "").replace(/\s*\d+\/\d+\s*$/, "").trim() || u.name;
+      html += `<div class="unit ${ucls}">${u.crown ? "👑" : ""}${uname}<br/>${u.atk}/${hp}</div>`;
+    } else if (!cell.fog) {
+      const label = cell.altar ? "✦Altare" : (cell.tile && cell.tile.startsWith("Tempio") ? cell.tile : (cell.flavor || cell.coord));
+      html += `<span class="fname">${label}</span>`;
+    } else {
+      html += `<span class="fname">░</span>`;
+    }
+    div.innerHTML = html;
+    div.onclick = () => onHexClick(cell.coord);
+    boardEl.appendChild(div);
+  });
+
+  // Player panel
+  const p = (state.players || []).find(x => x.id === playerId) || (state.players || [])[0] || {};
+  document.getElementById("pName").textContent = p.name || "Giocatore";
+  const med = p.medallion || { name: "Medaglione random", effect: "Effetto del medaglione" };
+  document.getElementById("medName").textContent = med.name;
+  document.getElementById("medEff").textContent = med.effect;
+  document.getElementById("pStats").innerHTML = `
+    <span>Mana <strong>${p.mana ?? 0}/${p.mana_max ?? 0}</strong></span>
+    <span>Frammenti <strong>${p.fragments ?? 0}</strong></span>
+    <span>Corona <strong>${p.has_crown ? "sì" : "no"}</strong></span>
+    <span>Indizi <strong>${p.clues ?? 0}</strong></span>`;
+
+  // Hand
+  const handEl = document.getElementById("hand");
+  handEl.innerHTML = "";
+  (p.hand || []).forEach((c, i) => {
+    if (c.type === "Mostrissimo" || c.card_type === "Mostrissimo") return; // mai in mano
+    const d = document.createElement("div");
+    d.className = "card" + (selectedHand === i ? " selected" : "");
+    d.innerHTML = `<div class="cname">${c.name}</div><div class="ccost">${c.cost} mana</div><div>${c.atk || 0}/${c.hp || 0}</div>`;
+    d.onclick = () => { selectedHand = (selectedHand === i ? null : i); render(); };
+    handEl.appendChild(d);
+  });
+
+  // Eldrazi only on ritual – none for now
+  document.getElementById("eldraziBox").classList.remove("show");
+
+  document.getElementById("log").textContent = (state.log || []).join("\n");
+
+  if (state.pending_popups && state.pending_popups.length) {
+    const pop = state.pending_popups.find(x => x.type === "clue") || state.pending_popups[0];
+    if (pop) {
+      document.getElementById("cluePopupText").textContent = pop.text || "GGWP";
+      document.getElementById("cluePopup").classList.add("show");
+    }
+  }
+}
+
+// Boot: if token present show home
+if (token) showHome();
+</script>
 </body>
 </html>

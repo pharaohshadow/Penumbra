@@ -12,7 +12,8 @@ from .card import Card, get_card_db
 from .constants import (
     Phase, TileType, Direction, MANA_CAP, ALTAR_POS, Color,
     pos_to_coord, coord_to_pos, GRID_SIZE, TEMPLE_P1_POS, TEMPLE_P2_POS,
-    PLAYABLE_ROWS, PLAYABLE_COLS
+    TEMPLE_P3_POS, TEMPLE_P4_POS, hex_distance, hex_key, hex_neighbors,
+    HEX_RADIUS, all_hexes, parse_hex_key,
 )
 
 
@@ -43,6 +44,22 @@ class GameState:
         self.log.append(f"[T{self.turn}] {msg}")
         print(msg)
 
+    def cell_name(self, q: int, r: int) -> str:
+        return self.board.flavor_of(q, r)
+
+    def unit_cell_name(self, unit) -> str:
+        return self.board.flavor_of(unit.col, unit.row)
+
+    def resolve_coord(self, coord: str):
+        """Ritorna (q,r) da nome flavor o 'q,r'."""
+        pos = self.board.resolve_pos(coord)
+        if pos:
+            return pos
+        try:
+            return coord_to_pos(coord)
+        except Exception:
+            return None
+
 
     # ------------------------------------------------------------------
     # Fog of War (v28.3)
@@ -50,31 +67,32 @@ class GameState:
     # o dal suo Tempio. Unità/caselle fuori fog non sono bersagliabili.
     # ------------------------------------------------------------------
     def vision_sources(self, player_id: int):
-        """Posizioni che generano visione per il giocatore."""
-        from .constants import TEMPLE_P1_POS, TEMPLE_P2_POS
+        """Posizioni (row=r, col=q) che generano visione."""
         sources = []
-        temple = TEMPLE_P1_POS if player_id == 0 else TEMPLE_P2_POS
-        sources.append(temple)
+        temple = TEMPLE_P1_POS if player_id == 0 else TEMPLE_P2_POS  # (q,r)
+        sources.append((temple[1], temple[0]))  # (r, q) for is_visible_to(row,col)
         for u in self.board.get_units_of_player(player_id):
             if u.is_alive:
                 sources.append((u.row, u.col))
         return sources
 
     def is_visible_to(self, player_id: int, row: int, col: int, radius: int = 2) -> bool:
-        """True se (row,col) è entro `radius` (Chebyshev) da una fonte di visione."""
+        """True se hex (col=q,row=r) entro `radius` esagonale da una fonte di visione."""
+        # Convenzione hex: unit.col = q, unit.row = r  →  args (row=r, col=q)
+        target = (col, row)
         for sr, sc in self.vision_sources(player_id):
-            if max(abs(sr - row), abs(sc - col)) <= radius:
+            # vision_sources returns (row,col)=(r,q) historically — normalize
+            src = (sc, sr)  # to (q,r)
+            # also try as already (q,r) if sr is q-like
+            if hex_distance(src, target) <= radius or hex_distance((sr, sc), target) <= radius:
                 return True
         return False
 
     def visible_coords(self, player_id: int, radius: int = 2):
-        """Set di (r,c) visibili al giocatore."""
-        from .constants import GRID_SIZE
         vis = set()
-        for r in range(GRID_SIZE):
-            for c in range(GRID_SIZE):
-                if self.is_visible_to(player_id, r, c, radius):
-                    vis.add((r, c))
+        for q, r in all_hexes(HEX_RADIUS):
+            if self.is_visible_to(player_id, r, q, radius):
+                vis.add((q, r))
         return vis
 
     def can_target_unit(self, viewer_id: int, unit) -> bool:
@@ -336,7 +354,7 @@ class GameState:
                 unit.heal(1)
                 self.log_msg(f"  Rigenerazione: {unit.card.name} +1 HP")
             # Altare C3 – Evoluzione (GDD): inizia il turno sul centro
-            if (unit.row, unit.col) == ALTAR_POS:
+            if (unit.col, unit.row) == ALTAR_POS:
                 if "evolved" not in unit.statuses:
                     unit.statuses.add("evolved")
                     unit.current_atk += 1
@@ -448,10 +466,10 @@ class GameState:
             text="Creatura gratuita di spawn."
         )
         # Spawn SOLO sulla casella del Tempio del giocatore (v28)
-        temple = TEMPLE_P1_POS if player.id == 0 else TEMPLE_P2_POS
-        r, c = temple
-        if self.board.get_unit_at(r, c) is None and self.board.is_walkable(r, c):
-            unit = Unit(free_card, player.id, r, c, 1, 1)
+        temple = TEMPLE_P1_POS if player.id == 0 else TEMPLE_P2_POS  # (q, r)
+        q, r = temple
+        if self.board.get_unit_at(q, r) is None and self.board.is_walkable(q, r):
+            unit = Unit(free_card, player.id, r, q, 1, 1)  # row=r, col=q
             self.board.place_unit(unit)
             self.log_msg(f"{player.name} spawna Soldato 1/1 su {unit.coord}")
             return
@@ -507,8 +525,8 @@ class GameState:
         atk = max(0, int(math.floor(avg_atk)) - 1)
         hp = max(1, int(math.floor(avg_hp)))
 
-        ar, ac = ALTAR_POS
-        if self.board.get_unit_at(ar, ac) is not None or not self.board.is_walkable(ar, ac):
+        aq, ar = ALTAR_POS  # (q, r)
+        if self.board.get_unit_at(aq, ar) is not None or not self.board.is_walkable(aq, ar):
             self.log_msg(f"[Altare] spawn {color.value} {atk}/{hp} fallito: casella non libera")
             return
 
@@ -522,14 +540,14 @@ class GameState:
             hp=hp,
             text=f"Creatura dell'Altare ({color.value}).",
         )
-        unit = Unit(card, -1, ar, ac, hp, atk)
+        unit = Unit(card, -1, ar, aq, hp, atk)  # row=r, col=q
         unit.statuses.add("altar_neutral")
         unit.statuses.add("target:none")
         if not self.board.place_unit(unit):
             self.log_msg("[Altare] place_unit fallito")
             return
         self.neutral_colors_used.append(color)
-        self.log_msg(f"[Altare] Neutrale {color.value} {atk}/{hp} su {unit.coord} (colori usati {len(self.neutral_colors_used)}/6)")
+        self.log_msg(f"[Altare] Neutrale {color.value} {atk}/{hp} su {self.cell_name(aq, ar)} (colori usati {len(self.neutral_colors_used)}/6)")
 
     def _spawn_signore(self):
         """Il Signore: casella casuale libera, artefatto sulla stessa, ATK=signore_atk (0,2,4…), HP infinito."""
@@ -538,15 +556,14 @@ class GameState:
         from .unit import Unit
 
         free = [
-            (r, c)
-            for r in range(GRID_SIZE)
-            for c in range(GRID_SIZE)
-            if self.board.is_walkable(r, c) and self.board.get_unit_at(r, c) is None
+            (q, r)
+            for q, r in all_hexes(HEX_RADIUS)
+            if self.board.is_walkable(q, r) and self.board.get_unit_at(q, r) is None
         ]
         if not free:
             self.log_msg("[Signore] nessuna casella libera per lo spawn")
             return
-        r, c = random.choice(free)
+        q, r = random.choice(free)
         self.signore_appearances += 1
         # Prima comparsa atk=0; ogni comparsa successiva +2 (quindi 0,2,4…)
         if self.signore_appearances > 1:
@@ -564,7 +581,7 @@ class GameState:
             hp=INF,
             text="BBEG. Non bersagliabile, non sconfiggibile.",
         )
-        unit = Unit(card, -1, r, c, INF, atk)
+        unit = Unit(card, -1, r, q, INF, atk)  # row=r, col=q
         unit.statuses.add("altar_neutral")
         unit.statuses.add("signore")
         unit.statuses.add("untargetable")
@@ -573,13 +590,11 @@ class GameState:
         if not self.board.place_unit(unit):
             self.log_msg("[Signore] place_unit fallito")
             return
-        # Artefatto sulla stessa casella
-        tile = self.board.get_tile(r, c)
+        tile = self.board.get_tile(q, r)
         if tile:
             tile.has_artifact = True
-        # Reset ciclo colori
         self.neutral_colors_used = []
-        self.log_msg(f"[Signore] appare su {unit.coord} ({atk}/∞). Artefatto lasciato. Ciclo colori azzerato.")
+        self.log_msg(f"[Signore] appare su {self.cell_name(q, r)} ({atk}/∞). Artefatto lasciato. Ciclo colori azzerato.")
 
     def _neutral_get_target(self, unit) -> Optional[Unit]:
         for s in unit.statuses:
@@ -608,7 +623,7 @@ class GameState:
         for u in list(self.board.units.values()):
             if not u.is_alive or u.owner_id == -1:
                 continue
-            if max(abs(u.row - neu.row), abs(u.col - neu.col)) <= 2:
+            if hex_distance((neu.col, neu.row), (u.col, u.row)) <= 2:
                 result.append(u)
         return result
 
@@ -646,7 +661,7 @@ class GameState:
         for neu in neutrals:
             # --- SIGNORE: solo vagabondaggio casuale ---
             if "signore" in neu.statuses:
-                adj = self.board.get_adjacent(neu.row, neu.col)
+                adj = self.board.get_adjacent(neu.col, neu.row)
                 free = [(r, c) for r, c in adj if self.board.get_unit_at(r, c) is None]
                 # Se adiacente a un giocatore, "interazione"
                 for r, c in adj:
@@ -668,7 +683,7 @@ class GameState:
                 self._neutral_set_target(neu, None)
 
             if target is None:
-                adj = self.board.get_adjacent(neu.row, neu.col)
+                adj = self.board.get_adjacent(neu.col, neu.row)
                 free = [(r, c) for r, c in adj if self.board.get_unit_at(r, c) is None]
                 if free:
                     nr, nc = random.choice(free)
@@ -682,7 +697,7 @@ class GameState:
                     self.log_msg(f"[Neutrale] {neu.card.name} aggana {chosen.card.name} ({chosen.coord})")
                 continue
 
-            if max(abs(neu.row - target.row), abs(neu.col - target.col)) <= 1:
+            if hex_distance((neu.col, neu.row), (target.col, target.row)) <= 1:
                 self.log_msg(f"[Neutrale] {neu.card.name} attacca {target.card.name}!")
                 actual = target.take_damage(neu.current_atk, neu)
                 self.log_msg(f"  {actual} danni (HP {target.current_hp})")
@@ -763,32 +778,26 @@ class GameState:
             return False
         if unit.moved_this_turn and not unit.has_keyword("DoubleMove"):
             return False
-        # Movimento re degli scacchi: 1 passo in qualsiasi delle 8 direzioni
-        dr = abs(target_row - unit.row)
-        dc = abs(target_col - unit.col)
-        if not (max(dr, dc) == 1 and (dr + dc) >= 1):
-            self.log_msg("Movimento non valido: serve 1 passo adiacente (come il re degli scacchi).")
-            return False
+        # Movimento esagonale: 1 passo verso un hex adiacente (6 direzioni)
+        uq, ur = unit.col, unit.row
+        tq, tr = target_col, target_row
+        if hex_distance((uq, ur), (tq, tr)) != 1:
+            # prova ordine invertito se dati legacy
+            if hex_distance((unit.row, unit.col), (target_row, target_col)) != 1:
+                self.log_msg("Movimento non valido: serve 1 passo esagonale adiacente.")
+                return False
+            tq, tr = target_row, target_col
         if not self.players[unit.owner_id].can_afford(1):
             self.log_msg("Mana insufficiente.")
             return False
 
         target_unit = self.board.get_unit_at(target_row, target_col)
-        # Muro edge tra le due caselle → non si può né muovere né attaccare attraverso
-        if abs(unit.row - target_row) + abs(unit.col - target_col) == 1:
-            if self.board.has_edge_wall((unit.row, unit.col), (target_row, target_col)):
-                self.log_msg("Un muro blocca il passaggio.")
-                return False
-        elif abs(unit.row - target_row) == 1 and abs(unit.col - target_col) == 1:
-            mid1 = (unit.row, target_col)
-            mid2 = (target_row, unit.col)
-            blocked = (
-                (self.board.has_edge_wall((unit.row, unit.col), mid1) and self.board.has_edge_wall((unit.row, unit.col), mid2))
-                or (self.board.has_edge_wall(mid1, (target_row, target_col)) and self.board.has_edge_wall(mid2, (target_row, target_col)))
-            )
-            if blocked:
-                self.log_msg("Un muro blocca il passaggio.")
-                return False
+        # Muro edge tra due hex adiacenti
+        a = (unit.col, unit.row)
+        b = (target_col, target_row)
+        if self.board.has_edge_wall(a, b) or self.board.has_edge_wall((unit.row, unit.col), (target_row, target_col)):
+            self.log_msg("Un muro blocca il passaggio.")
+            return False
 
         if target_unit is not None:
             if "signore" in target_unit.statuses or "untargetable" in target_unit.statuses:
@@ -1165,40 +1174,26 @@ class GameState:
             return False
 
     def _summon_monster(self, player: Player, hand_index: int, card: Card, target_coord: Optional[str]) -> bool:
-        """Evoca solo nella propria zona Tempio."""
-        # v28: un solo Tempio per giocatore
-        temple_positions = (
-            [TEMPLE_P1_POS] if player.id == 0
-            else [TEMPLE_P2_POS]
-        )
-        # Se target specificato, deve essere nella zona
+        """Evoca solo sul proprio Tempio (hex)."""
+        temple_qr = TEMPLE_P1_POS if player.id == 0 else TEMPLE_P2_POS  # (q,r)
         if target_coord:
-            try:
-                r, c = coord_to_pos(target_coord)
-            except Exception:
-                self.log_msg("Coordinata non valida.")
+            pos = self.resolve_coord(target_coord)
+            if not pos or pos != temple_qr:
+                self.log_msg("Puoi evocare solo sul tuo Tempio.")
                 return False
-            if (r, c) not in temple_positions:
-                self.log_msg("Puoi evocare solo nella tua zona Tempio.")
-                return False
+            tq, tr = pos
         else:
-            # Prima casella libera della zona
-            found = None
-            for r, c in temple_positions:
-                if self.board.get_unit_at(r, c) is None and self.board.is_walkable(r, c):
-                    found = (r, c)
-                    break
-            if not found:
-                self.log_msg("Nessuna casella libera nella zona Tempio.")
-                return False
-            r, c = found
+            tq, tr = temple_qr
 
-        if self.board.get_unit_at(r, c) is not None:
-            self.log_msg("Casella già occupata (fuoco amico / sovrapposizione non ancora gestita in evocazione).")
+        if self.board.get_unit_at(tq, tr) is not None:
+            self.log_msg("Tempio occupato: impossibile evocare.")
+            return False
+        if not self.board.is_walkable(tq, tr):
+            self.log_msg("Tempio non disponibile.")
             return False
 
         player.spend_mana(card.cost)
-        unit = Unit(card, player.id, r, c, card.hp, card.atk)
+        unit = Unit(card, player.id, tr, tq, card.hp, card.atk)  # row=r, col=q
         has_charge = "Charge" in (card.keywords or [])
         has_sickness = "SummoningSickness" in (card.keywords or [])
         if has_sickness or not has_charge:
@@ -1206,8 +1201,9 @@ class GameState:
             unit.can_attack_this_turn = False
         self.board.place_unit(unit)
         player.hand.pop(hand_index)
-        self.log_msg(f"{player.name} evoca {card.name} ({card.atk}/{card.hp}) su {unit.coord}")
+        self.log_msg(f"{player.name} evoca {card.name} ({card.atk}/{card.hp}) su {self.cell_name(tq, tr)}")
         return True
+
 
     def _play_fragment(self, player: Player, hand_index: int, card: Card, target_coord: Optional[str]) -> bool:
         """Gioca la carta Frammento/Corona dalla mano sulla creatura bersaglio."""

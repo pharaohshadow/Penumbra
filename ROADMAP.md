@@ -2,8 +2,9 @@
 
 | Step | Stato |
 |------|--------|
-| UI cornice nascosta, muri, no attack through walls | v31 |
-| Tempio accessibile, layout colonna, avvizzito | **v32** |
-| Effetto Signore / indizi / quest | da definire |
+| Mappa hex + flavor + UI sotto + medaglione | **v33** |
+| Cerchi rituali + mostrissimi visibili lì | da fare |
+| Effetto Signore / indizi veri / quest | da fare |
+| 3° e 4° giocatore attivi | futuro |
 
-Prossima: **v33**
+Prossima: **v34**

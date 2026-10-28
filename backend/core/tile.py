@@ -20,6 +20,7 @@ class Tile:
     wall_hp: int = 0
     owner_id: Optional[int] = None
     has_artifact: bool = False  # artefatto del Signore (v30)
+    flavor_name: str = ""
 
     @property
     def coord(self) -> str:

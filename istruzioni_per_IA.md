@@ -5,8 +5,11 @@
 - Aggiornare README, ROADMAP, architettura, istruzioni_per_IA.
 - Niente modifiche manuali per l'utente.
 
-## Regole
-- Templi parte del campo (accesso alla mappa).
-- Avvizzito = moved_this_turn; UI bordo grigio vs bordo verde pulsante se ready.
-- Layout a colonna centrale su landscape e mobile.
-- Muri bloccano movimento e attacco; combattimento entrando sulla casella.
+## Mappa v33
+- Esagoni pointy-top, raggio 3, axial (q,r)
+- Unit: col=q, row=r
+- Nomi flavor come id casella in UI; API accetta flavor o "q,r"
+- Templi 1–4 etichettati; P1 sud, P2 nord attivi
+- Terreno base ovunque tranne templi/altare
+- Mostrissimi solo su Cerchio Rituale (non ancora piazzati)
+- Medaglione placeholder sotto il nome giocatore

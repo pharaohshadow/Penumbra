@@ -1,5 +1,14 @@
-# Architettura – v32
+# Architettura – v33
 
-- Edge walls perimetro con aperture ai templi (discard muri angolo A6/B5 e G0/F1).
-- Serialize unit: `withered`, `ready`.
-- UI: `.app-shell` / `.app-col`; `.unit.ready` pulse; `.unit.withered` grigio.
+## Hex
+- `constants.HEX_RADIUS=3`, `all_hexes`, `hex_distance`, `hex_to_pixel`
+- `Board.tiles: Dict[(q,r), Tile]`, `edge_walls` su coppie hex
+- Serialize: lista piatta di celle con `coord` (flavor), `qr`, `x/y`
+
+## UI
+- Hex con `clip-path` pointy, posizionati in pixel
+- Player panel in basso + medaglione
+- Eldrazi box nascosto finché non su rituale
+
+## Compatibilità
+- Alcuni path legacy (eventi/trappole) restano nel codice ma le caselle non li usano più
