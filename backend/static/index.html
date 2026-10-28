@@ -33,34 +33,63 @@
   #loginBox input { width: 100%; padding: 8px; margin: 6px 0; border-radius: 6px; border: 1px solid var(--border); background: #0f1218; color: var(--text); }
   #hexBoard {
     position: relative; width: 100%; height: min(70vw, 420px); min-height: 320px;
-    background: #3d5c45; border-radius: 12px; border: 1px solid var(--border);
+    /* mare intorno alla mappa (stile Catan) */
+    background: radial-gradient(ellipse at center, #3d7ea6 0%, #2a5f82 55%, #1e4a68 100%);
+    border-radius: 12px; border: 1px solid var(--border);
     overflow: hidden;
   }
   .hex {
     position: absolute; width: 56px; height: 48px; margin-left: -28px; margin-top: -24px;
-    /* flat-top (come hex_to_pixel del backend e l'editor) */
     clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
-    background: #3d5c45;
+    background: #6b9e4a;
     border: none; display: flex; flex-direction: column;
     align-items: center; justify-content: center; font-size: 0.52rem; cursor: pointer;
-    color: #d8e8d4; text-align: center; line-height: 1.1; padding: 3px;
-    box-shadow: inset 0 0 0 1px #5a7a62;
+    color: #1a2a14; text-align: center; line-height: 1.1; padding: 3px;
+    box-shadow: inset 0 0 0 1.5px rgba(0,0,0,0.18);
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25));
   }
-  .hex.altar { background: #c9a227; color: #1a1400; font-weight: 700; box-shadow: inset 0 0 0 2px #e8c84a; }
-  /* Bordo esterno = lava (non calpestabile) */
+  .hex.t-bosco { background: #3d7a3a; color: #e8f5e8; }
+  .hex.t-collina { background: #b86b3c; color: #2a1508; }
+  .hex.t-montagna { background: #8a8a8a; color: #1a1a1a; }
+  .hex.t-campo, .hex.t-pianura { background: #e8c84a; color: #3a2a08; }
+  .hex.t-pascolo, .hex.t-radura { background: #8bc34a; color: #1a2a0a; }
+  .hex.t-lago, .hex.t-sorgente { background: #4a90b8; color: #0a1a28; }
+  .hex.t-palude { background: #5a6b4a; color: #d8e8d0; }
+  .hex.t-rovina, .hex.t-cava { background: #9a8b7a; color: #1a1208; }
+  .hex.t-deserto { background: #d4c4a0; color: #3a3020; }
+  .hex.altar {
+    background: radial-gradient(circle at 40% 35%, #f0d060 0%, #c9a227 60%, #8a7010 100%);
+    color: #1a1400; font-weight: 800;
+    box-shadow: inset 0 0 0 2px #fff3a0, 0 0 10px rgba(240,200,60,0.45);
+  }
+  /* Bordo = mare (niente testo Lava) */
   .hex.frame {
-    background: linear-gradient(160deg, #ff6b2d 0%, #c43c12 40%, #6b1a08 100%);
-    color: #ffe8c8; cursor: default;
-    box-shadow: inset 0 0 8px rgba(255, 120, 40, 0.55), inset 0 0 0 1px #ff9a4a;
-    font-weight: 700;
+    background: linear-gradient(160deg, #5ba3c9 0%, #3d7ea6 50%, #2a5f82 100%);
+    color: transparent; cursor: default;
+    box-shadow: inset 0 0 12px rgba(180, 230, 255, 0.25);
+    filter: none;
   }
-  .hex.frame .fname { font-size: 0.65rem; opacity: 1; }
-  .hex.temple { background: #e879a9; color: #2a0a18; box-shadow: inset 0 0 0 2px #f9a8d4; font-weight: 700; }
-  .hex.selected { outline: 2px solid #fbbf24; z-index: 5; }
-  /* Fog: più scuro, diverso da lava e terreno */
-  .hex.fog { background: #1a221c; color: #3a4a40; opacity: 0.9; box-shadow: inset 0 0 0 1px #243028; }
+  .hex.frame .fname { display: none; }
+  .hex.temple {
+    background: radial-gradient(circle at 40% 30%, #f9a8d4 0%, #e879a9 55%, #be185d 100%);
+    color: #2a0a18; font-weight: 800;
+    box-shadow: inset 0 0 0 2px #fce7f3;
+  }
+  .hex.selected { outline: 2px solid #fbbf24; z-index: 5; filter: drop-shadow(0 0 6px rgba(251,191,36,0.6)); }
+  .hex.fog {
+    background: #2a3540 !important;
+    color: #4a5560 !important;
+    opacity: 0.92;
+    box-shadow: inset 0 0 0 1px #1e2830;
+    filter: none;
+  }
   .hex.artifact::after { content: "◆"; color: #fbbf24; position: absolute; top: 6px; font-size: 0.7rem; }
-  .hex .fname { font-size: 0.5rem; opacity: 0.9; max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hex .fname {
+    font-size: 0.5rem; font-weight: 700; opacity: 0.95;
+    max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.2), 0 0 2px rgba(255,255,255,0.15);
+    letter-spacing: -0.01em;
+  }
   .unit { font-weight: 700; font-size: 0.62rem; line-height: 1.1; border-radius: 3px; padding: 1px 2px; }
   .unit.p0 { color: var(--p0); }
   .unit.p1 { color: var(--p1); }
@@ -409,15 +438,28 @@ function render() {
   const scale = Math.min((bw - pad * 2) / dx, (bh - pad * 2) / dy) * 0.92;
   const ox = (bw - dx * scale) / 2;
   const oy = (bh - dy * scale) / 2;
-  const hs = Math.max(30, Math.min(52, scale * 1.02)); // leave small corridor gap between hexes
+  const hs = Math.max(32, Math.min(54, scale * 1.12)); // tessere quasi unite (stile Catan)
 
   cells.forEach(cell => {
     if (cell.x == null || cell.y == null) return;
     const div = document.createElement("div");
     let cls = "hex";
     if (cell.altar) cls += " altar";
-    if (cell.tile && String(cell.tile).startsWith("Tempio")) cls += " temple";
-    if (cell.tile === "Cornice") cls += " frame";
+    else if (cell.tile && String(cell.tile).startsWith("Tempio")) cls += " temple";
+    else if (cell.tile === "Cornice" || cell.tile === "FRAME") cls += " frame";
+    else {
+      const fl = String(cell.flavor || cell.tile || "").toLowerCase();
+      if (/bosco|foresta|albero/.test(fl)) cls += " t-bosco";
+      else if (/collina|altura|promontorio/.test(fl)) cls += " t-collina";
+      else if (/montagna|monte|picco/.test(fl)) cls += " t-montagna";
+      else if (/campo|pianura|grano/.test(fl)) cls += " t-campo";
+      else if (/radura|pascolo|prato|sentiero/.test(fl)) cls += " t-pascolo";
+      else if (/lago|sorgente|fiume|acqua/.test(fl)) cls += " t-lago";
+      else if (/palude|pantano/.test(fl)) cls += " t-palude";
+      else if (/rovina|cava|anfratto|osservator/.test(fl)) cls += " t-rovina";
+      else if (/deserto|sabbia/.test(fl)) cls += " t-deserto";
+      else cls += " t-pascolo";
+    }
     if (cell.fog) cls += " fog";
     if (cell.artifact) cls += " artifact";
     if (selectedCoord === cell.coord) cls += " selected";
@@ -444,10 +486,20 @@ function render() {
       html += `<div class="unit ${ucls}">${u.crown ? "👑" : ""}${uname}<br/>${u.atk}/${hp}</div>`;
     } else if (!cell.fog) {
       let label;
-      if (cell.altar) label = "Altare";
-      else if (cell.tile && String(cell.tile).startsWith("Tempio")) label = cell.tile.replace("Tempio", "T");
-      else if (cell.tile === "Cornice") label = "Lava";
-      else label = cell.flavor || cell.coord || "";
+      if (cell.altar) label = "✦ Altare";
+      else if (cell.tile && String(cell.tile).startsWith("Tempio")) label = "T" + String(cell.tile).replace("Tempio","");
+      else if (cell.tile === "Cornice") label = "";
+      else {
+        const fl = String(cell.flavor || "").toLowerCase();
+        let ico = "";
+        if (/bosco|foresta/.test(fl)) ico = "🌲";
+        else if (/lago|sorgente|fiume/.test(fl)) ico = "💧";
+        else if (/collina|altura/.test(fl)) ico = "⛰";
+        else if (/campo|pianura/.test(fl)) ico = "🌾";
+        else if (/palude/.test(fl)) ico = "🫧";
+        else if (/rovina|cava/.test(fl)) ico = "🏛";
+        label = (ico ? ico + " " : "") + (cell.flavor || cell.coord || "");
+      }
       if (label) html += `<span class="fname">${label}</span>`;
     } else {
       html += `<span class="fname">░</span>`;
@@ -496,13 +548,42 @@ function render() {
   const strokeW = Math.max(7, Math.min(16, hs * 0.28)); // riempie il corridoio
   const R = hs * 0.98;
 
-  function drawCorridor(x1, y1, x2, y2, color) {
+  function drawCorridor(x1, y1, x2, y2, color, sw, kind) {
+    const w = sw != null ? sw : strokeW;
+    if (kind === "mountain") {
+      // base scura
+      const base = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      base.setAttribute("x1", x1); base.setAttribute("y1", y1);
+      base.setAttribute("x2", x2); base.setAttribute("y2", y2);
+      base.setAttribute("stroke", "#3b2a1c");
+      base.setAttribute("stroke-width", w * 1.15);
+      base.setAttribute("stroke-linecap", "round");
+      wallSvg.appendChild(base);
+      // corpo marrone
+      const body = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      body.setAttribute("x1", x1); body.setAttribute("y1", y1);
+      body.setAttribute("x2", x2); body.setAttribute("y2", y2);
+      body.setAttribute("stroke", "#6b4423");
+      body.setAttribute("stroke-width", w * 0.85);
+      body.setAttribute("stroke-linecap", "round");
+      wallSvg.appendChild(body);
+      // cresta chiara
+      const ridge = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      ridge.setAttribute("x1", x1); ridge.setAttribute("y1", y1);
+      ridge.setAttribute("x2", x2); ridge.setAttribute("y2", y2);
+      ridge.setAttribute("stroke", "#c4a574");
+      ridge.setAttribute("stroke-width", Math.max(1.5, w * 0.22));
+      ridge.setAttribute("stroke-linecap", "round");
+      ridge.setAttribute("opacity", "0.9");
+      wallSvg.appendChild(ridge);
+      return;
+    }
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
     line.setAttribute("x1", x1); line.setAttribute("y1", y1);
     line.setAttribute("x2", x2); line.setAttribute("y2", y2);
     line.setAttribute("stroke", color);
-    line.setAttribute("stroke-width", strokeW);
-    line.setAttribute("stroke-linecap", "butt");
+    line.setAttribute("stroke-width", w);
+    line.setAttribute("stroke-linecap", "round");
     wallSvg.appendChild(line);
   }
 
@@ -532,12 +613,19 @@ function render() {
       const bFrame = cb.tile === "Cornice" || cb.tile === "FRAME";
       const isWall = wallSet.has(edgeKey(ca.qr, cb.qr)) || wallSet.has(ek);
 
-      let color;
-      if (isWall) color = "#6b3f24";           // montagna marrone
-      else if (aFrame || bFrame) color = "#c43c12"; // corridoio rosso (bordo)
-      else color = "#3d5c45";                  // verdino come gli esagoni
-
-      drawCorridor(x1, y1, x2, y2, color);
+      let color, sw = strokeW, kind = null;
+      if (isWall) {
+        color = "#6b4423";
+        sw = Math.max(6, strokeW * 0.95);
+        kind = "mountain";
+      } else if (aFrame || bFrame) {
+        color = "#2f6f96";  // mare
+        sw = strokeW * 1.1;
+      } else {
+        color = "#5a8f3e";  // prato
+        sw = strokeW * 0.85;
+      }
+      drawCorridor(x1, y1, x2, y2, color, sw, kind);
     });
   });
   boardEl.appendChild(wallSvg);

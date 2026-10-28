@@ -1,15 +1,15 @@
-# Architettura – v1.14
+# Architettura – v1.16
 
 ## Stato attuale
 
-Nuova tattica per le montagne (richiesta utente):
+Restyling mappa esagonale (ispirazione stile giochi tipo Catan / Polytopia):
 
-- Le montagne esistono **solo nei corridoi tra gli esagoni** (SVG sotto le caselle).
-- Corridoio **marrone** = montagna (ostacolo).
-- Corridoio **verdino** = passabile (stesso colore degli esagoni).
-- Corridoio **rosso** = bordo esterno (al posto della sola “lava” come linea di separazione).
-
-Gli esagoni restano sopra: così il colore del corridoio non entra mai nel centro della casella.
+- **Bordo esterno** = mare (blu), non più “Lava” scritta
+- **Terreni colorati** in base al nome (bosco, lago, collina, campo, ecc.)
+- **Piccole icone** sui terreni
+- **Montagne** = corridoi marroni a più strati (ombra + corpo + cresta), solo tra gli esagoni
+- **Corridoi verdi** tra caselle passabili
+- Altare dorato, templi rosa
 
 ### File toccati
 - `backend/static/index.html`

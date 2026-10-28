@@ -1,9 +1,9 @@
 # Roadmap – Penumbra
 
-**Versione attuale: v1.14**
+**Versione attuale: v1.16**
 
 ## Stato attuale
-v1.14 – Montagne solo nei corridoi tra esagoni (marrone / verdino / rosso bordo).
+v1.16 – Mappa restyle “stile Catan/Polytopia”: mare, terreni colorati, icone, montagne a corridoio.
 
 ---
 
@@ -13,15 +13,14 @@ v1.14 – Montagne solo nei corridoi tra esagoni (marrone / verdino / rosso bord
 ---
 
 ## 2. Mappa / logica
-- [x] Fog fix
-- [x] Corridoi montagna sotto gli esagoni (v1.14)
-- [ ] Verificare blocco movimento
+- [x] Fog, corridoi, restyle
+- [ ] Verificare blocco movimento montagne
 
 ---
 
 ## 3. Stile grafico
-- [x] Corridoi colorati (montagna / terreno / bordo)
-- [ ] Eventuale ritocco spessore corridoi dopo feedback
-- [ ] Icone terreno
+- [x] Corridoi montagna sotto gli esagoni
+- [x] Palette terreni + mare + icone (v1.16)
+- [ ] Feedback utente → ritocchi colori/spessori
 - [ ] Nebbia soft
-- [ ] Polish UI
+- [ ] Polish UI / mobile

@@ -1,6 +1,6 @@
 # Istruzioni per IA – Penumbra
 
-**Versione attuale: v1.14**
+**Versione attuale: v1.16**
 
 Queste istruzioni sono **obbligatorie**.  
 Prima di consegnare qualsiasi file, l’IA **deve** rileggere questo documento.
