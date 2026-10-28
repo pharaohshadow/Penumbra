@@ -1,22 +1,23 @@
-# Architettura – v1.7
+# Architettura – v1.8
 
 ## Stato attuale
 
-Aggiornamento muri della mappa esagonale (28/10/2026).
+Aggiornamento grafico della mappa (28/10/2026) per avvicinarla allo stile dell’editor muri.
 
-Il file `backend/data/map.json` contiene i muri scelti dall’utente con l’editor HTML.
-Le celle (terrain, temple, altar, frame) restano invariate; è cambiata solo la lista `walls`.
+### Cosa è cambiato in `backend/static/index.html`
+- Esagoni **flat-top** (come `hex_to_pixel` del backend e l’editor), non più pointy-top
+- Colori scuri blu/grigio come nello screenshot “figo”
+- Altare giallo, templi verdi, cornice scura senza alberi
+- Muri rossi più spessi e allineati ai bordi
 
-### Mappa
-- File: `backend/data/map.json`
-- Formato muri: `{"a": [q, r], "b": [q, r]}` (bordo tra due esagoni adiacenti)
-- Numero muri in questa versione: 55
+### File toccati
+- `backend/static/index.html` (solo CSS + pezzi del render mappa)
+
+### Mappa / muri
+- `backend/data/map.json` (invariato da v1.7)
 
 ### Supabase
 - URL: `https://favrmxwyaxklfiruyvqz.supabase.co`
 
 ### Render
-- Servizio: penumbra-backend
 - URL live: https://penumbra-8psb.onrender.com
-- Root directory: `backend`
-- Start command: `uvicorn api.main:app --host 0.0.0.0 --port $PORT`

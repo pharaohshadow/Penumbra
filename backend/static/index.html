@@ -33,24 +33,25 @@
   #loginBox input { width: 100%; padding: 8px; margin: 6px 0; border-radius: 6px; border: 1px solid var(--border); background: #0f1218; color: var(--text); }
   #hexBoard {
     position: relative; width: 100%; height: min(70vw, 420px); min-height: 320px;
-    background: #0a0c10; border-radius: 12px; border: 1px solid var(--border);
+    background: #0a0e14; border-radius: 12px; border: 1px solid var(--border);
     overflow: hidden;
   }
   .hex {
-    position: absolute; width: 52px; height: 60px; margin-left: -26px; margin-top: -30px;
-    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-    background: #3d4a2e; border: none; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; font-size: 0.55rem; cursor: pointer;
-    color: #d4d8c8; text-align: center; line-height: 1.1; padding: 4px;
+    position: absolute; width: 56px; height: 48px; margin-left: -28px; margin-top: -24px;
+    /* flat-top (come hex_to_pixel del backend e l'editor) */
+    clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+    background: #2a3548; border: none; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 0.52rem; cursor: pointer;
+    color: #c5d0e0; text-align: center; line-height: 1.1; padding: 3px;
+    box-shadow: inset 0 0 0 1px #3a4a62;
   }
-  .hex.altar { background: #22c55e; color: #052e16; font-weight: 700; }
-  .hex.frame { background: #5c4033; color: #a89080; opacity: 0.95; cursor: default; }
-  .hex.frame::before { content: "🌲"; font-size: 0.55rem; opacity: 0.5; }
-  .hex.temple { background: #2563eb; color: #eff6ff; box-shadow: inset 0 0 0 2px #93c5fd; font-weight: 700; }
+  .hex.altar { background: #c9a227; color: #1a1400; font-weight: 700; box-shadow: inset 0 0 0 2px #e8c84a; }
+  .hex.frame { background: #1a1f28; color: #3a4a62; opacity: 0.95; cursor: default; box-shadow: inset 0 0 0 1px #252b36; }
+  .hex.temple { background: #5b8c5a; color: #e8f5e8; box-shadow: inset 0 0 0 2px #7cb87a; font-weight: 700; }
   .hex.selected { outline: 2px solid #fbbf24; z-index: 5; }
   .hex.fog { background: #12151c; color: #3a3f4a; opacity: 0.85; }
-  .hex.artifact::after { content: "◆"; color: #fbbf24; position: absolute; top: 8px; font-size: 0.7rem; }
-  .hex .fname { font-size: 0.55rem; opacity: 0.85; max-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hex.artifact::after { content: "◆"; color: #fbbf24; position: absolute; top: 6px; font-size: 0.7rem; }
+  .hex .fname { font-size: 0.5rem; opacity: 0.9; max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .unit { font-weight: 700; font-size: 0.62rem; line-height: 1.1; border-radius: 3px; padding: 1px 2px; }
   .unit.p0 { color: var(--p0); }
   .unit.p1 { color: var(--p1); }
@@ -399,7 +400,7 @@ function render() {
   const scale = Math.min((bw - pad * 2) / dx, (bh - pad * 2) / dy) * 0.92;
   const ox = (bw - dx * scale) / 2;
   const oy = (bh - dy * scale) / 2;
-  const hs = Math.max(28, Math.min(48, scale * 0.9));
+  const hs = Math.max(30, Math.min(52, scale * 1.05));
 
   cells.forEach(cell => {
     if (cell.x == null || cell.y == null) return;
@@ -416,10 +417,11 @@ function render() {
     const y = oy + (cell.y - minY) * scale;
     div.style.left = x + "px";
     div.style.top = y + "px";
+    // flat-top: larghezza > altezza
     div.style.width = hs + "px";
-    div.style.height = (hs * 1.15) + "px";
+    div.style.height = (hs * 0.866) + "px";
     div.style.marginLeft = (-hs / 2) + "px";
-    div.style.marginTop = (-hs * 0.575) + "px";
+    div.style.marginTop = (-hs * 0.433) + "px";
 
     let html = "";
     if (cell.unit) {
@@ -431,8 +433,12 @@ function render() {
       let uname = (u.name || "").replace(/\s*\d+\/\d+\s*$/, "").trim() || u.name;
       html += `<div class="unit ${ucls}">${u.crown ? "👑" : ""}${uname}<br/>${u.atk}/${hp}</div>`;
     } else if (!cell.fog) {
-      const label = cell.altar ? "✦Altare" : (cell.tile && cell.tile.startsWith("Tempio") ? cell.tile : (cell.flavor || cell.coord));
-      html += `<span class="fname">${label}</span>`;
+      let label;
+      if (cell.altar) label = "Altare";
+      else if (cell.tile && String(cell.tile).startsWith("Tempio")) label = cell.tile.replace("Tempio", "T");
+      else if (cell.tile === "Cornice") label = "";
+      else label = cell.flavor || cell.coord || "";
+      if (label) html += `<span class="fname">${label}</span>`;
     } else {
       html += `<span class="fname">░</span>`;
     }
@@ -466,13 +472,13 @@ function render() {
     const cx2 = ox + (cb.x - minX) * scale;
     const cy2 = oy + (cb.y - minY) * scale;
     // hs = lato esagono ≈ circumradius disegnato
-    const R = hs * 0.98;
+    const R = hs * 0.92; // distanza centro→lato (flat-top)
     const [[x1, y1], [x2, y2]] = sharedEdge(cx1, cy1, cx2, cy2, R);
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
     line.setAttribute("x1", x1); line.setAttribute("y1", y1);
     line.setAttribute("x2", x2); line.setAttribute("y2", y2);
-    line.setAttribute("stroke", "#dc2626");
-    line.setAttribute("stroke-width", "4");
+    line.setAttribute("stroke", "#e74c3c");
+    line.setAttribute("stroke-width", "5");
     line.setAttribute("stroke-linecap", "round");
     wallSvg.appendChild(line);
   });
