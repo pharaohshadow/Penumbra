@@ -1,22 +1,26 @@
-# Penumbra – Consegna v28
+# Penumbra – Consegna v28.1 (hotfix)
 
-## Cosa cambia
+## Cosa cambia (rispetto a v27)
 
 1. **Mappa 7×7**
    - Cornice esterna non giocabile
    - Zona interna 5×5 giocabile
    - Templi agli **angoli**:
-     - Tempio 1 (tu) = basso-sinistra
-     - Tempio 2 (IA) = alto-destra
+     - Tempio 1 (tu) = basso-sinistra `A6`
+     - Tempio 2 (IA) = alto-destra `G0`
    - Spawn creature **solo** sulla casella del Tempio
-   - Altare al centro della zona giocabile
+   - Altare al centro della zona giocabile `D3`
 
 2. **Muri non sono più celle**
    - Diventano **linee tra le caselle** (edge walls)
-   - Layout = esattamente i bordi blu del tuo file map.xlsx
+   - Layout = bordi blu del tuo map.xlsx
    - Le creature non possono attraversarli
 
 3. Coordinate nuove: **A–G / 0–6**
+
+4. **Hotfix 500 su /api/end**
+   - Corrette posizioni tempio ancora hardcodate a 5×5 in evocazione mostri
+   - `/api/end` ora restituisce il messaggio di errore reale invece di un 500 generico
 
 **Nessuna modifica manuale richiesta.**
 
@@ -41,7 +45,7 @@
 
 ## Cosa fare dopo
 
-1. Sostituisci i file elencati sopra.
-2. Riavvia / ridistribuisci il backend.
+1. Sostituisci i file (cartella `penumbra_v28` negli artifacts).
+2. Riavvia / ridistribuisci su Render.
 3. Fai una **nuova partita base vs IA**.
-4. Dimmi se l’errore del 3° turno si ripresenta o se la mappa ti torna corretta (templi, muri, altare, spawn).
+4. Se esce ancora errore, copia il **testo completo** del messaggio (ora sarà leggibile, es. `Errore fine turno: ...`) e incollamelo.

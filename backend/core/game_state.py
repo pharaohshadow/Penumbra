@@ -880,9 +880,10 @@ class GameState:
 
     def _summon_monster(self, player: Player, hand_index: int, card: Card, target_coord: Optional[str]) -> bool:
         """Evoca solo nella propria zona Tempio."""
+        # v28: un solo Tempio per giocatore
         temple_positions = (
-            [(4, 1), (4, 2), (4, 3)] if player.id == 0
-            else [(0, 1), (0, 2), (0, 3)]
+            [TEMPLE_P1_POS] if player.id == 0
+            else [TEMPLE_P2_POS]
         )
         # Se target specificato, deve essere nella zona
         if target_coord:
@@ -1081,7 +1082,7 @@ class GameState:
             from .card import Card
             from .constants import CardType, Color
             wolf = Card(id=9126, name="Lupo 2/1", cost=0, card_type=CardType.MONSTER, color=Color.GREEN, atk=2, hp=1)
-            temple = [(4, 1), (4, 2), (4, 3)] if player.id == 0 else [(0, 1), (0, 2), (0, 3)]
+            temple = [TEMPLE_P1_POS] if player.id == 0 else [TEMPLE_P2_POS]
             placed = False
             for r, c in temple:
                 if self.board.get_unit_at(r, c) is None and self.board.is_walkable(r, c):

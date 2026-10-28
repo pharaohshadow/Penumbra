@@ -469,12 +469,19 @@ async def api_end(body: EndReq, user: Dict[str, Any] = Depends(require_user)):
         return serialize_state(gs, body.game_id)
     if gs.current_player_id != body.player_id:
         raise HTTPException(400, "Non è il tuo turno")
-    gs.end_turn()
-    if gs.phase != Phase.GAME_OVER and gs.players[gs.current_player_id].is_ai:
-        ai = BasicAI(gs, player_id=gs.current_player_id)
-        ai.take_turn()
-    _persist(body.game_id, gs, "end_turn")
-    return serialize_state(gs, body.game_id)
+    try:
+        gs.end_turn()
+        if gs.phase != Phase.GAME_OVER and gs.players[gs.current_player_id].is_ai:
+            ai = BasicAI(gs, player_id=gs.current_player_id)
+            ai.take_turn()
+        _persist(body.game_id, gs, "end_turn")
+        return serialize_state(gs, body.game_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Errore fine turno: {type(e).__name__}: {e}")
 
 
 @app.post("/api/fragment")
