@@ -1,24 +1,49 @@
 """
 Costanti e Enum del gioco Penumbra
-v1.0 – hotfix: aggiunto HexPos per compatibilità con map_board.py
+v1.0 – hotfix2: compatibilità completa con versioni miste di map_board.py
 """
 
 from enum import Enum, auto
-from typing import Tuple
+from typing import Tuple, List
 from dataclasses import dataclass
 
 # ============================================================
-# COORDINATE ESAGONALI (per compatibilità)
+# COORDINATE ESAGONALI (compatibilità)
 # ============================================================
+
+HEX_DIRECTIONS = [
+    (+1,  0),  # E
+    (+1, -1),  # NE
+    ( 0, -1),  # NW
+    (-1,  0),  # W
+    (-1, +1),  # SW
+    ( 0, +1),  # SE
+]
 
 @dataclass(frozen=True)
 class HexPos:
-    """Alias di Hex – usato da alcune versioni di map_board.py"""
+    """Coordinate assiali di un esagono (alias usato da alcune versioni)."""
     q: int
     r: int
 
     def __str__(self) -> str:
         return f"({self.q},{self.r})"
+
+    def neighbors(self) -> List["HexPos"]:
+        return [HexPos(self.q + dq, self.r + dr) for dq, dr in HEX_DIRECTIONS]
+
+
+def hex_neighbors(q: int, r: int) -> List[Tuple[int, int]]:
+    """Restituisce le 6 celle vicine in coordinate (q, r)."""
+    return [(q + dq, r + dr) for dq, dr in HEX_DIRECTIONS]
+
+
+def hex_distance(q1: int, r1: int, q2: int, r2: int) -> int:
+    """Distanza esagonale tra due celle."""
+    s1 = -q1 - r1
+    s2 = -q2 - r2
+    return max(abs(q1 - q2), abs(r1 - r2), abs(s1 - s2))
+
 
 # ============================================================
 # VECCHIO SISTEMA 5×5 (ancora in uso)
