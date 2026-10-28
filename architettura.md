@@ -1,10 +1,15 @@
-# Architettura – v1.13
+# Architettura – v1.14
 
 ## Stato attuale
 
-Montagne:
-- **Marroni** (corpo `#6b3f24`, ombra `#3b2416`, cresta `#a67c52`)
-- **Spessore ridotto** e centrato sul bordo tra due esagoni → non devono più entrare nel centro delle caselle (es. Rovina2)
+Nuova tattica per le montagne (richiesta utente):
+
+- Le montagne esistono **solo nei corridoi tra gli esagoni** (SVG sotto le caselle).
+- Corridoio **marrone** = montagna (ostacolo).
+- Corridoio **verdino** = passabile (stesso colore degli esagoni).
+- Corridoio **rosso** = bordo esterno (al posto della sola “lava” come linea di separazione).
+
+Gli esagoni restano sopra: così il colore del corridoio non entra mai nel centro della casella.
 
 ### File toccati
 - `backend/static/index.html`

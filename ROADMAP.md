@@ -1,9 +1,9 @@
 # Roadmap – Penumbra
 
-**Versione attuale: v1.13**
+**Versione attuale: v1.14**
 
 ## Stato attuale
-v1.13 – Montagne marroni, sottili, solo sul bordo (non nel centro delle caselle).
+v1.14 – Montagne solo nei corridoi tra esagoni (marrone / verdino / rosso bordo).
 
 ---
 
@@ -13,14 +13,15 @@ v1.13 – Montagne marroni, sottili, solo sul bordo (non nel centro delle casell
 ---
 
 ## 2. Mappa / logica
-- [x] Fog fix, muri, lava bordo, templi rosa, terreno verdino
-- [x] Montagne marroni e non invasive (v1.13)
+- [x] Fog fix
+- [x] Corridoi montagna sotto gli esagoni (v1.14)
 - [ ] Verificare blocco movimento
 
 ---
 
 ## 3. Stile grafico
-- [x] Montagne irregolari + marroni + non nel centro
+- [x] Corridoi colorati (montagna / terreno / bordo)
+- [ ] Eventuale ritocco spessore corridoi dopo feedback
 - [ ] Icone terreno
 - [ ] Nebbia soft
-- [ ] Polish UI / mobile
+- [ ] Polish UI

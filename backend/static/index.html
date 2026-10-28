@@ -33,7 +33,7 @@
   #loginBox input { width: 100%; padding: 8px; margin: 6px 0; border-radius: 6px; border: 1px solid var(--border); background: #0f1218; color: var(--text); }
   #hexBoard {
     position: relative; width: 100%; height: min(70vw, 420px); min-height: 320px;
-    background: #1a2a1f; border-radius: 12px; border: 1px solid var(--border);
+    background: #3d5c45; border-radius: 12px; border: 1px solid var(--border);
     overflow: hidden;
   }
   .hex {
@@ -387,7 +387,7 @@ function render() {
   boardEl.innerHTML = "";
   // SVG per i muri (sopra gli hex, pointer-events none)
   let wallSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  wallSvg.setAttribute("style", "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4");
+  wallSvg.setAttribute("style", "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1");
   wallSvg.setAttribute("width", "100%");
   wallSvg.setAttribute("height", "100%");
 
@@ -409,7 +409,7 @@ function render() {
   const scale = Math.min((bw - pad * 2) / dx, (bh - pad * 2) / dy) * 0.92;
   const ox = (bw - dx * scale) / 2;
   const oy = (bh - dy * scale) / 2;
-  const hs = Math.max(32, Math.min(56, scale * 1.18)); // leggermente sovrapposti → niente buchi neri
+  const hs = Math.max(30, Math.min(52, scale * 1.02)); // leave small corridor gap between hexes
 
   cells.forEach(cell => {
     if (cell.x == null || cell.y == null) return;
@@ -431,6 +431,7 @@ function render() {
     div.style.height = (hs * 0.866) + "px";
     div.style.marginLeft = (-hs / 2) + "px";
     div.style.marginTop = (-hs * 0.433) + "px";
+    div.style.zIndex = "3";
 
     let html = "";
     if (cell.unit) {
@@ -460,109 +461,84 @@ function render() {
     boardEl.appendChild(div);
   });
 
-  // Montagne irregolari sul bordo condiviso (poligoni SVG, non linee)
-  function sharedEdgeEnds(c1x, c1y, c2x, c2y, R) {
+  // Corridoi tra esagoni (sotto gli hex, z-index 1): verdino / marrone montagna / rosso bordo
+  function qrStr(v) {
+    if (v == null) return "";
+    if (Array.isArray(v) && v.length >= 2) return v[0] + "," + v[1];
+    if (typeof v === "object" && v.q != null) return v.q + "," + v.r;
+    const s = String(v).replace(/[()\s]/g, "");
+    return s;
+  }
+  function edgeKey(a, b) {
+    const sa = qrStr(a), sb = qrStr(b);
+    return sa < sb ? sa + "|" + sb : sb + "|" + sa;
+  }
+  function sharedEdgeLine(c1x, c1y, c2x, c2y, R) {
     const mx = (c1x + c2x) / 2, my = (c1y + c2y) / 2;
     let dx = c2x - c1x, dy = c2y - c1y;
     const len = Math.hypot(dx, dy) || 1;
     dx /= len; dy /= len;
     const px = -dy, py = dx, half = R / 2;
-    return {
-      x1: mx + px * half, y1: my + py * half,
-      x2: mx - px * half, y2: my - py * half,
-      nx: px, ny: py, // normale (verso un lato del bordo)
-      tx: dx, ty: dy  // tangente lungo il bordo
-    };
-  }
-  // seed stabile da coordinate → ogni montagna diversa ma fissa
-  function wallSeed(a, b) {
-    const s = String(a) + "|" + String(b);
-    let h = 0;
-    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-    return Math.abs(h);
-  }
-  function mulberry32(a) {
-    return function() {
-      let t = a += 0x6D2B79F5;
-      t = Math.imul(t ^ t >>> 15, t | 1);
-      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-      return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    };
+    return [mx + px * half, my + py * half, mx - px * half, my - py * half];
   }
   const byQr = {};
-  cells.forEach(c => { if (c.qr) byQr[c.qr] = c; });
-  const walls = state.edge_walls || [];
-  walls.forEach(w => {
-    const ca = byQr[w.a_qr];
-    const cb = byQr[w.b_qr];
-    if (!ca || !cb) return;
-    const cx1 = ox + (ca.x - minX) * scale;
-    const cy1 = oy + (ca.y - minY) * scale;
-    const cx2 = ox + (cb.x - minX) * scale;
-    const cy2 = oy + (cb.y - minY) * scale;
-    // Montagna centrata sul bordo: spessore minimo così NON entra nei centri
-    const R = hs * 0.95;
-    const e = sharedEdgeEnds(cx1, cy1, cx2, cy2, R);
-    const len = Math.hypot(e.x2 - e.x1, e.y2 - e.y1) || 1;
-    const rnd = mulberry32(wallSeed(w.a_qr, w.b_qr));
-    const nPeaks = 2 + Math.floor(rnd() * 2);
-    // metà spessore molto piccolo (solo la fascia del bordo)
-    const halfThick = Math.max(3.5, hs * 0.045);
-    const ridgeExtra = Math.max(1.2, hs * 0.018);
+  cells.forEach(c => {
+    if (c.q != null && c.r != null) byQr[c.q + "," + c.r] = c;
+    if (c.qr != null) byQr[qrStr(c.qr)] = c;
+  });
+  const wallSet = new Set();
+  (state.edge_walls || []).forEach(w => {
+    if (w.a_qr != null && w.b_qr != null) wallSet.add(edgeKey(w.a_qr, w.b_qr));
+  });
+  // adiacenze hex (assiali)
+  const HEX_DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+  const seenEdge = new Set();
+  const strokeW = Math.max(7, Math.min(16, hs * 0.28)); // riempie il corridoio
+  const R = hs * 0.98;
 
-    const topPts = [];
-    for (let i = 0; i <= nPeaks + 1; i++) {
-      const t = i / (nPeaks + 1);
-      const bx = e.x1 + (e.x2 - e.x1) * t;
-      const by = e.y1 + (e.y2 - e.y1) * t;
-      let h = halfThick;
-      if (i > 0 && i < nPeaks + 1) h += ridgeExtra * (0.4 + rnd() * 0.6);
-      else h *= 0.75;
-      const jitter = (rnd() - 0.5) * len * 0.02;
-      topPts.push([bx + e.nx * h + e.tx * jitter, by + e.ny * h + e.ty * jitter]);
-    }
-    const botPts = [];
-    for (let i = nPeaks + 1; i >= 0; i--) {
-      const t = i / (nPeaks + 1);
-      const bx = e.x1 + (e.x2 - e.x1) * t;
-      const by = e.y1 + (e.y2 - e.y1) * t;
-      const h = halfThick * (0.9 + rnd() * 0.15);
-      botPts.push([bx - e.nx * h, by - e.ny * h]);
-    }
+  function drawCorridor(x1, y1, x2, y2, color) {
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", x1); line.setAttribute("y1", y1);
+    line.setAttribute("x2", x2); line.setAttribute("y2", y2);
+    line.setAttribute("stroke", color);
+    line.setAttribute("stroke-width", strokeW);
+    line.setAttribute("stroke-linecap", "butt");
+    wallSvg.appendChild(line);
+  }
 
-    const all = topPts.concat(botPts);
-    const d = all.map((p, i) => (i === 0 ? "M" : "L") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ") + " Z";
-
-    // marrone scuro
-    const shadow = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    shadow.setAttribute("d", d);
-    shadow.setAttribute("fill", "#3b2416");
-    shadow.setAttribute("opacity", "0.95");
-    wallSvg.appendChild(shadow);
-
-    // corpo marrone
-    const body = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    body.setAttribute("d", d);
-    body.setAttribute("fill", "#6b3f24");
-    body.setAttribute("stroke", "#4a2c18");
-    body.setAttribute("stroke-width", "1");
-    wallSvg.appendChild(body);
-
-    if (topPts.length >= 2) {
-      let ridgeD = "M" + topPts[0][0].toFixed(1) + "," + topPts[0][1].toFixed(1);
-      for (let i = 1; i < topPts.length; i++) {
-        ridgeD += " L" + topPts[i][0].toFixed(1) + "," + topPts[i][1].toFixed(1);
+  cells.forEach(ca => {
+    if (ca.q == null || ca.r == null || ca.x == null) return;
+    HEX_DIRS.forEach(([dq, dr]) => {
+      const nq = ca.q + dq, nr = ca.r + dr;
+      const keyN = nq + "," + nr;
+      // cerca vicino per qr string o tuple-like
+      let cb = byQr[keyN] || byQr["(" + nq + ", " + nr + ")"] || byQr["(" + nq + "," + nr + ")"];
+      if (!cb) {
+        // fallback: match q,r
+        cb = cells.find(c => c.q === nq && c.r === nr);
       }
-      const ridge = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      ridge.setAttribute("d", ridgeD);
-      ridge.setAttribute("fill", "none");
-      ridge.setAttribute("stroke", "#a67c52");
-      ridge.setAttribute("stroke-width", "1.5");
-      ridge.setAttribute("stroke-linejoin", "round");
-      ridge.setAttribute("stroke-linecap", "round");
-      ridge.setAttribute("opacity", "0.95");
-      wallSvg.appendChild(ridge);
-    }
+      if (!cb || cb.x == null) return;
+      const ek = edgeKey(ca.qr != null ? ca.qr : (ca.q + "," + ca.r), cb.qr != null ? cb.qr : (cb.q + "," + cb.r));
+      if (seenEdge.has(ek)) return;
+      seenEdge.add(ek);
+
+      const cx1 = ox + (ca.x - minX) * scale;
+      const cy1 = oy + (ca.y - minY) * scale;
+      const cx2 = ox + (cb.x - minX) * scale;
+      const cy2 = oy + (cb.y - minY) * scale;
+      const [x1, y1, x2, y2] = sharedEdgeLine(cx1, cy1, cx2, cy2, R);
+
+      const aFrame = ca.tile === "Cornice" || ca.tile === "FRAME";
+      const bFrame = cb.tile === "Cornice" || cb.tile === "FRAME";
+      const isWall = wallSet.has(edgeKey(ca.qr, cb.qr)) || wallSet.has(ek);
+
+      let color;
+      if (isWall) color = "#6b3f24";           // montagna marrone
+      else if (aFrame || bFrame) color = "#c43c12"; // corridoio rosso (bordo)
+      else color = "#3d5c45";                  // verdino come gli esagoni
+
+      drawCorridor(x1, y1, x2, y2, color);
+    });
   });
   boardEl.appendChild(wallSvg);
 
