@@ -11,7 +11,8 @@ from .unit import Unit
 from .card import Card, get_card_db
 from .constants import (
     Phase, TileType, Direction, MANA_CAP, ALTAR_POS, Color,
-    pos_to_coord, coord_to_pos, Color
+    pos_to_coord, coord_to_pos, GRID_SIZE, TEMPLE_P1_POS, TEMPLE_P2_POS,
+    PLAYABLE_ROWS, PLAYABLE_COLS
 )
 
 
@@ -393,22 +394,19 @@ class GameState:
             atk=1, hp=1,
             text="Creatura gratuita di spawn."
         )
-        # Cerca casella libera nella zona tempio
-        temple_positions = (
-            [(4, 1), (4, 2), (4, 3)] if player.id == 0
-            else [(0, 1), (0, 2), (0, 3)]
-        )
-        for r, c in temple_positions:
-            if self.board.get_unit_at(r, c) is None and self.board.is_walkable(r, c):
-                unit = Unit(free_card, player.id, r, c, 1, 1)
-                self.board.place_unit(unit)
-                self.log_msg(f"{player.name} spawna Soldato 1/1 su {unit.coord}")
-                return
-        self.log_msg(f"{player.name}: zona spawn occupata, spawn 1/1 fallito (fuoco amico possibile in futuro)")
+        # Spawn SOLO sulla casella del Tempio del giocatore (v28)
+        temple = TEMPLE_P1_POS if player.id == 0 else TEMPLE_P2_POS
+        r, c = temple
+        if self.board.get_unit_at(r, c) is None and self.board.is_walkable(r, c):
+            unit = Unit(free_card, player.id, r, c, 1, 1)
+            self.board.place_unit(unit)
+            self.log_msg(f"{player.name} spawna Soldato 1/1 su {unit.coord}")
+            return
+        self.log_msg(f"{player.name}: Tempio occupato, spawn 1/1 fallito")
 
     def _spawn_neutral(self):
         # Trova casella libera
-        free = [(r, c) for r in range(5) for c in range(5)
+        free = [(r, c) for r in range(GRID_SIZE) for c in range(GRID_SIZE)
                 if self.board.get_unit_at(r, c) is None and self.board.is_walkable(r, c)]
         if not free:
             return
@@ -640,8 +638,8 @@ class GameState:
         if tile.tile_type == TileType.PORTAL_UNSTABLE:
             # ogni entrata = salto casuale
             empties = []
-            for r in range(5):
-                for c in range(5):
+            for r in range(GRID_SIZE):
+                for c in range(GRID_SIZE):
                     t = self.board.get_tile(r, c)
                     if t and t.is_walkable and self.board.get_unit_at(r, c) is None:
                         if (r, c) != (unit.row, unit.col):
@@ -719,8 +717,8 @@ class GameState:
         elif event == "PortaleInstabile":
             self.log_msg("  Portale Instabile: teletrasporto casuale su casella vuota!")
             empties = []
-            for r in range(5):
-                for c in range(5):
+            for r in range(GRID_SIZE):
+                for c in range(GRID_SIZE):
                     t = self.board.get_tile(r, c)
                     if t and t.is_walkable and self.board.get_unit_at(r, c) is None:
                         empties.append((r, c))
@@ -774,8 +772,8 @@ class GameState:
         """Teletrasporto: non si sosta sul portale; atterra su adiacente libera del portale di uscita."""
         from .constants import TileType
         portals = []
-        for r in range(5):
-            for c in range(5):
+        for r in range(GRID_SIZE):
+            for c in range(GRID_SIZE):
                 t = self.board.get_tile(r, c)
                 if t and t.is_portal and (r, c) != (unit.row, unit.col):
                     portals.append((r, c, t))

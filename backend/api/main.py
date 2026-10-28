@@ -20,13 +20,13 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from core.game_state import GameState
-from core.constants import Phase, pos_to_coord, coord_to_pos
+from core.constants import Phase, pos_to_coord, coord_to_pos, GRID_SIZE
 from ai.basic_ai import BasicAI
 from api import supabase_store
 from api.restore import hydrate
 from api.auth import require_user, user_id
 
-app = FastAPI(title="Penumbra Tactical Card Game", version="0.13")
+app = FastAPI(title="Penumbra Tactical Card Game", version="0.28")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -93,9 +93,9 @@ def _quest_progress(gs: GameState) -> dict:
 
 def serialize_state(gs: GameState, game_id: str) -> dict:
     board = []
-    for r in range(5):
+    for r in range(GRID_SIZE):
         row = []
-        for c in range(5):
+        for c in range(GRID_SIZE):
             tile = gs.board.get_tile(r, c)
             unit = gs.board.get_unit_at(r, c)
             cell = {
@@ -175,6 +175,8 @@ def serialize_state(gs: GameState, game_id: str) -> dict:
         "draft": gs.get_draft_state() if gs.phase == Phase.DRAFT else None,
         "player0_uid": mode.get("player0_uid"),
         "player1_uid": mode.get("player1_uid"),
+        "edge_walls": gs.board.get_edge_walls_for_ui() if hasattr(gs.board, "get_edge_walls_for_ui") else [],
+        "grid_size": GRID_SIZE,
     }
 
 
@@ -311,7 +313,7 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "version": "0.13", "games_in_memory": len(_games), "supabase": supabase_store.enabled()}
+    return {"ok": True, "version": "0.28", "games_in_memory": len(_games), "supabase": supabase_store.enabled()}
 
 
 @app.post("/api/new")

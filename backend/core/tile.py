@@ -1,12 +1,12 @@
 """
-Tile - singola casella della griglia 5x5
+Tile - singola casella della griglia 7×7
 """
 
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional, List, Any
 from .constants import TileType
-from .unit import Unit
+# from .unit import Unit  # unused
 
 
 @dataclass
@@ -15,11 +15,10 @@ class Tile:
     col: int
     tile_type: TileType = TileType.EMPTY
     explored: bool = False
-    # Effetti permanenti / temporanei
-    permanent_effect: Optional[str] = None   # es. "swamp", "magma:2", "sanctuary"
-    trap_card_id: Optional[int] = None       # se c'è una trappola nascosta
-    wall_hp: int = 0                         # per Muro d'Illusione
-    owner_id: Optional[int] = None           # per zone di spawn o effetti proprietari
+    permanent_effect: Optional[str] = None
+    trap_card_id: Optional[int] = None
+    wall_hp: int = 0
+    owner_id: Optional[int] = None
 
     @property
     def coord(self) -> str:
@@ -28,10 +27,12 @@ class Tile:
 
     @property
     def is_walkable(self) -> bool:
-        if self.tile_type == TileType.WALL:
+        # Cornice e muri-cella non sono camminabili
+        if self.tile_type in (TileType.FRAME, TileType.WALL):
             return False
         if self.tile_type == TileType.ILLUSION_WALL and self.wall_hp > 0:
             return False
+        # Templi, Altare, EMPTY, EVENT, PORTAL, BUFF ecc. sono camminabili
         return True
 
     @property
@@ -50,8 +51,11 @@ class Tile:
     def __str__(self) -> str:
         symbols = {
             TileType.EMPTY: "·",
+            TileType.FRAME: " ",
             TileType.TEMPLE_P1: "T1",
             TileType.TEMPLE_P2: "T2",
+            TileType.TEMPLE_P3: "T3",
+            TileType.TEMPLE_P4: "T4",
             TileType.ALTAR: "A",
             TileType.BUFF: "B",
             TileType.EVENT: "?",

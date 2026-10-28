@@ -10,5 +10,32 @@
 | 5.4 Regole | in corso (v25+v27) |
 | Draft buste | fatto (v26) |
 | Corona come carta + no PvP in UI | fatto (v27) |
+| **Mappa 7×7 + muri edge + templi angolo** | **fatto (v28)** |
 
-Prossimo: altre regole che segnali tu.
+## Fase A — Stabilizzazione errori (rimandata)
+
+| Step | Stato |
+|------|--------|
+| A.1 Correggere 400 su /api/draft e /api/move | rimandata (verifica utente) |
+| A.2 Correggere 500 su /api/end (3° turno) | rimandata (verifica utente) |
+| A.3 Auth obbligatorio (già attivo) | fatto |
+| A.4 Smoke test dopo partita utente | in attesa |
+
+## Fase B — Nuova mappa (v28) ✅
+
+| Step | Stato |
+|------|--------|
+| B.1 Griglia 7×7 | fatto |
+| B.2 Zona giocabile interna 5×5 | fatto |
+| B.3 Cornice VUOTO/FRAME non giocabile | fatto |
+| B.4 Templi angoli (P1 basso-sx, P2 alto-dx) | fatto |
+| B.5 Spawn solo sul Tempio | fatto |
+| B.6 Altare al centro zona MAPPA (3,3) | fatto |
+| B.7 Muri edge (linee tra celle) da xlsx | fatto |
+| B.8 Coordinate A–G / 0–6 | fatto |
+| B.9 UI 7×7 + indicatori muri | fatto |
+
+## Prossimo
+- Utente rifà una partita e segnala se l’errore del 3° turno è ancora presente.
+- Eventuali aggiustamenti muri / layout.
+- Poi Fase A se serve.

@@ -1,14 +1,14 @@
 """
-Costanti e Enum del gioco Tactical Card Game 5x5
+Costanti e Enum del gioco Tactical Card Game – griglia 7×7 (v28)
 """
 
 from enum import Enum, auto
 from typing import Tuple
 
-# Griglia
-GRID_SIZE = 5
-COORD_LETTERS = "ABCDE"
-COORD_NUMBERS = "12345"
+# Griglia 7×7 (cornice + zona giocabile 5×5 interna)
+GRID_SIZE = 7
+COORD_LETTERS = "ABCDEFG"
+COORD_NUMBERS = "0123456"
 
 def pos_to_coord(row: int, col: int) -> str:
     """Converte (row, col) 0-based in coordinata tipo 'C3'"""
@@ -39,13 +39,16 @@ class CardType(Enum):
     NEUTRAL = "Neutrale"
 
 class TileType(Enum):
-    EMPTY = "Vuoto"
-    TEMPLE_P1 = "Tempio1"      # Spawn giocatore basso (umano)
-    TEMPLE_P2 = "Tempio2"      # Spawn giocatore alto (IA)
-    ALTAR = "Altare"            # C3 Evoluzione
-    BUFF = "Buff"               # Angoli gialli + Cerchio Rituale
-    EVENT = "Evento"            # Rosa (da esplorare)
-    WALL = "Muro"               # Nero divisore
+    EMPTY = "Vuoto"           # casella giocabile vuota
+    FRAME = "Cornice"         # bordo esterno non giocabile
+    TEMPLE_P1 = "Tempio1"     # Spawn giocatore 0 (umano) – angolo basso-sinistra
+    TEMPLE_P2 = "Tempio2"     # Spawn giocatore 1 (IA) – angolo alto-destra
+    TEMPLE_P3 = "Tempio3"     # futuro 4 giocatori
+    TEMPLE_P4 = "Tempio4"     # futuro 4 giocatori
+    ALTAR = "Altare"          # centro zona MAPPA – Evoluzione
+    BUFF = "Buff"             # Cerchio Rituale / angoli gialli
+    EVENT = "Evento"          # Rosa (da esplorare)
+    WALL = "Muro"             # legacy cell-wall (non più usato come cella)
     PORTAL_WHITE = "PortaleBianco"
     PORTAL_BLACK = "PortaleNero"
     PORTAL_GRAY = "PortaleGrigio"
@@ -89,10 +92,21 @@ STARTING_MANA = 1
 # Frammenti
 FRAGMENT_COSTS = [0, 3, 6]  # Commander Tax
 
-# Coordinate speciali
-ALTAR_POS = (2, 2)  # C3
-TEMPLE_P1_POSITIONS = [(4, 1), (4, 2), (4, 3)]  # Zona spawn basso (approssimativa, da rifinire)
-TEMPLE_P2_POSITIONS = [(0, 1), (0, 2), (0, 3)]  # Zona spawn alto
+# Coordinate speciali (0-based, griglia 7×7)
+# Excel: riga1=alto → row0, colonna1=sinistra → col0
+ALTAR_POS = (3, 3)                 # centro zona MAPPA
+TEMPLE_P1_POS = (6, 0)             # basso-sinistra (umano)
+TEMPLE_P2_POS = (0, 6)             # alto-destra (IA)
+TEMPLE_P3_POS = (6, 6)             # basso-destra (futuro)
+TEMPLE_P4_POS = (0, 0)             # alto-sinistra (futuro)
+
+# Compatibilità con codice che si aspetta liste
+TEMPLE_P1_POSITIONS = [TEMPLE_P1_POS]
+TEMPLE_P2_POSITIONS = [TEMPLE_P2_POS]
+
+# Zona giocabile interna (righe/colonne 1..5)
+PLAYABLE_ROWS = range(1, 6)
+PLAYABLE_COLS = range(1, 6)
 
 # Colori ANSI per console
 ANSI = {
