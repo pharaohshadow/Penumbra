@@ -1,204 +1,137 @@
 """
-Costanti – Penumbra v39 (mappa da editor utente)
+Costanti e Enum del gioco Penumbra
+Aggiornato in v1.0 per supportare la mappa esagonale.
+La vecchia griglia 5×5 è mantenuta temporaneamente per compatibilità.
 """
-from __future__ import annotations
-from enum import Enum
-from typing import Tuple, List
-import json
-from pathlib import Path
 
-# Carica mappa utente se presente
-_MAP_PATH = Path(__file__).resolve().parent.parent / "data" / "map.json"
-_USER_MAP = None
-if _MAP_PATH.exists():
-    try:
-        _USER_MAP = json.loads(_MAP_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        _USER_MAP = None
+from enum import Enum, auto
+from typing import Tuple
 
-HEX_RADIUS = int((_USER_MAP or {}).get("radius", 5))
-PLAYABLE_RADIUS = int((_USER_MAP or {}).get("playable_radius", 4))
+# ============================================================
+# NUOVO SISTEMA ESAGONALE (v1.0+)
+# ============================================================
+HEX_RADIUS = 5              # raggio totale (include frame)
+PLAYABLE_RADIUS = 4         # raggio giocabile
 
-HEX_DIRS = [
-    (+1,  0), (+1, -1), (0, -1),
-    (-1,  0), (-1, +1), (0, +1),
-]
-HexPos = Tuple[int, int]
-
-
-def hex_s(q: int, r: int) -> int:
-    return -q - r
-
-
-def hex_distance(a: HexPos, b: HexPos) -> int:
-    aq, ar = a
-    bq, br = b
-    return (abs(aq - bq) + abs(ar - br) + abs(hex_s(aq, ar) - hex_s(bq, br))) // 2
-
-
-def hex_neighbors(q: int, r: int) -> List[HexPos]:
-    return [(q + dq, r + dr) for dq, dr in HEX_DIRS]
-
-
-def hex_in_radius(q: int, r: int, radius: int = HEX_RADIUS) -> bool:
-    return hex_distance((0, 0), (q, r)) <= radius
-
-
-def all_hexes(radius: int = HEX_RADIUS) -> List[HexPos]:
-    cells = []
-    for q in range(-radius, radius + 1):
-        for r in range(-radius, radius + 1):
-            if hex_in_radius(q, r, radius):
-                cells.append((q, r))
-    return cells
-
-
-def hex_to_pixel(q: int, r: int, size: float = 28.0) -> Tuple[float, float]:
-    x = size * (3 ** 0.5) * (q + r / 2.0)
-    y = size * (3 / 2.0) * r
-    return x, y
-
-
-GRID_SIZE = HEX_RADIUS * 2 + 1
-COORD_LETTERS = "ABCDEFGHIJK"
-COORD_NUMBERS = "0123456789"
-
+# ============================================================
+# VECCHIO SISTEMA 5×5 (da rimuovere dopo migrazione completa)
+# ============================================================
+GRID_SIZE = 5
+COORD_LETTERS = "ABCDE"
+COORD_NUMBERS = "12345"
 
 def pos_to_coord(row: int, col: int) -> str:
-    if 0 <= row < len(COORD_NUMBERS) and 0 <= col < len(COORD_LETTERS):
-        return f"{COORD_LETTERS[col]}{COORD_NUMBERS[row]}"
-    return f"{col},{row}"
-
+    """Converte (row, col) 0-based in coordinata tipo 'C3' (sistema vecchio)."""
+    return f"{COORD_LETTERS[col]}{COORD_NUMBERS[row]}"
 
 def coord_to_pos(coord: str) -> Tuple[int, int]:
-    coord = coord.strip()
-    if "," in coord:
-        q, r = coord.split(",", 1)
-        return int(q), int(r)
-    if len(coord) >= 2 and coord[0].upper() in COORD_LETTERS:
-        col = COORD_LETTERS.index(coord[0].upper())
-        row = COORD_NUMBERS.index(coord[1])
-        return row, col
-    raise ValueError(f"Coordinata non valida: {coord}")
+    """Converte 'C3' in (row, col) 0-based (sistema vecchio)."""
+    col = COORD_LETTERS.index(coord[0].upper())
+    row = COORD_NUMBERS.index(coord[1])
+    return row, col
 
-
-def hex_key(q: int, r: int) -> str:
-    return f"{q},{r}"
-
-
-def parse_hex_key(key: str) -> HexPos:
-    q, r = key.split(",", 1)
-    return int(q), int(r)
-
-
-def load_user_map() -> dict | None:
-    return _USER_MAP
-
-
-# Posizioni da mappa utente
-def _find_type(t: str) -> HexPos:
-    if not _USER_MAP:
-        defaults = {
-            "altar": (0, 0),
-            "temple1": (0, 3),
-            "temple2": (0, -3),
-            "temple3": (-3, 0),
-            "temple4": (3, -3),
-        }
-        return defaults.get(t, (0, 0))
-    for c in _USER_MAP.get("cells") or []:
-        if c.get("type") == t:
-            return (int(c["q"]), int(c["r"]))
-    return (0, 0)
-
-
-ALTAR_POS: HexPos = _find_type("altar")
-TEMPLE_P1_POS: HexPos = _find_type("temple1")
-TEMPLE_P2_POS: HexPos = _find_type("temple2")
-TEMPLE_P3_POS: HexPos = _find_type("temple3")
-TEMPLE_P4_POS: HexPos = _find_type("temple4")
-TEMPLE_P1_POSITIONS = [TEMPLE_P1_POS]
-TEMPLE_P2_POSITIONS = [TEMPLE_P2_POS]
-
+# ============================================================
+# ENUM COMUNI
+# ============================================================
 
 class Color(Enum):
     WHITE = "Bianco"
     BLUE = "Blu"
-    BLACK = "Nero"
     RED = "Rosso"
+    BLACK = "Nero"
     GREEN = "Verde"
-    YELLOW = "Giallo"
-    GRAY = "Grigio"
-
+    YELLOW = "Giallo"  # Meta: carte random dagli altri 5, bordo giallo in UI
+    GRAY = "Grigio"  # Eldrazzi / Neutrali
 
 class CardType(Enum):
     MONSTER = "Mostro"
-    BOSS = "Boss"
-    CURSE = "Maledizione"
     TRAP = "Trappola"
+    CURSE = "Maledizione"
+    BOSS = "Boss"
     ELDRAZI = "Mostrissimo"
-    NEUTRAL = "Neutrale"
     FRAGMENT = "Frammento"
-
+    NEUTRAL = "Neutrale"
 
 class TileType(Enum):
-    EMPTY = "Terreno"
-    TEMPLE_P1 = "Tempio1"
-    TEMPLE_P2 = "Tempio2"
-    TEMPLE_P3 = "Tempio3"
-    TEMPLE_P4 = "Tempio4"
+    EMPTY = "Vuoto"
+    TEMPLE_P1 = "Tempio1"      # Spawn giocatore basso (umano) - legacy
+    TEMPLE_P2 = "Tempio2"      # Spawn giocatore alto (IA) - legacy
+    TEMPLE_1 = "Tempio1"
+    TEMPLE_2 = "Tempio2"
+    TEMPLE_3 = "Tempio3"
+    TEMPLE_4 = "Tempio4"
     ALTAR = "Altare"
-    FRAME = "Cornice"
-    ILLUSION_WALL = "MuroIllusione"
-    NEUTRAL_TERRAIN = "TerrenoNeutrale"
-    # Legacy (eventi/trappole – non usati sulla mappa hex attuale, ma referenziati dal codice)
-    EVENT = "Evento"
     BUFF = "Buff"
-    RITUAL = "Rituale"
+    EVENT = "Evento"
+    WALL = "Muro"
     PORTAL_WHITE = "PortaleBianco"
     PORTAL_BLACK = "PortaleNero"
     PORTAL_GRAY = "PortaleGrigio"
     PORTAL_UNSTABLE = "PortaleInstabile"
-    SANCTUARY = "Santuario"
-    FISSURE = "Fenditura"
+    RITUAL = "CerchioRituale"
     SWAMP = "Palude"
-    MAGMA = "Magma"
-    SPIKE_PIT = "FossaSpine"
-    TOWER = "Torre"
+    TOWER = "TorreLancio"
+    SANCTUARY = "SantuarioVita"
+    FISSURE = "Fenditura"
+    ILLUSION_WALL = "MuroIllusione"
     SHADOW_REFUGE = "RifugioOmbroso"
+    SPIKE_PIT = "FossaSpine"
     MANA_STEAL = "RunaFurto"
-    TRAP = "Trappola"
-    GROWTH = "Crescita"
-
+    NEUTRAL_TERRAIN = "TerrenoNeutrale"
+    MAGMA = "Magma"
+    FRAME = "Cornice"          # nuovo: cornice non walkable
+    TERRAIN = "Terreno"        # nuovo: terreno generico esagonale
 
 class Phase(Enum):
-    DRAFT = "DRAFT"
-    SETUP = "SETUP"
-    TURN_START = "TURN_START"
-    MAIN = "MAIN"
-    GAME_OVER = "GAME_OVER"
-
+    DRAFT = auto()
+    SETUP = auto()
+    TURN_START = auto()
+    MAIN = auto()
+    COMBAT = auto()
+    END_TURN = auto()
+    GAME_OVER = auto()
 
 class Direction(Enum):
-    N = "N"
-    NE = "NE"
-    E = "E"
-    SE = "SE"
-    S = "S"
-    SW = "SW"
-    W = "W"
-    NW = "NW"
+    """Direzioni movimento base (re degli scacchi: 8 caselle adiacenti) - legacy 5×5"""
+    N  = (-1, 0)
+    S  = (1, 0)
+    E  = (0, 1)
+    W  = (0, -1)
+    NE = (-1, 1)
+    NW = (-1, -1)
+    SE = (1, 1)
+    SW = (1, -1)
 
+# Mana
+MANA_CAP = 6
+STARTING_MANA = 1
 
-MANA_CAP = 10
-FRAGMENT_COSTS = [0, 3, 6]
+# Frammenti
+FRAGMENT_COSTS = [0, 3, 6]  # Commander Tax
 
-FLAVOR_NAMES = [
-    "Palude", "Montagna", "Fiume", "Bosco", "Collina", "Rovine",
-    "Brughiera", "Gola", "Lago", "Sentiero", "Cripta", "Radura",
-    "Crepaccio", "Torrente", "Ciglio", "Nebbia", "Alture", "Bassura",
-    "Catacombe", "Sorgente", "Rupe", "Valle", "Ponte", "Arena",
-    "Ossario", "Giardino", "Forgia", "Osservatorio", "Reliquiario",
-    "Anfratto", "Duna", "Marea", "Passo", "Conca", "Sponda",
-    "Ruderi", "Cava", "Spianata", "CiglioRoccioso", "Piana",
-]
+# Coordinate speciali (legacy 5×5)
+ALTAR_POS = (2, 2)  # C3
+TEMPLE_P1_POSITIONS = [(4, 1), (4, 2), (4, 3)]
+TEMPLE_P2_POSITIONS = [(0, 1), (0, 2), (0, 3)]
+
+# Colori ANSI per console
+ANSI = {
+    "reset": "\033[0m",
+    "bold": "\033[1m",
+    "red": "\033[91m",
+    "green": "\033[92m",
+    "yellow": "\033[93m",
+    "blue": "\033[94m",
+    "magenta": "\033[95m",
+    "cyan": "\033[96m",
+    "white": "\033[97m",
+    "gray": "\033[90m",
+    "bg_red": "\033[41m",
+    "bg_green": "\033[42m",
+    "bg_yellow": "\033[43m",
+    "bg_blue": "\033[44m",
+    "bg_magenta": "\033[45m",
+    "bg_cyan": "\033[46m",
+    "bg_white": "\033[47m",
+    "bg_gray": "\033[100m",
+}

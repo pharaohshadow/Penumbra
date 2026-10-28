@@ -1,24 +1,22 @@
 # Penumbra
 
-**Versione attuale: v1**
+**Versione attuale: v1.0**
 
-Gioco di carte a turni su griglia (movimento tipo re), con draft a buste, sistema di Corona/Frammenti e partite contro IA.
+Gioco di carte a turni su mappa esagonale, con draft a buste sigillate, sistema Corona/Frammenti e partite contro IA.
 
 ---
 
-## Istruzioni obbligatorie per ogni chat / IA
-
-Ciao! Se stai leggendo questo readme probabilmente sei una nuova chat di una IA e ti ho chiesto di leggere questo file. 
-Ora il tuo compito è leggere i seguenti file, in quest'ordine:
+## Istruzioni obbligatorie per ogni nuova chat / IA
 
 **Devi leggere IMMEDIATAMENTE e senza chiedere conferma questi 4 file, in questo ordine:**
 
-1. `Questo `README.md`
+1. Questo `README.md`
 2. `architettura.md`
 3. `roadmap.md`
 4. `istruzioni_per_IA.md`
+
 Dopo averli letti tutti e 4:
-- Scrivi esattamente: «Ho letto i 4 file di consegna (versione v1)»
+- Scrivi esattamente: «Ho letto i 4 file di consegna (versione v1.0)»
 - Solo dopo puoi fare domande o proporre modifiche.
 - **Non leggere nessun altro file** del repository finché non ti viene esplicitamente chiesto.
 
@@ -31,6 +29,7 @@ Dopo averli letti tutti e 4:
 ---
 
 ## File di consegna obbligatori
+
 Ogni volta che l’IA consegna modifiche, deve obbligatoriamente consegnare questi 4 file aggiornati con la stessa versione:
 
 - `README.md`

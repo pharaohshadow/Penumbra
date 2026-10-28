@@ -1,47 +1,44 @@
-# Architettura – Penumbra
+# Architettura – v1.0
 
-**Versione attuale: v1**
+## Stato attuale (ottobre 2026)
 
-Questo file contiene i dettagli tecnici “difficili da recuperare”.  
-Deve essere aggiornato ogni volta che cambiano URL, impostazioni o struttura importante.
+Il progetto è in **fase di transizione** dalla vecchia griglia quadrata 5×5 alla nuova **mappa esagonale**.
 
----
+### Mappa
+- File di definizione: `backend/data/map.json`
+- Tipo: esagonale (coordinate assiali q,r)
+- radius: 5
+- playable_radius: 4
+- 4 templi (temple1 → temple4)
+- Altare centrale in (0,0)
+- Cornice (`frame`) non walkable
+- Muri definiti come connessioni tra celle (non più tile intere)
 
-## URL e servizi
+### Backend
+- FastAPI
+- Cartella principale: `backend/`
+- Core: `core/` (game_state, map_board, unit, tile, card, constants, player)
+- AI: `ai/basic_ai.py`
+- Persistenza: Supabase (opzionale, se configurato)
+- Deploy: Render (file `render.yaml` nella root)
 
-| Servizio       | URL / Note                                      | Stato          |
-|----------------|--------------------------------------------------|----------------|
-| GitHub         | https://github.com/pharaohshadow/Penumbra        | Attivo         |
-| Sito live      | (da inserire – Render)                           | Da completare  |
-| Supabase       | (da inserire – project URL)                      | Da completare  |
-| Render         | (da inserire – dashboard del servizio)           | Da completare  |
+### Frontend
+- File unico: `backend/static/index.html`
+- Attualmente ancora basato sulla griglia 5×5 (CSS grid)
+- Autenticazione Supabase integrata
 
----
+### Supabase
+- URL: `https://favrmxwyaxklfiruyvqz.supabase.co`
+- Anon key: presente nel frontend (`index.html`)
+- JWT Secret e Service Key: da configurare nelle variabili d’ambiente di Render
 
-## Supabase
+### Render
+- Servizio: `penumbra-backend`
+- Runtime: Python 3.12.3
+- Root directory: `backend`
+- Start command: `uvicorn api.main:app --host 0.0.0.0 --port $PORT`
 
-- **Tabelle principali**:
-  - `games` (stato partita + ownership player0_uid / player1_uid)
-  - `game_moves` (log delle mosse)
-
-- **Auth**: Supabase Auth (JWT)
-- **Storage Buckets**: al momento nessuno rilevante
-- **Edge Functions**: nessuna al momento
-- **RLS**: presente ma ancora aperta (prototipo)
-
-Schema di riferimento: `backend/supabase/schema.sql`
-
----
-
-## Render
-
-- Tipo di servizio: Web Service
-- File di configurazione: `render.yaml` (presente nel repository)
-- Variabili d’ambiente importanti:
-  - `SUPABASE_URL`
-  - `SUPABASE_ANON_KEY` (o `SUPABASE_SERVICE_KEY`)
-  - `SUPABASE_JWT_SECRET` (consigliato)
-
----
-
-## Struttura repository (mappa base)
+### Note importanti
+- La logica di gioco (`GameState`, movimento, spawn, ecc.) è ancora legata alla 5×5.
+- La migrazione completa alla mappa esagonale è il lavoro principale della versione 1.x.
+- In v1.0 sono stati introdotti i primi moduli del nuovo sistema esagonale (`hex_coords.py`, aggiornamenti a `constants.py` e `map_board.py`).
