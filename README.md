@@ -1,11 +1,15 @@
-# Penumbra – Consegna v34
+# Penumbra – Consegna v35
 
-## Fix
-- **Login**: ripristinato **Supabase** (`signInWithPassword`) — non esiste `/api/auth/login` sul backend (404).
-- Registrazione e sessione persistente come prima.
+## Fix deploy Render
+- `backend/api/__init__.py` era corrotto (`404: Not Found` come contenuto) → **SyntaxError** all’avvio.
+- File ripristinato a package vuoto valido.
 
-Resto invariato rispetto a **v33** (mappa hex, UI, medaglione, …).
+## Contenuto
+Include v34 (login Supabase) + v33 (mappa hex) + fix package.
 
-**Nessuna modifica manuale.** Cartella: `penumbra_v34/`
+**Nessuna modifica manuale.** Cartella: `penumbra_v35/`
 
-File chiave: `backend/static/index.html`
+Assicurati di pushare su GitHub **tutto** il contenuto di `backend/`, in particolare:
+- `backend/api/__init__.py` (solo docstring/package, **non** testo 404)
+- `backend/static/index.html`
+- `backend/core/*`
