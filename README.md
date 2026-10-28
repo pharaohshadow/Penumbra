@@ -1,9 +1,7 @@
-# Penumbra – Consegna v36
+# Penumbra – Consegna v37
 
 ## Fix
-1. **`/api/new` 500**: mancava `player_data()` in `main.py` → NameError. Ripristinata.
-2. **Home**: di nuovo le modalità (Partita base attiva; Tutorial / PvP / Storia / Endless disabilitate “In arrivo”).
+1. **Draft** `(pack || []).forEach is not a function` — packs è array di buste.
+2. **Mappa hex** — scala centrata, tutta la mappa in draft (no fog), esagoni leggibili.
 
-Include tutto da v33–v35 (hex, Supabase login, `__init__.py` valido).
-
-**Nessuna modifica manuale.** Cartella: `penumbra_v36/`
+Cartella: `penumbra_v37/`

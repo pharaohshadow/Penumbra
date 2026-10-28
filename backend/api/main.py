@@ -135,7 +135,11 @@ def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:
         unit = gs.board.get_unit_at(q, r)
         visible = True
         try:
-            visible = gs.is_visible_to(viewer_id, r, q)
+            # In draft mostra tutta la mappa
+            if gs.phase.name == "DRAFT":
+                visible = True
+            else:
+                visible = gs.is_visible_to(viewer_id, r, q)
         except Exception:
             visible = True
         px, py = hex_to_pixel(q, r, size=28.0)
