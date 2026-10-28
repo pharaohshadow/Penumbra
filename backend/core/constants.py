@@ -1,24 +1,20 @@
 """
-Costanti globali – Penumbra v33 (mappa esagonale pointy-top)
+Costanti – Penumbra v38 (mappa hex da reference utente)
 """
 from __future__ import annotations
 from enum import Enum
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List
 
-# --- Hex grid (axial q, r) pointy-top ---
-HEX_RADIUS = 3  # ~37 esagoni (vicino/sopra alla vecchia zona 5×5)
+# Raggio totale incluso cornice marrone
+HEX_RADIUS = 4
+# Raggio giocabile (interno verde)
+PLAYABLE_RADIUS = 3
 
-# 6 direzioni axial pointy-top
 HEX_DIRS = [
-    (+1,  0),  # E
-    (+1, -1),  # NE
-    ( 0, -1),  # NW
-    (-1,  0),  # W
-    (-1, +1),  # SW
-    ( 0, +1),  # SE
+    (+1,  0), (+1, -1), (0, -1),
+    (-1,  0), (-1, +1), (0, +1),
 ]
-
-HexPos = Tuple[int, int]  # (q, r)
+HexPos = Tuple[int, int]
 
 
 def hex_s(q: int, r: int) -> int:
@@ -48,28 +44,24 @@ def all_hexes(radius: int = HEX_RADIUS) -> List[HexPos]:
     return cells
 
 
-# Pixel layout pointy-top (per UI)
 def hex_to_pixel(q: int, r: int, size: float = 28.0) -> Tuple[float, float]:
     x = size * (3 ** 0.5) * (q + r / 2.0)
     y = size * (3 / 2.0) * r
     return x, y
 
 
-# Compatibilità legacy (alcuni import usano ancora questi nomi)
-GRID_SIZE = HEX_RADIUS * 2 + 1  # 7
-COORD_LETTERS = "ABCDEFG"
-COORD_NUMBERS = "0123456"
+GRID_SIZE = HEX_RADIUS * 2 + 1
+COORD_LETTERS = "ABCDEFGHI"
+COORD_NUMBERS = "012345678"
 
 
 def pos_to_coord(row: int, col: int) -> str:
-    """Legacy – preferire hex_key."""
     if 0 <= row < len(COORD_NUMBERS) and 0 <= col < len(COORD_LETTERS):
         return f"{COORD_LETTERS[col]}{COORD_NUMBERS[row]}"
     return f"{col},{row}"
 
 
 def coord_to_pos(coord: str) -> Tuple[int, int]:
-    """Accetta 'A3' legacy oppure 'q,r' axial."""
     coord = coord.strip()
     if "," in coord:
         q, r = coord.split(",", 1)
@@ -111,13 +103,13 @@ class CardType(Enum):
 
 
 class TileType(Enum):
-    EMPTY = "Terreno"          # terreno base
-    TEMPLE_P1 = "Tempio1"      # basso (sud)
-    TEMPLE_P2 = "Tempio2"      # alto (nord)
-    TEMPLE_P3 = "Tempio3"      # sinistra (ovest) – futuro
-    TEMPLE_P4 = "Tempio4"      # destra (est) – futuro
+    EMPTY = "Terreno"
+    TEMPLE_P1 = "Tempio1"  # sud
+    TEMPLE_P2 = "Tempio2"  # nord
+    TEMPLE_P3 = "Tempio3"  # ovest
+    TEMPLE_P4 = "Tempio4"  # est
     ALTAR = "Altare"
-    FRAME = "Cornice"          # non usato in hex
+    FRAME = "Cornice"      # anello marrone esterno
     ILLUSION_WALL = "MuroIllusione"
     NEUTRAL_TERRAIN = "TerrenoNeutrale"
 
@@ -144,22 +136,22 @@ class Direction(Enum):
 MANA_CAP = 10
 FRAGMENT_COSTS = [0, 3, 6]
 
-# Posizioni axial (q, r) – radius 3
+# Axial (q, r) – bordo giocabile raggio 3
 ALTAR_POS: HexPos = (0, 0)
-TEMPLE_P1_POS: HexPos = (0, 3)    # sud – giocatore 0
-TEMPLE_P2_POS: HexPos = (0, -3)   # nord – giocatore 1
-TEMPLE_P3_POS: HexPos = (-3, 0)   # ovest – futuro
-TEMPLE_P4_POS: HexPos = (3, -3)   # est – futuro
+TEMPLE_P1_POS: HexPos = (0, 3)     # sud
+TEMPLE_P2_POS: HexPos = (0, -3)    # nord
+TEMPLE_P3_POS: HexPos = (-3, 0)    # ovest
+TEMPLE_P4_POS: HexPos = (3, -3)    # est
 
 TEMPLE_P1_POSITIONS = [TEMPLE_P1_POS]
 TEMPLE_P2_POSITIONS = [TEMPLE_P2_POS]
 
-# Nomi flavor (ambiente) – assegnati alle caselle terreno
 FLAVOR_NAMES = [
     "Palude", "Montagna", "Fiume", "Bosco", "Collina", "Rovine",
     "Brughiera", "Gola", "Lago", "Sentiero", "Cripta", "Radura",
     "Crepaccio", "Torrente", "Ciglio", "Nebbia", "Alture", "Bassura",
     "Catacombe", "Sorgente", "Rupe", "Valle", "Ponte", "Arena",
     "Ossario", "Giardino", "Forgia", "Osservatorio", "Reliquiario",
-    "Anfratto", "Duna", "Marea",
+    "Anfratto", "Duna", "Marea", "Passo", "Conca", "Sponda",
+    "Ruderi", "Cava", "Spianata",
 ]

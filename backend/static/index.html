@@ -39,12 +39,14 @@
   .hex {
     position: absolute; width: 52px; height: 60px; margin-left: -26px; margin-top: -30px;
     clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-    background: #1a1f2a; border: none; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; font-size: 0.58rem; cursor: pointer;
-    color: var(--muted); text-align: center; line-height: 1.1; padding: 4px;
+    background: #3d4a2e; border: none; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 0.55rem; cursor: pointer;
+    color: #d4d8c8; text-align: center; line-height: 1.1; padding: 4px;
   }
-  .hex.altar { background: #14532d; color: #86efac; }
-  .hex.temple { background: #1e3a5f; color: #93c5fd; box-shadow: inset 0 0 0 2px #fbbf24; }
+  .hex.altar { background: #22c55e; color: #052e16; font-weight: 700; }
+  .hex.frame { background: #5c4033; color: #a89080; opacity: 0.95; cursor: default; }
+  .hex.frame::before { content: "🌲"; font-size: 0.55rem; opacity: 0.5; }
+  .hex.temple { background: #2563eb; color: #eff6ff; box-shadow: inset 0 0 0 2px #93c5fd; font-weight: 700; }
   .hex.selected { outline: 2px solid #fbbf24; z-index: 5; }
   .hex.fog { background: #12151c; color: #3a3f4a; opacity: 0.85; }
   .hex.artifact::after { content: "◆"; color: #fbbf24; position: absolute; top: 8px; font-size: 0.7rem; }
@@ -373,6 +375,12 @@ function render() {
 
   const boardEl = document.getElementById("hexBoard");
   boardEl.innerHTML = "";
+  // SVG per i muri (sopra gli hex, pointer-events none)
+  let wallSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  wallSvg.setAttribute("style", "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4");
+  wallSvg.setAttribute("width", "100%");
+  wallSvg.setAttribute("height", "100%");
+
   const cells = state.board || [];
   if (!cells.length) return;
 
@@ -399,6 +407,7 @@ function render() {
     let cls = "hex";
     if (cell.altar) cls += " altar";
     if (cell.tile && String(cell.tile).startsWith("Tempio")) cls += " temple";
+    if (cell.tile === "Cornice") cls += " frame";
     if (cell.fog) cls += " fog";
     if (cell.artifact) cls += " artifact";
     if (selectedCoord === cell.coord) cls += " selected";
@@ -429,8 +438,34 @@ function render() {
     }
     div.innerHTML = html;
     div.onclick = () => onHexClick(cell.coord);
+    if (cell.tile === "Cornice" || cell.tile === "FRAME") {
+      div.classList.add("frame");
+      div.onclick = null;
+    }
     boardEl.appendChild(div);
   });
+
+  // Muri rossi tra centri hex
+  const byQr = {};
+  cells.forEach(c => { if (c.qr) byQr[c.qr] = c; });
+  const walls = state.edge_walls || [];
+  walls.forEach(w => {
+    const ca = byQr[w.a_qr];
+    const cb = byQr[w.b_qr];
+    if (!ca || !cb) return;
+    const x1 = ox + (ca.x - minX) * scale;
+    const y1 = oy + (ca.y - minY) * scale;
+    const x2 = ox + (cb.x - minX) * scale;
+    const y2 = oy + (cb.y - minY) * scale;
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", x1); line.setAttribute("y1", y1);
+    line.setAttribute("x2", x2); line.setAttribute("y2", y2);
+    line.setAttribute("stroke", "#dc2626");
+    line.setAttribute("stroke-width", "3");
+    line.setAttribute("stroke-linecap", "round");
+    wallSvg.appendChild(line);
+  });
+  boardEl.appendChild(wallSvg);
 
   const p = (state.players || []).find(x => x.id === playerId) || (state.players || [])[0] || {};
   document.getElementById("pName").textContent = p.name || "Giocatore";
