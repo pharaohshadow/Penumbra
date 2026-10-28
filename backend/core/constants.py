@@ -1,6 +1,6 @@
 """
 Costanti e Enum del gioco Penumbra
-v1.5 – aggiunto parse_hex_key (fix ImportError che bloccava Render)
+v1.6 – aggiunto hex_to_pixel (fix ImportError che bloccava Render dopo v1.5)
 """
 
 from enum import Enum, auto
@@ -8,6 +8,7 @@ from typing import Tuple, List, Optional, Dict, Any
 from dataclasses import dataclass
 from pathlib import Path
 import json
+import math
 
 # ============================================================
 # COORDINATE ESAGONALI
@@ -96,6 +97,17 @@ def hex_in_radius(radius: int) -> List[Tuple[int, int]]:
 
 def all_hexes(radius: int = HEX_RADIUS) -> List[Tuple[int, int]]:
     return hex_in_radius(radius)
+
+
+def hex_to_pixel(q: int, r: int, size: float = 28.0) -> Tuple[float, float]:
+    """
+    Converte coordinate assiali (q, r) in pixel (x, y).
+    Layout flat-top (standard Red Blob Games).
+    Usato da api/main.py per serializzare la mappa verso la UI.
+    """
+    x = size * (3.0 / 2.0 * q)
+    y = size * (math.sqrt(3) / 2.0 * q + math.sqrt(3) * r)
+    return x, y
 
 
 # ============================================================
