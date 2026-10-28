@@ -1,14 +1,23 @@
 """
-Costanti – Penumbra v38 (mappa hex da reference utente)
+Costanti – Penumbra v39 (mappa da editor utente)
 """
 from __future__ import annotations
 from enum import Enum
 from typing import Tuple, List
+import json
+from pathlib import Path
 
-# Raggio totale incluso cornice marrone
-HEX_RADIUS = 4
-# Raggio giocabile (interno verde)
-PLAYABLE_RADIUS = 3
+# Carica mappa utente se presente
+_MAP_PATH = Path(__file__).resolve().parent.parent / "data" / "map.json"
+_USER_MAP = None
+if _MAP_PATH.exists():
+    try:
+        _USER_MAP = json.loads(_MAP_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        _USER_MAP = None
+
+HEX_RADIUS = int((_USER_MAP or {}).get("radius", 5))
+PLAYABLE_RADIUS = int((_USER_MAP or {}).get("playable_radius", 4))
 
 HEX_DIRS = [
     (+1,  0), (+1, -1), (0, -1),
@@ -51,8 +60,8 @@ def hex_to_pixel(q: int, r: int, size: float = 28.0) -> Tuple[float, float]:
 
 
 GRID_SIZE = HEX_RADIUS * 2 + 1
-COORD_LETTERS = "ABCDEFGHI"
-COORD_NUMBERS = "012345678"
+COORD_LETTERS = "ABCDEFGHIJK"
+COORD_NUMBERS = "0123456789"
 
 
 def pos_to_coord(row: int, col: int) -> str:
@@ -82,6 +91,36 @@ def parse_hex_key(key: str) -> HexPos:
     return int(q), int(r)
 
 
+def load_user_map() -> dict | None:
+    return _USER_MAP
+
+
+# Posizioni da mappa utente
+def _find_type(t: str) -> HexPos:
+    if not _USER_MAP:
+        defaults = {
+            "altar": (0, 0),
+            "temple1": (0, 3),
+            "temple2": (0, -3),
+            "temple3": (-3, 0),
+            "temple4": (3, -3),
+        }
+        return defaults.get(t, (0, 0))
+    for c in _USER_MAP.get("cells") or []:
+        if c.get("type") == t:
+            return (int(c["q"]), int(c["r"]))
+    return (0, 0)
+
+
+ALTAR_POS: HexPos = _find_type("altar")
+TEMPLE_P1_POS: HexPos = _find_type("temple1")
+TEMPLE_P2_POS: HexPos = _find_type("temple2")
+TEMPLE_P3_POS: HexPos = _find_type("temple3")
+TEMPLE_P4_POS: HexPos = _find_type("temple4")
+TEMPLE_P1_POSITIONS = [TEMPLE_P1_POS]
+TEMPLE_P2_POSITIONS = [TEMPLE_P2_POS]
+
+
 class Color(Enum):
     WHITE = "Bianco"
     BLUE = "Blu"
@@ -104,12 +143,12 @@ class CardType(Enum):
 
 class TileType(Enum):
     EMPTY = "Terreno"
-    TEMPLE_P1 = "Tempio1"  # sud
-    TEMPLE_P2 = "Tempio2"  # nord
-    TEMPLE_P3 = "Tempio3"  # ovest
-    TEMPLE_P4 = "Tempio4"  # est
+    TEMPLE_P1 = "Tempio1"
+    TEMPLE_P2 = "Tempio2"
+    TEMPLE_P3 = "Tempio3"
+    TEMPLE_P4 = "Tempio4"
     ALTAR = "Altare"
-    FRAME = "Cornice"      # anello marrone esterno
+    FRAME = "Cornice"
     ILLUSION_WALL = "MuroIllusione"
     NEUTRAL_TERRAIN = "TerrenoNeutrale"
 
@@ -136,16 +175,6 @@ class Direction(Enum):
 MANA_CAP = 10
 FRAGMENT_COSTS = [0, 3, 6]
 
-# Axial (q, r) – bordo giocabile raggio 3
-ALTAR_POS: HexPos = (0, 0)
-TEMPLE_P1_POS: HexPos = (0, 3)     # sud
-TEMPLE_P2_POS: HexPos = (0, -3)    # nord
-TEMPLE_P3_POS: HexPos = (-3, 0)    # ovest
-TEMPLE_P4_POS: HexPos = (3, -3)    # est
-
-TEMPLE_P1_POSITIONS = [TEMPLE_P1_POS]
-TEMPLE_P2_POSITIONS = [TEMPLE_P2_POS]
-
 FLAVOR_NAMES = [
     "Palude", "Montagna", "Fiume", "Bosco", "Collina", "Rovine",
     "Brughiera", "Gola", "Lago", "Sentiero", "Cripta", "Radura",
@@ -153,5 +182,5 @@ FLAVOR_NAMES = [
     "Catacombe", "Sorgente", "Rupe", "Valle", "Ponte", "Arena",
     "Ossario", "Giardino", "Forgia", "Osservatorio", "Reliquiario",
     "Anfratto", "Duna", "Marea", "Passo", "Conca", "Sponda",
-    "Ruderi", "Cava", "Spianata",
+    "Ruderi", "Cava", "Spianata", "CiglioRoccioso", "Piana",
 ]

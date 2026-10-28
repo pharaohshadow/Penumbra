@@ -1,8 +1,5 @@
 """
-Board esagonale – layout da reference utente (v38)
-- Anello esterno marrone = Cornice (non calpestabile)
-- Interno = terreno / templi / altare
-- Muri rossi = edge walls (approssimazione fedele allo sketch)
+Board esagonale – layout da map.json (editor utente) v39
 """
 from __future__ import annotations
 from typing import Dict, List, Optional, Set, Tuple
@@ -10,10 +7,20 @@ from typing import Dict, List, Optional, Set, Tuple
 from .constants import (
     HEX_RADIUS, PLAYABLE_RADIUS, HexPos, hex_neighbors, hex_in_radius, all_hexes,
     hex_key, hex_distance, ALTAR_POS, TEMPLE_P1_POS, TEMPLE_P2_POS,
-    TEMPLE_P3_POS, TEMPLE_P4_POS, FLAVOR_NAMES, TileType,
+    TEMPLE_P3_POS, TEMPLE_P4_POS, FLAVOR_NAMES, TileType, load_user_map,
 )
 from .tile import Tile
 from .unit import Unit
+
+TYPE_MAP = {
+    "terrain": TileType.EMPTY,
+    "altar": TileType.ALTAR,
+    "temple1": TileType.TEMPLE_P1,
+    "temple2": TileType.TEMPLE_P2,
+    "temple3": TileType.TEMPLE_P3,
+    "temple4": TileType.TEMPLE_P4,
+    "frame": TileType.FRAME,
+}
 
 
 def _edge_key(a: HexPos, b: HexPos) -> Tuple[HexPos, HexPos]:
@@ -27,130 +34,84 @@ class Board:
         self.edge_walls: Set[Tuple[HexPos, HexPos]] = set()
         self._flavor_by_pos: Dict[HexPos, str] = {}
         self._pos_by_flavor: Dict[str, HexPos] = {}
-        self._setup_hex_layout()
+        self._setup_from_user_map()
 
-    def _setup_hex_layout(self):
-        cells = all_hexes(HEX_RADIUS)
+    def _setup_from_user_map(self):
+        data = load_user_map()
         flavor_pool = list(FLAVOR_NAMES)
         fi = 0
 
-        for q, r in cells:
-            dist = hex_distance((0, 0), (q, r))
-            if dist > PLAYABLE_RADIUS:
-                ttype = TileType.FRAME
-                name = "BoscoEsterno"
-            elif (q, r) == ALTAR_POS:
-                ttype = TileType.ALTAR
-                name = "Altare"
-            elif (q, r) == TEMPLE_P1_POS:
-                ttype = TileType.TEMPLE_P1
-                name = "Tempio1"
-            elif (q, r) == TEMPLE_P2_POS:
-                ttype = TileType.TEMPLE_P2
-                name = "Tempio2"
-            elif (q, r) == TEMPLE_P3_POS:
-                ttype = TileType.TEMPLE_P3
-                name = "Tempio3"
-            elif (q, r) == TEMPLE_P4_POS:
-                ttype = TileType.TEMPLE_P4
-                name = "Tempio4"
-            else:
-                ttype = TileType.EMPTY
-                name = flavor_pool[fi % len(flavor_pool)]
-                fi += 1
+        if data and data.get("cells"):
+            for c in data["cells"]:
+                q, r = int(c["q"]), int(c["r"])
+                raw = c.get("type") or "terrain"
+                ttype = TYPE_MAP.get(raw, TileType.EMPTY)
+                if ttype == TileType.ALTAR:
+                    name = "Altare"
+                elif ttype == TileType.TEMPLE_P1:
+                    name = "Tempio1"
+                elif ttype == TileType.TEMPLE_P2:
+                    name = "Tempio2"
+                elif ttype == TileType.TEMPLE_P3:
+                    name = "Tempio3"
+                elif ttype == TileType.TEMPLE_P4:
+                    name = "Tempio4"
+                elif ttype == TileType.FRAME:
+                    name = "Cornice"
+                else:
+                    name = flavor_pool[fi % len(flavor_pool)]
+                    fi += 1
+                    base = name
+                    n = 2
+                    while name in self._pos_by_flavor:
+                        name = f"{base}{n}"
+                        n += 1
 
-            tile = Tile(row=r, col=q, tile_type=ttype)
-            tile.flavor_name = name
-            tile.explored = True
-            self.tiles[(q, r)] = tile
-            self._flavor_by_pos[(q, r)] = name
-            # flavor unico: se duplicato aggiungi suffisso
-            base = name
-            n = 2
-            while name in self._pos_by_flavor:
-                name = f"{base}{n}"
-                n += 1
-            tile.flavor_name = name
-            self._flavor_by_pos[(q, r)] = name
-            self._pos_by_flavor[name] = (q, r)
+                tile = Tile(row=r, col=q, tile_type=ttype)
+                tile.flavor_name = name
+                tile.explored = True
+                self.tiles[(q, r)] = tile
+                self._flavor_by_pos[(q, r)] = name
+                self._pos_by_flavor[name] = (q, r)
 
-        self._setup_walls_from_sketch()
+            for w in data.get("walls") or []:
+                a = (int(w["a"][0]), int(w["a"][1]))
+                b = (int(w["b"][0]), int(w["b"][1]))
+                self.edge_walls.add(_edge_key(a, b))
+        else:
+            # fallback geometrico
+            for q, r in all_hexes(HEX_RADIUS):
+                dist = hex_distance((0, 0), (q, r))
+                if dist > PLAYABLE_RADIUS:
+                    ttype, name = TileType.FRAME, "Cornice"
+                elif (q, r) == ALTAR_POS:
+                    ttype, name = TileType.ALTAR, "Altare"
+                elif (q, r) == TEMPLE_P1_POS:
+                    ttype, name = TileType.TEMPLE_P1, "Tempio1"
+                elif (q, r) == TEMPLE_P2_POS:
+                    ttype, name = TileType.TEMPLE_P2, "Tempio2"
+                elif (q, r) == TEMPLE_P3_POS:
+                    ttype, name = TileType.TEMPLE_P3, "Tempio3"
+                elif (q, r) == TEMPLE_P4_POS:
+                    ttype, name = TileType.TEMPLE_P4, "Tempio4"
+                else:
+                    ttype = TileType.EMPTY
+                    name = flavor_pool[fi % len(flavor_pool)]
+                    fi += 1
+                tile = Tile(row=r, col=q, tile_type=ttype)
+                tile.flavor_name = name
+                tile.explored = True
+                self.tiles[(q, r)] = tile
+                self._flavor_by_pos[(q, r)] = name
+                self._pos_by_flavor[name] = (q, r)
 
-    def _setup_walls_from_sketch(self):
-        """
-        Muri rossi dallo sketch utente (edge tra hex adiacenti).
-        Coordinate axial pointy-top, centro (0,0).
-        Pattern: corridoi / choke intorno all'altare e verso i 4 templi.
-        """
-        walls = [
-            # --- Nord (verso Tempio2 0,-3) ---
-            ((0, -2), (1, -3)),
-            ((0, -2), (-1, -2)),
-            ((1, -2), (1, -3)),
-            ((-1, -1), (-1, -2)),
-            ((0, -1), (1, -2)),
-            ((-1, -1), (0, -1)),
-            # arco NE
-            ((1, -2), (2, -2)),
-            ((2, -3), (2, -2)),
-            ((1, -1), (2, -2)),
-            # arco NW
-            ((-2, -1), (-1, -1)),
-            ((-2, 0), (-2, -1)),
-            ((-1, 0), (-1, -1)),
-
-            # --- Est (verso Tempio4 3,-3) ---
-            ((2, -1), (2, 0)),
-            ((2, -1), (3, -2)),
-            ((1, 0), (2, -1)),
-            ((2, 0), (3, -1)),
-            ((1, 1), (2, 0)),
-            ((2, -2), (3, -2)),
-
-            # --- Ovest (verso Tempio3 -3,0) ---
-            ((-2, 1), (-1, 1)),
-            ((-2, 1), (-2, 0)),
-            ((-1, 1), (-1, 0)),
-            ((-2, 2), (-2, 1)),
-            ((-3, 1), (-2, 1)),
-            ((-1, 2), (-1, 1)),
-
-            # --- Sud (verso Tempio1 0,3) ---
-            ((0, 2), (1, 1)),
-            ((0, 2), (-1, 2)),
-            ((1, 2), (1, 1)),
-            ((-1, 3), (-1, 2)),
-            ((0, 1), (0, 2)),
-            ((1, 1), (0, 1)),
-            ((-1, 2), (0, 1)),
-            # arco SE / SW
-            ((1, 2), (2, 1)),
-            ((2, 1), (1, 1)),
-            ((-2, 2), (-1, 2)),
-
-            # --- Centro / medio (segmenti vicino altare) ---
-            ((0, 0), (1, 0)),   # muro a est dell'altare (visibile nello sketch)
-            ((1, -1), (0, 0)),
-            ((-1, 0), (0, 0)),
-            ((0, 1), (-1, 1)),
-            ((1, 0), (1, 1)),
-        ]
-
-        for a, b in walls:
-            if hex_in_radius(*a, PLAYABLE_RADIUS) and hex_in_radius(*b, PLAYABLE_RADIUS):
-                if hex_distance(a, b) == 1:
-                    self.edge_walls.add(_edge_key(a, b))
-
-        # Aperture obbligatorie: i templi devono avere almeno 1 uscita
+        # Tempi devono avere almeno un'uscita
         for temple in (TEMPLE_P1_POS, TEMPLE_P2_POS, TEMPLE_P3_POS, TEMPLE_P4_POS):
-            for nb in hex_neighbors(*temple):
-                if hex_in_radius(*nb, PLAYABLE_RADIUS) and self.is_walkable(*nb):
-                    # lascia almeno un vicino senza muro se tutti bloccati
-                    pass
-            adj = [nb for nb in hex_neighbors(*temple) if hex_in_radius(*nb, PLAYABLE_RADIUS)]
+            if temple not in self.tiles:
+                continue
+            adj = [nb for nb in hex_neighbors(*temple) if nb in self.tiles and self.is_walkable(*nb)]
             blocked = [nb for nb in adj if _edge_key(temple, nb) in self.edge_walls]
             if adj and len(blocked) >= len(adj):
-                # sblocca il primo
                 self.edge_walls.discard(_edge_key(temple, adj[0]))
 
     def get_tile(self, q: int, r: int) -> Optional[Tile]:
@@ -160,8 +121,6 @@ class Board:
         return self.units.get((q, r))
 
     def is_walkable(self, q: int, r: int) -> bool:
-        if not hex_in_radius(q, r, HEX_RADIUS):
-            return False
         tile = self.tiles.get((q, r))
         if not tile:
             return False

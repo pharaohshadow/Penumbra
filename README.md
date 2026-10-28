@@ -1,17 +1,13 @@
-# Penumbra – Consegna v38
+# Penumbra – Consegna v39
 
-## Mappa da reference (foto utente)
-- Forma **esagono grande** (raggio 4 totale)
-- **Anello esterno marrone** = Cornice non calpestabile (alberi)
-- **Zona interna** raggio 3 = giocabile
-- **Altare** verde al centro
-- **4 Templi blu**: Sud P1, Nord P2, Ovest P3, Est P4
-- **Terreno** base + nomi flavor
-- **Muri rossi** (edge walls) come nello sketch – linee rosse in UI
+## Mappa utente (editor)
+Integrata la mappa esportata dall'editor:
+- **radius 5**, playable 4
+- Altare (0,0)
+- Tempio1 (-3,4), Tempio2 (3,-4), Tempio3 (-4,0), Tempio4 (4,0)
+- **45 muri** come da JSON
+- File sorgente: `backend/data/map.json`
 
-## Fix precedenti inclusi
-Draft buste, login Supabase, home modalità, player_data, ecc.
+Per cambiare mappa in futuro: sostituisci `backend/data/map.json` e ridistribuisci.
 
-**Nessuna modifica manuale.** Cartella: `penumbra_v38/`
-
-Se qualche muro non combacia al 100% con lo sketch, dimmelo e li ritocchiamo casella per casella.
+**Nessuna modifica manuale.** Cartella: `penumbra_v39/`

@@ -130,7 +130,7 @@ def player_data(p) -> dict:
 
 def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:
     board = []
-    for q, r in all_hexes(HEX_RADIUS):
+    for q, r in sorted(gs.board.tiles.keys()):
         tile = gs.board.get_tile(q, r)
         unit = gs.board.get_unit_at(q, r)
         visible = True
