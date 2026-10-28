@@ -1,17 +1,16 @@
-# Architettura – v1.11
+# Architettura – v1.12
 
 ## Stato attuale
 
-### Montagne irregolari (roadmap 3.1)
-In `backend/static/index.html` gli ostacoli non sono più linee:
-- ogni muro è un **poligono SVG** a cresta dentellata
-- altezza e numero di picchi variano in modo stabile (seed dalle coordinate)
-- colori roccia: base scura, corpo marrone, cresta chiara
+Aggiornamento grafico mappa (richiesta utente):
 
-Fog of War: ok (fix v1.10).
+- **Montagne** più spesse, centrate sul bordo (non entrano negli esagoni)
+- **Bordo esterno** = caselle **Lava** (arancio/rosso), non calpestabili
+- **Templi** rosa
+- **Terreno** verdino (non più blu)
 
 ### File toccati
-- `backend/static/index.html` (solo disegno ostacoli)
+- `backend/static/index.html`
 
 ### Supabase
 - URL: `https://favrmxwyaxklfiruyvqz.supabase.co`
