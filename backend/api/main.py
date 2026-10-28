@@ -91,32 +91,47 @@ def _quest_progress(gs: GameState) -> dict:
     return {"active": True, "id": q, "label": q, "detail": "", "players": []}
 
 
-def serialize_state(gs: GameState, game_id: str) -> dict:
+def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:
     board = []
     for r in range(GRID_SIZE):
         row = []
         for c in range(GRID_SIZE):
             tile = gs.board.get_tile(r, c)
             unit = gs.board.get_unit_at(r, c)
+            visible = True
+            try:
+                visible = gs.is_visible_to(viewer_id, r, c)
+            except Exception:
+                visible = True
             cell = {
                 "coord": pos_to_coord(r, c),
                 "tile": tile.tile_type.value if tile else "Vuoto",
                 "explored": tile.explored if tile else True,
-                "trap": tile.trap_card_id is not None if tile else False,
-                "ritual": bool(tile and tile.is_ritual),
-                "altar": bool(tile and tile.tile_type.value == "Altare"),
+                "trap": False,  # trappole nemiche nascoste
+                "ritual": bool(tile and tile.is_ritual) if visible else False,
+                "altar": bool(tile and tile.tile_type.value == "Altare") if visible else False,
                 "unit": None,
+                "visible": visible,
+                "fog": not visible,
             }
-            if unit:
-                cell["unit"] = {
-                    "name": unit.card.name,
-                    "atk": unit.current_atk,
-                    "hp": unit.current_hp,
-                    "owner": unit.owner_id,
-                    "crown": unit.has_fragment,
-                    "evolved": "evolved" in unit.statuses,
-                    "coord": unit.coord,
-                }
+            if visible:
+                # Trappole proprie sempre visibili se sulla casella; nemiche solo se esplorate? per ora solo se visible
+                cell["trap"] = tile.trap_card_id is not None if tile else False
+                if unit:
+                    cell["unit"] = {
+                        "name": unit.card.name,
+                        "atk": unit.current_atk,
+                        "hp": unit.current_hp,
+                        "owner": unit.owner_id,
+                        "crown": unit.has_fragment,
+                        "evolved": "evolved" in unit.statuses,
+                        "coord": unit.coord,
+                    }
+            else:
+                # Fuori fog: nascondi tipo tile giocabile (mostra solo Cornice/Tempio noti)
+                if tile and tile.tile_type.value not in ("Cornice", "Tempio1", "Tempio2", "Tempio3", "Tempio4"):
+                    cell["tile"] = "?"
+                    cell["explored"] = False
             row.append(cell)
         board.append(row)
 
@@ -345,7 +360,7 @@ async def api_new(body: NewReq = NewReq(), user: Dict[str, Any] = Depends(requir
             player1_uid=None,
             p1_is_ai=p1_ai,
         )
-    return serialize_state(gs, game_id)
+    return serialize_state(gs, game_id, viewer_id=0)
 
 
 @app.post("/api/join")
@@ -384,7 +399,7 @@ async def api_join(body: JoinReq, user: Dict[str, Any] = Depends(require_user)):
             p1_is_ai=False,
         )
     _persist(body.game_id, gs, "join", {"name": body.name, "player1_uid": uid})
-    return serialize_state(gs, body.game_id)
+    return serialize_state(gs, body.game_id, viewer_id=getattr(body, 'player_id', 0))
 
 
 @app.get("/api/state")
@@ -401,7 +416,10 @@ async def api_state(
     uid = user_id(user)
     gs = _require_game(game_id)
     _require_membership(game_id, uid)
-    return serialize_state(gs, game_id)
+    # viewer = player0 se uid match, altrimenti player1
+    mode = _modes.get(game_id, {})
+    viewer = 0 if mode.get("player0_uid") == uid else (1 if mode.get("player1_uid") == uid else 0)
+    return serialize_state(gs, game_id, viewer_id=viewer)
 
 
 @app.post("/api/move")
@@ -425,7 +443,7 @@ async def api_move(body: MoveReq, user: Dict[str, Any] = Depends(require_user)):
     if not ok:
         raise HTTPException(400, "Mossa non valida")
     _persist(body.game_id, gs, "move", {"from": body.from_coord, "to": body.to_coord})
-    return serialize_state(gs, body.game_id)
+    return serialize_state(gs, body.game_id, viewer_id=getattr(body, 'player_id', 0))
 
 
 @app.post("/api/play")
@@ -442,7 +460,7 @@ async def api_play(body: PlayReq, user: Dict[str, Any] = Depends(require_user)):
     if not ok:
         raise HTTPException(400, "Carta non giocabile")
     _persist(body.game_id, gs, "play", {"hand_index": body.hand_index})
-    return serialize_state(gs, body.game_id)
+    return serialize_state(gs, body.game_id, viewer_id=getattr(body, 'player_id', 0))
 
 
 @app.post("/api/eldrazi")
@@ -457,7 +475,7 @@ async def api_eldrazi(body: EldraziReq, user: Dict[str, Any] = Depends(require_u
     if not ok:
         raise HTTPException(400, "Evocazione Mostrissimo fallita")
     _persist(body.game_id, gs, "eldrazi", {"index": body.eldrazi_index})
-    return serialize_state(gs, body.game_id)
+    return serialize_state(gs, body.game_id, viewer_id=getattr(body, 'player_id', 0))
 
 
 @app.post("/api/end")
@@ -466,7 +484,7 @@ async def api_end(body: EndReq, user: Dict[str, Any] = Depends(require_user)):
     gs = _require_game(body.game_id)
     _require_membership(body.game_id, uid)
     if gs.phase == Phase.GAME_OVER:
-        return serialize_state(gs, body.game_id)
+        return serialize_state(gs, body.game_id, viewer_id=getattr(body, 'player_id', 0))
     if gs.current_player_id != body.player_id:
         raise HTTPException(400, "Non è il tuo turno")
     try:
@@ -475,7 +493,7 @@ async def api_end(body: EndReq, user: Dict[str, Any] = Depends(require_user)):
             ai = BasicAI(gs, player_id=gs.current_player_id)
             ai.take_turn()
         _persist(body.game_id, gs, "end_turn")
-        return serialize_state(gs, body.game_id)
+        return serialize_state(gs, body.game_id, viewer_id=getattr(body, 'player_id', 0))
     except HTTPException:
         raise
     except Exception as e:
@@ -514,7 +532,7 @@ async def api_fragment(body: FragmentReq, user: Dict[str, Any] = Depends(require
         raise HTTPException(400, "Impossibile piazzare il Frammento")
     gs.log_msg(f"{p.name} piazza la Corona su {unit.card.name} ({unit.coord}) pagando {cost} mana")
     _persist(body.game_id, gs, "fragment", {"coord": body.coord, "cost": cost})
-    return serialize_state(gs, body.game_id)
+    return serialize_state(gs, body.game_id, viewer_id=getattr(body, 'player_id', 0))
 
 
 @app.post("/api/draft")
@@ -531,7 +549,7 @@ async def api_draft(body: DraftReq, user: Dict[str, Any] = Depends(require_user)
     if not ok:
         raise HTTPException(400, "Scelta busta non valida")
     _persist(body.game_id, gs, "draft", {"pack_index": idx})
-    return serialize_state(gs, body.game_id)
+    return serialize_state(gs, body.game_id, viewer_id=getattr(body, 'player_id', 0))
 
 
 static_dir = ROOT / "static"

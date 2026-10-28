@@ -26,6 +26,8 @@
     .cell.wall-bottom { border-bottom: 4px solid #94a3b8 !important; }
     .cell.wall-left { border-left: 4px solid #94a3b8 !important; }
     .cell.wall-top { border-top: 4px solid #94a3b8 !important; }
+    .cell.fog { background: #0a0c10; opacity: 0.55; }
+    .cell.fog .tile-label, .cell.fog .coord { color: #3a3f4a; }
     .cell { background: var(--tile); border: 1px solid var(--border); border-radius: 6px; min-height: 52px; padding: 4px; cursor: pointer; font-size: 0.7rem; display: flex; flex-direction: column; justify-content: space-between; }
     .cell:hover { border-color: var(--accent); } .cell.selected { outline: 2px solid var(--accent); }
     .cell .coord { color: var(--muted); font-size: 0.65rem; } .cell .tile-label { color: var(--muted); opacity: 0.7; }
@@ -402,12 +404,15 @@
         if (cell.tile === "Cornice") cls += " frame";
         if (cell.tile && cell.tile.startsWith("Tempio")) cls += " temple";
         if (cell.altar) cls += " altar";
+        if (cell.fog) cls += " fog";
         div.className = cls;
         let html = `<span class="coord">${cell.coord}</span>`;
         if (cell.unit) {
           const u = cell.unit;
           const ucls = u.owner === 0 ? "p0" : u.owner === 1 ? "p1" : "neutral";
           html += `<div class="unit ${ucls}">${u.crown ? '<span class="crown">👑</span>' : ""}${u.evolved ? "✦" : ""}${u.name}<br/>${u.atk}/${u.hp}</div>`;
+        } else if (cell.fog) {
+          html += `<span class="tile-label">░</span>`;
         } else if (cell.tile !== "Cornice") {
           html += `<span class="tile-label">${cell.altar ? "✦Altare" : cell.tile}${cell.ritual ? " ✧" : ""}${cell.trap ? " ⚠" : ""}</span>`;
         }

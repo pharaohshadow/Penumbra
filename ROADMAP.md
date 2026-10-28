@@ -12,6 +12,7 @@
 | Corona come carta + no PvP in UI | fatto (v27) |
 | **Mappa 7×7 + muri edge + templi angolo** | **fatto (v28)** |
 | Hotfix tempio hardcode + messaggio errore /api/end | **fatto (v28.1)** |
+| Rimuovere neutrali + Fog of war raggio 2 | **fatto (v28.3)** |
 
 ## Fase A — Stabilizzazione errori
 

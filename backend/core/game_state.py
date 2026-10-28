@@ -38,6 +38,50 @@ class GameState:
         self.log.append(f"[T{self.turn}] {msg}")
         print(msg)
 
+
+    # ------------------------------------------------------------------
+    # Fog of War (v28.3)
+    # Visibilità: raggio Chebyshev 2 da qualsiasi creatura del giocatore
+    # o dal suo Tempio. Unità/caselle fuori fog non sono bersagliabili.
+    # ------------------------------------------------------------------
+    def vision_sources(self, player_id: int):
+        """Posizioni che generano visione per il giocatore."""
+        from .constants import TEMPLE_P1_POS, TEMPLE_P2_POS
+        sources = []
+        temple = TEMPLE_P1_POS if player_id == 0 else TEMPLE_P2_POS
+        sources.append(temple)
+        for u in self.board.get_units_of_player(player_id):
+            if u.is_alive:
+                sources.append((u.row, u.col))
+        return sources
+
+    def is_visible_to(self, player_id: int, row: int, col: int, radius: int = 2) -> bool:
+        """True se (row,col) è entro `radius` (Chebyshev) da una fonte di visione."""
+        for sr, sc in self.vision_sources(player_id):
+            if max(abs(sr - row), abs(sc - col)) <= radius:
+                return True
+        return False
+
+    def visible_coords(self, player_id: int, radius: int = 2):
+        """Set di (r,c) visibili al giocatore."""
+        from .constants import GRID_SIZE
+        vis = set()
+        for r in range(GRID_SIZE):
+            for c in range(GRID_SIZE):
+                if self.is_visible_to(player_id, r, c, radius):
+                    vis.add((r, c))
+        return vis
+
+    def can_target_unit(self, viewer_id: int, unit) -> bool:
+        """Una magia/abilità a bersaglio può colpire questa unità solo se visibile."""
+        if unit is None or not unit.is_alive:
+            return False
+        # Le proprie unità sono sempre bersagliabili
+        if unit.owner_id == viewer_id:
+            return True
+        return self.is_visible_to(viewer_id, unit.row, unit.col)
+
+
     # ------------------------------------------------------------------
     # Setup iniziale
     # ------------------------------------------------------------------
@@ -245,10 +289,7 @@ class GameState:
         # Spawn gratuito 1/1
         self._spawn_free_1_1(p)
 
-        # Mostro Neutrale
-        self._spawn_neutral()
-        # I neutrali già in campo agiscono (movimento / attacco)
-        self._activate_neutrals()
+        # Neutrales rimossi (v28.3)
 
         # Effetti a inizio turno (Santuario, Fenditura, Growth, ecc.)
         self._apply_start_of_turn_effects(p)
@@ -1022,11 +1063,6 @@ class GameState:
 
     def _play_curse(self, player: Player, hand_index: int, card: Card, target_coord: Optional[str]) -> bool:
         """Maledizioni istantanee con effetti base."""
-        player.spend_mana(card.cost)
-        player.hand.pop(hand_index)
-        target_info = f" su {target_coord}" if target_coord else ""
-        self.log_msg(f"{player.name} gioca Maledizione '{card.name}'{target_info}")
-
         name = card.name.lower()
         target_unit = None
         if target_coord:
@@ -1035,6 +1071,25 @@ class GameState:
                 target_unit = self.board.get_unit_at(r, c)
             except Exception:
                 pass
+            # Fog of War: non si può bersagliare un nemico fuori visione
+            if target_unit is not None and target_unit.owner_id != player.id:
+                if not self.can_target_unit(player.id, target_unit):
+                    self.log_msg("Bersaglio nascosto dalla nebbia di guerra.")
+                    return False
+            # Anche casella vuota fuori visione non è bersagliabile per effetti a zona/casella
+            if target_unit is None and target_coord:
+                try:
+                    r, c = coord_to_pos(target_coord)
+                    if not self.is_visible_to(player.id, r, c):
+                        self.log_msg("Casella nascosta dalla nebbia di guerra.")
+                        return False
+                except Exception:
+                    pass
+
+        player.spend_mana(card.cost)
+        player.hand.pop(hand_index)
+        target_info = f" su {target_coord}" if target_coord else ""
+        self.log_msg(f"{player.name} gioca Maledizione '{card.name}'{target_info}")
 
         # Ondata 1: effetti per nome (GDD)
         if any(k in name for k in ("raggio solare", "linfa vitale", "cura")):
