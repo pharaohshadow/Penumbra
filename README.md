@@ -1,24 +1,11 @@
-# Penumbra – Consegna v33
+# Penumbra – Consegna v34
 
-## Mappa esagonale (pointy-top)
-- Raggio 3 → **37 esagoni** (vicino/sopra alla vecchia zona 5×5)
-- **Altare** al centro
-- **Tempio1** sud (P1), **Tempio2** nord (P2)
-- **Tempio3** ovest e **Tempio4** est già presenti (futuri giocatori)
-- Tutte le altre caselle = **Terreno** con **nomi flavor** (Palude, Montagna, Fiume, …)
-- Niente Evento/Trappola/ecc. per ora sulle caselle
-- **Muri** tra alcuni esagoni (choke + aperture templi)
+## Fix
+- **Login**: ripristinato **Supabase** (`signInWithPassword`) — non esiste `/api/auth/login` sul backend (404).
+- Registrazione e sessione persistente come prima.
 
-## UI
-- Layout a **colonna centrale** (mobile + desktop landscape)
-- **In basso**: nome, medaglione placeholder, mana/frammenti/corona/indizi, **mano**
-- Medaglione: *«Medaglione random»* / *«Effetto del medaglione»*
-- **Mostrissimi**: non in mano; pannello solo su Cerchio Rituale (nessun cerchio ancora → nascosti)
+Resto invariato rispetto a **v33** (mappa hex, UI, medaglione, …).
 
-## Regole confermate
-- Fog raggio **2** (distanza esagonale)
-- Spawn inizio turno **solo sul Tempio** se libero
-- Neutrali colorati → Signore come v30
-- Movimento 1 passo esagonale; muri bloccano move/attacco
+**Nessuna modifica manuale.** Cartella: `penumbra_v34/`
 
-**Nessuna modifica manuale.** Cartella: `penumbra_v33/`
+File chiave: `backend/static/index.html`

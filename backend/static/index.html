@@ -4,6 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
 <title>Penumbra</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --bg: #0b0d12; --panel: #141820; --text: #e5e7eb; --muted: #9ca3af;
@@ -97,11 +98,13 @@
     <input id="email" type="email" placeholder="Email"/>
     <input id="password" type="password" placeholder="Password"/>
     <button class="btn" id="btnLogin">Login</button>
+    <button class="btn secondary" id="btnRegister">Registrati</button>
     <p id="loginErr" style="color:#f87171;font-size:0.8rem"></p>
   </div>
 
   <div id="homeBox" style="display:none">
     <header><h1>Penumbra</h1><button class="btn secondary" id="btnLogout">Esci</button></header>
+    <p id="homeUser" style="color:var(--muted);font-size:0.85rem"></p>
     <button class="btn" id="btnNew">Nuova partita vs IA</button>
   </div>
 
@@ -131,60 +134,52 @@
 </div></div>
 
 <script>
+// ========== Supabase (progetto Penumbra) ==========
+const SUPABASE_URL = "https://favrmxwyaxklfiruyvqz.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhdnJteHd5YXhrbGZpcnV5dnF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MTA4OTYsImV4cCI6MjEwODM4Njg5Nn0.HLR7eYKscg6ldoYkuFpRx9LMWzSGeSCZ1Jl0Rgu9N-0";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// =================================================
+
 const API = "";
-let token = localStorage.getItem("pen_token") || "";
-let gameId = null;
-let playerId = 0;
+let token = null;
+let gameId = localStorage.getItem("penumbra_game_id") || null;
+let playerId = parseInt(localStorage.getItem("penumbra_player_id") || "0", 10);
 let state = null;
 let selectedCoord = null;
 let selectedHand = null;
 
 async function api(path, body) {
-  const opts = { method: body ? "POST" : "GET", headers: {} };
-  if (token) opts.headers["Authorization"] = "Bearer " + token;
-  if (body) {
+  if (!token) throw new Error("Devi essere loggato");
+  const opts = {
+    method: body !== undefined && body !== null ? "POST" : "GET",
+    headers: { "Authorization": "Bearer " + token },
+  };
+  if (body !== undefined && body !== null) {
     opts.headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(body);
   }
   const res = await fetch(API + path, opts);
   const text = await res.text();
   let data;
-  try { data = JSON.parse(text); } catch { data = { detail: text }; }
-  if (!res.ok) throw new Error(data.detail || data.message || res.status);
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { detail: text }; }
+  if (!res.ok) {
+    const msg = data.detail || data.message || text || res.status;
+    throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+  }
   return data;
 }
 
-document.getElementById("btnLogin").onclick = async () => {
-  try {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    // Supabase-style: backend may accept token from external auth
-    // Try backend login if exists, else store email as demo
-    try {
-      const r = await fetch(API + "/api/auth/login", {
-        method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ email, password })
-      });
-      if (r.ok) {
-        const d = await r.json();
-        token = d.access_token || d.token;
-        localStorage.setItem("pen_token", token);
-      }
-    } catch (e) {}
-    if (!token) {
-      document.getElementById("loginErr").textContent = "Login richiesto (Supabase). Se già loggato via host, ricarica.";
-      return;
-    }
-    showHome();
-  } catch (e) {
-    document.getElementById("loginErr").textContent = String(e.message || e);
-  }
-};
-
-function showHome() {
+function showLogin() {
+  document.getElementById("loginBox").style.display = "block";
+  document.getElementById("homeBox").style.display = "none";
+  document.getElementById("gameRoot").style.display = "none";
+}
+function showHome(email) {
   document.getElementById("loginBox").style.display = "none";
   document.getElementById("homeBox").style.display = "block";
   document.getElementById("gameRoot").style.display = "none";
+  const hu = document.getElementById("homeUser");
+  if (hu) hu.textContent = email ? ("Loggato come " + email) : "";
 }
 function showGame() {
   document.getElementById("loginBox").style.display = "none";
@@ -192,20 +187,67 @@ function showGame() {
   document.getElementById("gameRoot").style.display = "block";
 }
 
+document.getElementById("btnLogin").onclick = async () => {
+  const err = document.getElementById("loginErr");
+  err.textContent = "Accesso…";
+  try {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { err.textContent = error.message; return; }
+    token = data.session.access_token;
+    err.textContent = "";
+    showHome(data.user.email);
+  } catch (e) {
+    err.textContent = String(e.message || e);
+  }
+};
+
+// Registrazione opzionale se c'è il bottone
+const btnReg = document.getElementById("btnRegister");
+if (btnReg) {
+  btnReg.onclick = async () => {
+    const err = document.getElementById("loginErr");
+    err.textContent = "Registrazione…";
+    try {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if (error) { err.textContent = error.message; return; }
+      if (data.session) {
+        token = data.session.access_token;
+        err.textContent = "";
+        showHome(data.user.email);
+      } else {
+        err.textContent = "Controlla la email per confermare l'account, poi accedi.";
+      }
+    } catch (e) {
+      err.textContent = String(e.message || e);
+    }
+  };
+}
+
+document.getElementById("btnLogout").onclick = async () => {
+  await sb.auth.signOut();
+  token = null;
+  gameId = null;
+  localStorage.removeItem("penumbra_game_id");
+  showLogin();
+};
+
 document.getElementById("btnNew").onclick = async () => {
   try {
     state = await api("/api/new", { mode: "base", vs_ai: true });
     gameId = state.game_id;
     playerId = 0;
+    localStorage.setItem("penumbra_game_id", gameId);
+    localStorage.setItem("penumbra_player_id", "0");
     showGame();
     render();
   } catch (e) { alert(e.message); }
 };
 
 document.getElementById("btnHome").onclick = () => showHome();
-document.getElementById("btnLogout").onclick = () => {
-  token = ""; localStorage.removeItem("pen_token"); location.reload();
-};
 document.getElementById("cluePopupOk").onclick = () => {
   document.getElementById("cluePopup").classList.remove("show");
 };
@@ -267,7 +309,6 @@ function render() {
   document.getElementById("turnInfo").textContent =
     `Turno ${state.turn} · ${state.phase} · P${state.current_player}`;
 
-  // Draft
   const db = document.getElementById("draftBox");
   if (state.phase === "DRAFT" && state.draft) {
     db.style.display = "block";
@@ -292,7 +333,6 @@ function render() {
     db.style.display = "none";
   }
 
-  // Hex board
   const boardEl = document.getElementById("hexBoard");
   boardEl.innerHTML = "";
   const cells = state.board || [];
@@ -323,7 +363,6 @@ function render() {
     const y = pad + (cell.y - minY) * scale;
     div.style.left = x + "px";
     div.style.top = y + "px";
-    // scale hex size slightly with board
     const hs = Math.max(40, Math.min(56, scale * 0.95));
     div.style.width = hs + "px";
     div.style.height = (hs * 1.15) + "px";
@@ -350,7 +389,6 @@ function render() {
     boardEl.appendChild(div);
   });
 
-  // Player panel
   const p = (state.players || []).find(x => x.id === playerId) || (state.players || [])[0] || {};
   document.getElementById("pName").textContent = p.name || "Giocatore";
   const med = p.medallion || { name: "Medaglione random", effect: "Effetto del medaglione" };
@@ -362,11 +400,10 @@ function render() {
     <span>Corona <strong>${p.has_crown ? "sì" : "no"}</strong></span>
     <span>Indizi <strong>${p.clues ?? 0}</strong></span>`;
 
-  // Hand
   const handEl = document.getElementById("hand");
   handEl.innerHTML = "";
   (p.hand || []).forEach((c, i) => {
-    if (c.type === "Mostrissimo" || c.card_type === "Mostrissimo") return; // mai in mano
+    if (c.type === "Mostrissimo" || c.card_type === "Mostrissimo") return;
     const d = document.createElement("div");
     d.className = "card" + (selectedHand === i ? " selected" : "");
     d.innerHTML = `<div class="cname">${c.name}</div><div class="ccost">${c.cost} mana</div><div>${c.atk || 0}/${c.hp || 0}</div>`;
@@ -374,10 +411,8 @@ function render() {
     handEl.appendChild(d);
   });
 
-  // Eldrazi only on ritual – none for now
   document.getElementById("eldraziBox").classList.remove("show");
-
-  document.getElementById("log").textContent = (state.log || []).join("\n");
+  document.getElementById("log").textContent = (state.log || []).join("\\n");
 
   if (state.pending_popups && state.pending_popups.length) {
     const pop = state.pending_popups.find(x => x.type === "clue") || state.pending_popups[0];
@@ -388,8 +423,25 @@ function render() {
   }
 }
 
-// Boot: if token present show home
-if (token) showHome();
+// Sessione già aperta?
+(async () => {
+  const { data } = await sb.auth.getSession();
+  if (data.session) {
+    token = data.session.access_token;
+    showHome(data.session.user.email);
+  } else {
+    showLogin();
+  }
+  sb.auth.onAuthStateChange((_event, session) => {
+    if (session) {
+      token = session.access_token;
+    } else {
+      token = null;
+      showLogin();
+    }
+  });
+})();
 </script>
+
 </body>
 </html>
