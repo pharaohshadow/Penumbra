@@ -23,6 +23,12 @@
   .btn { background: #312e81; color: #fff; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 0.85rem; }
   .btn:disabled { opacity: 0.4; cursor: default; }
   .btn.secondary { background: #1f2937; }
+  .mode-grid { display: grid; gap: 10px; margin-top: 12px; }
+  .mode-btn { text-align: left; padding: 14px 16px; font-size: 0.95rem; width: 100%; background: #1a1f2a; color: var(--text); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+  .mode-btn .sub { display: block; font-size: 0.78rem; font-weight: 400; color: var(--muted); margin-top: 4px; }
+  .mode-btn:disabled { opacity: 0.45; cursor: default; }
+  .mode-btn.active-mode { border-color: var(--accent); }
+
   #loginBox, #homeBox { background: var(--panel); border-radius: 12px; padding: 16px; border: 1px solid var(--border); }
   #loginBox input { width: 100%; padding: 8px; margin: 6px 0; border-radius: 6px; border: 1px solid var(--border); background: #0f1218; color: var(--text); }
   #hexBoard {
@@ -102,13 +108,35 @@
     <p id="loginErr" style="color:#f87171;font-size:0.8rem"></p>
   </div>
 
-  <div id="homeBox" style="display:none">
+    <div id="homeBox" style="display:none">
     <header><h1>Penumbra</h1><button class="btn secondary" id="btnLogout">Esci</button></header>
     <p id="homeUser" style="color:var(--muted);font-size:0.85rem"></p>
-    <button class="btn" id="btnNew">Nuova partita vs IA</button>
+    <div class="mode-grid">
+      <button class="mode-btn active-mode" id="modeBase">
+        Partita base
+        <span class="sub">Draft + mappa esagonale vs IA</span>
+      </button>
+      <button class="mode-btn" id="modeTutorial" disabled>
+        Tutorial
+        <span class="sub">In arrivo</span>
+      </button>
+      <button class="mode-btn" id="modePvp" disabled>
+        PvP
+        <span class="sub">In arrivo</span>
+      </button>
+      <button class="mode-btn" id="modeStoria" disabled>
+        Storia
+        <span class="sub">In arrivo</span>
+      </button>
+      <button class="mode-btn" id="modeEndless" disabled>
+        Endless
+        <span class="sub">In arrivo</span>
+      </button>
+    </div>
+    <p id="homeMsg" style="color:var(--muted);font-size:0.8rem;margin-top:10px"></p>
   </div>
 
-  <div id="gameRoot" style="display:none">
+<div id="gameRoot" style="display:none">
     <header>
       <h1>Penumbra</h1>
       <span id="turnInfo" style="font-size:0.8rem;color:var(--muted)"></span>
@@ -235,17 +263,26 @@ document.getElementById("btnLogout").onclick = async () => {
   showLogin();
 };
 
-document.getElementById("btnNew").onclick = async () => {
+const startBase = async () => {
+  const hm = document.getElementById("homeMsg");
+  if (hm) hm.textContent = "Creazione partita…";
   try {
     state = await api("/api/new", { mode: "base", vs_ai: true });
     gameId = state.game_id;
     playerId = 0;
     localStorage.setItem("penumbra_game_id", gameId);
     localStorage.setItem("penumbra_player_id", "0");
+    if (hm) hm.textContent = "";
     showGame();
     render();
-  } catch (e) { alert(e.message); }
+  } catch (e) {
+    if (hm) hm.textContent = String(e.message || e);
+    alert(e.message);
+  }
 };
+document.getElementById("modeBase").onclick = startBase;
+// legacy alias
+document.getElementById("btnNew") && (document.getElementById("btnNew").onclick = startBase);
 
 document.getElementById("btnHome").onclick = () => showHome();
 document.getElementById("cluePopupOk").onclick = () => {

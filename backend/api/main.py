@@ -60,7 +60,7 @@ def _quest_progress(gs: GameState) -> dict:
             buff = 0
             altar = False
             for u in gs.board.get_units_of_player(pid):
-                tile = gs.board.get_tile(u.row, u.col)
+                tile = gs.board.get_tile(u.col, u.row)  # hex: q=col, r=row
                 if not tile:
                     continue
                 if tile.tile_type.value == "Buff":
@@ -89,6 +89,43 @@ def _quest_progress(gs: GameState) -> dict:
             "players": players,
         }
     return {"active": True, "id": q, "label": q, "detail": "", "players": []}
+
+
+
+def player_data(p) -> dict:
+    color_counts = {}
+    for c in p.hand:
+        color_counts[c.color.value] = color_counts.get(c.color.value, 0) + 1
+    dominant = max(color_counts, key=color_counts.get) if color_counts else None
+    return {
+        "id": p.id,
+        "name": p.name,
+        "mana": p.mana,
+        "mana_max": p.mana_max,
+        "fragments": p.fragments_remaining,
+        "next_fragment_cost": p.next_fragment_cost(),
+        "has_crown": p.crown_unit is not None and p.crown_unit.is_alive,
+        "dominant_color": dominant,
+        "hand": [
+            {
+                "index": i,
+                "id": c.id,
+                "name": c.name,
+                "cost": c.cost,
+                "type": c.card_type.value,
+                "color": c.color.value,
+                "atk": c.atk,
+                "hp": c.hp,
+                "text": (c.text or "")[:80],
+            }
+            for i, c in enumerate(p.hand)
+        ],
+        "crown": p.crown_unit.coord if p.crown_unit and p.crown_unit.is_alive else None,
+        "is_ai": p.is_ai,
+        "lost": p.has_lost,
+        "clues": getattr(p, "clues", 0),
+        "medallion": {"name": "Medaglione random", "effect": "Effetto del medaglione"},
+    }
 
 
 def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:

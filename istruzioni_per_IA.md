@@ -1,7 +1,7 @@
 # Istruzioni per IA – Penumbra
 
-## Consegne
-- Cartella `penumbra_vXX` ascendente.
-- **Mai** lasciare file `__init__.py` con contenuto di errore HTTP (es. "404: Not Found").
-- Auth = Supabase client-side; backend verifica JWT.
-- Deploy Render: `uvicorn api.main:app` con cwd/PYTHONPATH su `backend/`.
+- Cartelle `penumbra_vXX` progressive.
+- Home deve sempre mostrare le modalità (base / tutorial / pvp / storia / endless); solo base attiva per ora.
+- `player_data` deve esistere a livello modulo in `api/main.py`.
+- Auth = Supabase client; JWT alle API.
+- `__init__.py` mai con testo 404.

@@ -1,15 +1,9 @@
-# Penumbra – Consegna v35
+# Penumbra – Consegna v36
 
-## Fix deploy Render
-- `backend/api/__init__.py` era corrotto (`404: Not Found` come contenuto) → **SyntaxError** all’avvio.
-- File ripristinato a package vuoto valido.
+## Fix
+1. **`/api/new` 500**: mancava `player_data()` in `main.py` → NameError. Ripristinata.
+2. **Home**: di nuovo le modalità (Partita base attiva; Tutorial / PvP / Storia / Endless disabilitate “In arrivo”).
 
-## Contenuto
-Include v34 (login Supabase) + v33 (mappa hex) + fix package.
+Include tutto da v33–v35 (hex, Supabase login, `__init__.py` valido).
 
-**Nessuna modifica manuale.** Cartella: `penumbra_v35/`
-
-Assicurati di pushare su GitHub **tutto** il contenuto di `backend/`, in particolare:
-- `backend/api/__init__.py` (solo docstring/package, **non** testo 404)
-- `backend/static/index.html`
-- `backend/core/*`
+**Nessuna modifica manuale.** Cartella: `penumbra_v36/`
