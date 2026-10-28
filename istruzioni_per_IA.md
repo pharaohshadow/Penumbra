@@ -1,6 +1,6 @@
 # Istruzioni per IA – Penumbra
 
-**Versione attuale: v1.0**
+**Versione attuale: v1.1**
 
 Queste istruzioni sono **obbligatorie**.  
 Prima di consegnare qualsiasi file, l’IA **deve** rileggere questo documento.
@@ -21,7 +21,7 @@ Prima di consegnare qualsiasi file, l’IA **deve** rileggere questo documento.
 6. Non proporre funzionalità PvP finché l’utente non lo chiede esplicitamente.
 7. Spiega sempre cosa stai facendo in italiano semplice.
 8. Non inventare URL, chiavi o impostazioni. Se mancano dati importanti, chiedili e poi aggiorna `architettura.md`.
-9. Quando completi l’ultimo sotto-punto di un punto principale della roadmap (es. finisci il 1.6), segna il punto come chiuso e **chiedi conferma** all’utente prima di passare al punto successivo.
+9. Quando completi l’ultimo sotto-punto di un punto principale della roadmap, segna il punto come chiuso e **chiedi conferma** all’utente prima di passare al punto successivo.
 
 ---
 

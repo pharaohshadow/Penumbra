@@ -1,6 +1,6 @@
 """
 Costanti e Enum del gioco Penumbra
-v1.0 – hotfix2: compatibilità completa con versioni miste di map_board.py
+v1.1 – compatibilità completa con map_board.py (tutte le funzioni esagonali richieste)
 """
 
 from enum import Enum, auto
@@ -8,7 +8,7 @@ from typing import Tuple, List
 from dataclasses import dataclass
 
 # ============================================================
-# COORDINATE ESAGONALI (compatibilità)
+# COORDINATE ESAGONALI
 # ============================================================
 
 HEX_DIRECTIONS = [
@@ -20,9 +20,13 @@ HEX_DIRECTIONS = [
     ( 0, +1),  # SE
 ]
 
+HEX_RADIUS = 5
+PLAYABLE_RADIUS = 4
+
+
 @dataclass(frozen=True)
 class HexPos:
-    """Coordinate assiali di un esagono (alias usato da alcune versioni)."""
+    """Coordinate assiali di un esagono."""
     q: int
     r: int
 
@@ -43,6 +47,22 @@ def hex_distance(q1: int, r1: int, q2: int, r2: int) -> int:
     s1 = -q1 - r1
     s2 = -q2 - r2
     return max(abs(q1 - q2), abs(r1 - r2), abs(s1 - s2))
+
+
+def hex_in_radius(radius: int) -> List[Tuple[int, int]]:
+    """Restituisce tutte le celle entro un certo raggio (incluso il centro)."""
+    result = []
+    for q in range(-radius, radius + 1):
+        r1 = max(-radius, -q - radius)
+        r2 = min(radius, -q + radius)
+        for r in range(r1, r2 + 1):
+            result.append((q, r))
+    return result
+
+
+def is_hex_within_radius(q: int, r: int, radius: int) -> bool:
+    """True se la cella (q,r) è entro il raggio indicato."""
+    return hex_distance(q, r, 0, 0) <= radius
 
 
 # ============================================================
@@ -145,10 +165,6 @@ FRAGMENT_COSTS = [0, 3, 6]
 ALTAR_POS = (2, 2)
 TEMPLE_P1_POSITIONS = [(4, 1), (4, 2), (4, 3)]
 TEMPLE_P2_POSITIONS = [(0, 1), (0, 2), (0, 3)]
-
-# Nuovo sistema esagonale
-HEX_RADIUS = 5
-PLAYABLE_RADIUS = 4
 
 # Colori ANSI
 ANSI = {
