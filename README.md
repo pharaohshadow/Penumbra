@@ -1,6 +1,6 @@
 # Penumbra
 
-**Versione attuale: v1.4**
+**Versione attuale: v1.5**
 
 Gioco di carte a turni su mappa esagonale, con draft a buste sigillate, sistema Corona/Frammenti e partite contro IA.
 
@@ -16,7 +16,7 @@ Gioco di carte a turni su mappa esagonale, con draft a buste sigillate, sistema 
 4. `istruzioni_per_IA.md`
 
 Dopo averli letti tutti e 4:
-- Scrivi esattamente: «Ho letto i 4 file di consegna (versione v1.4)»
+- Scrivi esattamente: «Ho letto i 4 file di consegna (versione v1.5)»
 - Solo dopo puoi fare domande o proporre modifiche.
 
 **Se incontri difficoltà o ti serve leggere altri file del repository per poter completare la richiesta, chiedili pure e ti saranno forniti.**
@@ -25,10 +25,14 @@ Dopo averli letti tutti e 4:
 
 ## Link utili
 - Repository: https://github.com/pharaohshadow/Penumbra
+- Sito live: https://penumbra-8psb.onrender.com
+- Render dashboard: (servizio penumbra-backend)
 
 ---
 
 ## File di consegna obbligatori
+
+Ogni volta che l’IA consegna modifiche, deve obbligatoriamente consegnare questi 4 file aggiornati con la stessa versione:
 
 - `README.md`
 - `architettura.md`

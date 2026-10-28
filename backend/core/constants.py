@@ -1,6 +1,6 @@
 """
 Costanti e Enum del gioco Penumbra
-v1.4 – allineato al map_board.py esagonale (v39)
+v1.5 – aggiunto parse_hex_key (fix ImportError che bloccava Render)
 """
 
 from enum import Enum, auto
@@ -55,6 +55,21 @@ class HexPos:
 
 def hex_key(q: int, r: int) -> Tuple[int, int]:
     return (q, r)
+
+
+def parse_hex_key(key) -> Tuple[int, int]:
+    """
+    Accetta (q, r), 'q,r', HexPos o oggetto con .q/.r
+    e restituisce sempre la tupla (q, r).
+    """
+    if isinstance(key, tuple) and len(key) == 2:
+        return int(key[0]), int(key[1])
+    if isinstance(key, str) and "," in key:
+        parts = key.split(",", 1)
+        return int(parts[0].strip()), int(parts[1].strip())
+    if hasattr(key, "q") and hasattr(key, "r"):
+        return int(key.q), int(key.r)
+    raise ValueError(f"Impossibile interpretare hex key: {key!r}")
 
 
 def hex_neighbors(q: int, r: int) -> List[Tuple[int, int]]:
