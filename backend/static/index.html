@@ -500,15 +500,15 @@ function render() {
     const cy1 = oy + (ca.y - minY) * scale;
     const cx2 = ox + (cb.x - minX) * scale;
     const cy2 = oy + (cb.y - minY) * scale;
-    // R un po' più corto: la montagna resta SUL bordo, non entra nei centri
-    const R = hs * 0.78;
+    // Montagna centrata sul bordo: spessore minimo così NON entra nei centri
+    const R = hs * 0.95;
     const e = sharedEdgeEnds(cx1, cy1, cx2, cy2, R);
     const len = Math.hypot(e.x2 - e.x1, e.y2 - e.y1) || 1;
     const rnd = mulberry32(wallSeed(w.a_qr, w.b_qr));
-    const nPeaks = 3 + Math.floor(rnd() * 2);
-    // spessore totale centrato sul bordo (più spesso, ma contenuto nel gap)
-    const halfThick = hs * (0.11 + rnd() * 0.04);
-    const ridgeExtra = hs * (0.04 + rnd() * 0.03); // piccoli picchi, non invadono l'esagono
+    const nPeaks = 2 + Math.floor(rnd() * 2);
+    // metà spessore molto piccolo (solo la fascia del bordo)
+    const halfThick = Math.max(3.5, hs * 0.045);
+    const ridgeExtra = Math.max(1.2, hs * 0.018);
 
     const topPts = [];
     for (let i = 0; i <= nPeaks + 1; i++) {
@@ -516,9 +516,9 @@ function render() {
       const bx = e.x1 + (e.x2 - e.x1) * t;
       const by = e.y1 + (e.y2 - e.y1) * t;
       let h = halfThick;
-      if (i > 0 && i < nPeaks + 1) h += ridgeExtra * (0.5 + rnd() * 0.5);
-      else h *= 0.7;
-      const jitter = (rnd() - 0.5) * len * 0.03;
+      if (i > 0 && i < nPeaks + 1) h += ridgeExtra * (0.4 + rnd() * 0.6);
+      else h *= 0.75;
+      const jitter = (rnd() - 0.5) * len * 0.02;
       topPts.push([bx + e.nx * h + e.tx * jitter, by + e.ny * h + e.ty * jitter]);
     }
     const botPts = [];
@@ -526,25 +526,26 @@ function render() {
       const t = i / (nPeaks + 1);
       const bx = e.x1 + (e.x2 - e.x1) * t;
       const by = e.y1 + (e.y2 - e.y1) * t;
-      let h = halfThick * (0.85 + rnd() * 0.2);
-      if (i > 0 && i < nPeaks + 1) h += ridgeExtra * 0.35 * rnd();
+      const h = halfThick * (0.9 + rnd() * 0.15);
       botPts.push([bx - e.nx * h, by - e.ny * h]);
     }
 
     const all = topPts.concat(botPts);
     const d = all.map((p, i) => (i === 0 ? "M" : "L") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ") + " Z";
 
+    // marrone scuro
     const shadow = document.createElementNS("http://www.w3.org/2000/svg", "path");
     shadow.setAttribute("d", d);
-    shadow.setAttribute("fill", "#2a241f");
-    shadow.setAttribute("opacity", "0.9");
+    shadow.setAttribute("fill", "#3b2416");
+    shadow.setAttribute("opacity", "0.95");
     wallSvg.appendChild(shadow);
 
+    // corpo marrone
     const body = document.createElementNS("http://www.w3.org/2000/svg", "path");
     body.setAttribute("d", d);
-    body.setAttribute("fill", "#7a6a55");
-    body.setAttribute("stroke", "#4a3f35");
-    body.setAttribute("stroke-width", "1.2");
+    body.setAttribute("fill", "#6b3f24");
+    body.setAttribute("stroke", "#4a2c18");
+    body.setAttribute("stroke-width", "1");
     wallSvg.appendChild(body);
 
     if (topPts.length >= 2) {
@@ -555,8 +556,8 @@ function render() {
       const ridge = document.createElementNS("http://www.w3.org/2000/svg", "path");
       ridge.setAttribute("d", ridgeD);
       ridge.setAttribute("fill", "none");
-      ridge.setAttribute("stroke", "#d4c4a8");
-      ridge.setAttribute("stroke-width", "2");
+      ridge.setAttribute("stroke", "#a67c52");
+      ridge.setAttribute("stroke-width", "1.5");
       ridge.setAttribute("stroke-linejoin", "round");
       ridge.setAttribute("stroke-linecap", "round");
       ridge.setAttribute("opacity", "0.95");

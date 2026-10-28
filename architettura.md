@@ -1,19 +1,13 @@
-# Architettura – v1.12
+# Architettura – v1.13
 
 ## Stato attuale
 
-Aggiornamento grafico mappa (richiesta utente):
-
-- **Montagne** più spesse, centrate sul bordo (non entrano negli esagoni)
-- **Bordo esterno** = caselle **Lava** (arancio/rosso), non calpestabili
-- **Templi** rosa
-- **Terreno** verdino (non più blu)
+Montagne:
+- **Marroni** (corpo `#6b3f24`, ombra `#3b2416`, cresta `#a67c52`)
+- **Spessore ridotto** e centrato sul bordo tra due esagoni → non devono più entrare nel centro delle caselle (es. Rovina2)
 
 ### File toccati
 - `backend/static/index.html`
-
-### Supabase
-- URL: `https://favrmxwyaxklfiruyvqz.supabase.co`
 
 ### Render
 - URL live: https://penumbra-8psb.onrender.com
