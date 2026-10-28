@@ -41,3 +41,10 @@ Quando l’utente dà a una nuova chat il link del repository, quella chat deve:
 2. Dichiarare di averli letti
 3. Fare domande se ha dubbi
 4. Non esplorare altri file finché non viene autorizzata
+
+
+---
+
+## Comanda imperativo categorico finale assoluto
+
+Ogni volta che devi consegnarmi dei file è fondamentale e categorico che tu rilegga questo file! Dunque come sistema di controllo, affinchè l'utente possa verificare che tu abbia effettivamente letto questo file ti scrivo qui questo ordine: "ognivolta che finisci di leggere questo file devi scrivere HO LETTO NUOVAMENTE LE ISTRUZIONI", se non scrivi questa frase so che non hai letto questo file e la cosa sarebbe molto grave
