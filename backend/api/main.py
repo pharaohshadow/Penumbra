@@ -113,6 +113,7 @@ def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:
                 "unit": None,
                 "visible": visible,
                 "fog": not visible,
+                "artifact": bool(tile and getattr(tile, "has_artifact", False)) if visible else False,
             }
             if visible:
                 # Trappole proprie sempre visibili se sulla casella; nemiche solo se esplorate? per ora solo se visible
@@ -126,6 +127,8 @@ def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:
                         "crown": unit.has_fragment,
                         "evolved": "evolved" in unit.statuses,
                         "coord": unit.coord,
+                        "color": unit.card.color.value if unit.card.color else None,
+                        "signore": "signore" in unit.statuses,
                     }
             else:
                 # Fuori fog: nascondi tipo tile giocabile (mostra solo Cornice/Tempio noti)
@@ -166,6 +169,7 @@ def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:
             "crown": p.crown_unit.coord if p.crown_unit and p.crown_unit.is_alive else None,
             "is_ai": p.is_ai,
             "lost": p.has_lost,
+            "clues": getattr(p, "clues", 0),
         }
 
     eldrazi = [
@@ -173,6 +177,9 @@ def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:
         for i, e in enumerate(gs.eldrazi_pool)
     ]
     mode = _modes.get(game_id, {"p1_ai": True})
+    popups = list(getattr(gs, "pending_popups", []) or [])
+    if hasattr(gs, "pending_popups"):
+        gs.pending_popups.clear()
     return {
         "game_id": game_id,
         "turn": gs.turn,
@@ -192,7 +199,9 @@ def serialize_state(gs: GameState, game_id: str, viewer_id: int = 0) -> dict:
         "player1_uid": mode.get("player1_uid"),
         "edge_walls": gs.board.get_edge_walls_for_ui() if hasattr(gs.board, "get_edge_walls_for_ui") else [],
         "grid_size": GRID_SIZE,
+        "pending_popups": popups,
     }
+
 
 
 def _persist(game_id: str, gs: GameState, action: str = "update", payload: Optional[dict] = None):

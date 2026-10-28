@@ -22,6 +22,7 @@ class Player:
     colors: Set[Color] = field(default_factory=set)  # colori scelti nel draft
     is_ai: bool = False
     has_lost: bool = False
+    clues: int = 0  # indizi quest (v30)
 
     def can_afford(self, cost: int) -> bool:
         return self.mana >= cost

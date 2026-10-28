@@ -1,57 +1,33 @@
-# Penumbra – Consegna v29
+# Penumbra – Consegna v30
 
-## Novità
+## Neutrali colorati (Altare)
+- A fine turno di ogni giocatore: attivazione + spawn sull’Altare
+- **Stats**: `atk = floor(media_atk di TUTTI i mostri giocatori) − 1` (min 0), `hp = floor(media_hp)` (min 1) → minimo **0/1**
+- **Colore** casuale tra i non ancora usciti nel ciclo: Bianco, Blu, Rosso, Nero, Verde, **Giallo**
+- Dopo i 6 colori → **Il Signore**; poi il ciclo colori si azzera
 
-### Cartelle versione
-Da questa consegna in poi ogni handoff è in `penumbra_vXX` ascendente (regola scritta in `istruzioni_per_IA.md`).
+## Il Signore
+- Spawna su **casella casuale** libera (non sull’Altare)
+- Sulla stessa casella lascia un **artefatto** (◆)
+- Stats: **ATK = 0, +2 a ogni comparsa successiva**; **HP = infinito**
+- Non bersagliabile, non attaccabile
+- Vaga a caso a fine turno; interazione se condivide/adiacenza con un giocatore (log per ora)
 
-### Neutrali dall’Altare
-A **fine turno di ogni giocatore**:
-1. Si attivano i neutrali già in campo
-2. Spawna sull’**Altare** una nuova creatura neutrale
-
-**Progressione stats**
-| Spawn | Stats | Nome |
-|-------|-------|------|
-| 1° | 1/1 | Neutrale 1/1 |
-| 2° | 2/2 | Neutrale 2/2 |
-| … | … | … |
-| 6° | 6/6 | **Il Signore** |
-| 7° | 1/1 | (ciclo riparte) |
-
-**Comportamento (non-Signore)**
-1. **Senza bersaglio**: fa 1 passo in direzione casuale; se nella sua fog (raggio 2) vede creature giocatore, ne sceglie una a caso come bersaglio.
-2. **Con bersaglio**: fa 1 passo verso di lui; se può entrare sulla sua casella → combattimento.
-
-**Il Signore (6/6)**  
-BBEG. Per ora compare e non usa ancora le regole speciali (in attesa tue istruzioni).
-
-### Già presente (v28.x)
-- Mappa 7×7, muri edge, fog of war, Corona carta, no PvP in partita
+## Artefatto e indizi
+- Entrando sulla casella dell’artefatto, la creatura del giocatore lo raccoglie
+- +1 indizio + **popup “GGWP”** (placeholder testo indizio)
+- Contatore indizi in status bar
 
 **Nessuna modifica manuale richiesta.**
 
----
+Cartella: `penumbra_v30/`
 
-## File da sostituire
-
+### File principali
 | File | Azione |
 |------|--------|
 | `backend/core/game_state.py` | Sostituisci |
-| `backend/core/constants.py` | Sostituisci (se non già v28) |
-| `backend/core/map_board.py` | Sostituisci (se non già v28) |
-| `backend/core/tile.py` | Sostituisci (se non già v28) |
-| `backend/api/main.py` | Sostituisci (se non già v28) |
-| `backend/static/index.html` | Sostituisci (se non già v28) |
-| `ROADMAP.md` | Sostituisci |
-| `architettura.md` | Sostituisci |
-| `istruzioni_per_IA.md` | Sostituisci |
-| `README.md` | Questo handoff |
-
-Cartella: `/home/workdir/artifacts/penumbra_v29/`
-
----
-
-## Prossimo
-- Tu mi spieghi le regole del **Signore**
-- Io le implemento in **v30**
+| `backend/core/player.py` | Sostituisci |
+| `backend/core/tile.py` | Sostituisci |
+| `backend/api/main.py` | Sostituisci |
+| `backend/static/index.html` | Sostituisci |
+| docs | Sostituisci |

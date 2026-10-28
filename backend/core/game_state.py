@@ -31,9 +31,11 @@ class GameState:
         self.eldrazi_pool: List[Card] = []
         self.event_deck: List[str] = []  # nomi tessere evento
         self.winner: Optional[int] = None
-        # Neutrali dall'Altare (v29)
-        self.neutral_tier: int = 0          # ultimo spawn: 0 = nessuno ancora, poi 1..6
-        self.neutral_units: list = []       # Unit owner_id == -1 gestite dal sistema Altare
+        # Neutrali Altare / Signore (v30)
+        self.neutral_colors_used: list = []  # colori già usciti nel ciclo corrente
+        self.signore_atk: int = 0            # attacco Signore (parte 0, +2 a ogni comparsa)
+        self.signore_appearances: int = 0
+        self.pending_popups: list = []       # {"type":"clue","text":"GGWP",...} per la UI
         self._init_eldrazi_pool()
         self._init_event_deck()
 
@@ -79,7 +81,8 @@ class GameState:
         """Una magia/abilità a bersaglio può colpire questa unità solo se visibile."""
         if unit is None or not unit.is_alive:
             return False
-        # Le proprie unità sono sempre bersagliabili
+        if "untargetable" in unit.statuses or "signore" in unit.statuses:
+            return False
         if unit.owner_id == viewer_id:
             return True
         return self.is_visible_to(viewer_id, unit.row, unit.col)
@@ -464,56 +467,121 @@ class GameState:
 
 
     # ------------------------------------------------------------------
-    # Neutrali dall'Altare (v29)
+    # Neutrali Altare / Signore (v30)
     # ------------------------------------------------------------------
+    def _player_monsters_stats(self):
+        """Media ATK/HP di tutte le creature dei giocatori (non neutrali)."""
+        units = [u for u in self.board.units.values() if u.is_alive and u.owner_id in (0, 1)]
+        if not units:
+            return 0.0, 1.0  # default → spawn 0/1
+        avg_atk = sum(u.current_atk for u in units) / len(units)
+        avg_hp = sum(u.current_hp for u in units) / len(units)
+        return avg_atk, avg_hp
+
+    def _next_neutral_color(self):
+        """Colore casuale tra quelli non ancora usciti; None = tocca al Signore."""
+        from .constants import Color
+        pool = [Color.WHITE, Color.BLUE, Color.RED, Color.BLACK, Color.GREEN, Color.YELLOW]
+        remaining = [c for c in pool if c not in self.neutral_colors_used]
+        if not remaining:
+            return None  # Signore
+        return random.choice(remaining)
+
     def _spawn_altar_neutral(self):
         """
-        A fine turno: spawna sull'Altare una creatura neutrale.
-        Stats = tier corrente + 1 (1/1, 2/2, … 6/6 = Signore).
-        Dopo il Signore (6) si riparte da 1/1.
-        Se Altare occupato, non spawna (log).
+        Fine turno: spawna sull'Altare un neutrale colorato, oppure Il Signore
+        quando tutti e 6 i colori del ciclo sono usciti.
+        Stats neutrale: atk = floor(media_atk)-1 (min 0), hp = floor(media_hp) (min 1).
         """
         from .card import Card
         from .constants import CardType, Color, ALTAR_POS
         from .unit import Unit
+        import math
 
-        # Progressione: 0→1, 1→2, … 5→6, 6→1
-        next_tier = 1 if self.neutral_tier >= 6 else self.neutral_tier + 1
-        is_signore = next_tier == 6
+        color = self._next_neutral_color()
+        if color is None:
+            self._spawn_signore()
+            return
+
+        avg_atk, avg_hp = self._player_monsters_stats()
+        atk = max(0, int(math.floor(avg_atk)) - 1)
+        hp = max(1, int(math.floor(avg_hp)))
 
         ar, ac = ALTAR_POS
-        if self.board.get_unit_at(ar, ac) is not None:
-            self.log_msg(f"[Altare] spawn {next_tier}/{next_tier} fallito: casella occupata")
-            return
-        if not self.board.is_walkable(ar, ac):
-            self.log_msg("[Altare] spawn fallito: Altare non camminabile")
+        if self.board.get_unit_at(ar, ac) is not None or not self.board.is_walkable(ar, ac):
+            self.log_msg(f"[Altare] spawn {color.value} {atk}/{hp} fallito: casella non libera")
             return
 
-        name = "Il Signore" if is_signore else f"Neutrale {next_tier}/{next_tier}"
         card = Card(
-            id=8000 + next_tier + self.turn * 10,
-            name=name,
+            id=8100 + len(self.neutral_colors_used) + self.turn * 10,
+            name=f"Neutrale {color.value}",
             cost=0,
             card_type=CardType.NEUTRAL,
-            color=Color.GRAY,
-            atk=next_tier,
-            hp=next_tier,
-            text="Creatura dell'Altare." + (" BBEG – regole speciali." if is_signore else ""),
+            color=color,
+            atk=atk,
+            hp=hp,
+            text=f"Creatura dell'Altare ({color.value}).",
         )
-        unit = Unit(card, -1, ar, ac, next_tier, next_tier)
+        unit = Unit(card, -1, ar, ac, hp, atk)
         unit.statuses.add("altar_neutral")
-        if is_signore:
-            unit.statuses.add("signore")
-        # Bersaglio corrente (None finché non ne sceglie uno)
         unit.statuses.add("target:none")
         if not self.board.place_unit(unit):
             self.log_msg("[Altare] place_unit fallito")
             return
-        self.neutral_tier = next_tier
-        self.log_msg(f"[Altare] compare {name} ({next_tier}/{next_tier}) su {unit.coord}")
+        self.neutral_colors_used.append(color)
+        self.log_msg(f"[Altare] Neutrale {color.value} {atk}/{hp} su {unit.coord} (colori usati {len(self.neutral_colors_used)}/6)")
+
+    def _spawn_signore(self):
+        """Il Signore: casella casuale libera, artefatto sulla stessa, ATK=signore_atk (0,2,4…), HP infinito."""
+        from .card import Card
+        from .constants import CardType, Color, GRID_SIZE
+        from .unit import Unit
+
+        free = [
+            (r, c)
+            for r in range(GRID_SIZE)
+            for c in range(GRID_SIZE)
+            if self.board.is_walkable(r, c) and self.board.get_unit_at(r, c) is None
+        ]
+        if not free:
+            self.log_msg("[Signore] nessuna casella libera per lo spawn")
+            return
+        r, c = random.choice(free)
+        self.signore_appearances += 1
+        # Prima comparsa atk=0; ogni comparsa successiva +2 (quindi 0,2,4…)
+        if self.signore_appearances > 1:
+            self.signore_atk += 2
+        atk = self.signore_atk
+        # HP "infinito": valore molto alto + status
+        INF = 10**9
+        card = Card(
+            id=8999 + self.signore_appearances,
+            name="Il Signore",
+            cost=0,
+            card_type=CardType.NEUTRAL,
+            color=Color.GRAY,
+            atk=atk,
+            hp=INF,
+            text="BBEG. Non bersagliabile, non sconfiggibile.",
+        )
+        unit = Unit(card, -1, r, c, INF, atk)
+        unit.statuses.add("altar_neutral")
+        unit.statuses.add("signore")
+        unit.statuses.add("untargetable")
+        unit.statuses.add("immortal")
+        unit.statuses.add("target:none")
+        if not self.board.place_unit(unit):
+            self.log_msg("[Signore] place_unit fallito")
+            return
+        # Artefatto sulla stessa casella
+        tile = self.board.get_tile(r, c)
+        if tile:
+            tile.has_artifact = True
+        # Reset ciclo colori
+        self.neutral_colors_used = []
+        self.log_msg(f"[Signore] appare su {unit.coord} ({atk}/∞). Artefatto lasciato. Ciclo colori azzerato.")
 
     def _neutral_get_target(self, unit) -> Optional[Unit]:
-        """Legge il bersaglio salvato nello status target:coord oppure None."""
         for s in unit.statuses:
             if s.startswith("target:") and s != "target:none":
                 coord = s.split(":", 1)[1]
@@ -536,7 +604,6 @@ class GameState:
             unit.statuses.add(f"target:{target.coord}")
 
     def _neutral_visible_enemies(self, neu: Unit):
-        """Nemici (non neutrali) visibili al neutrale con fog raggio 2 dal neutrale stesso."""
         result = []
         for u in list(self.board.units.values()):
             if not u.is_alive or u.owner_id == -1:
@@ -545,13 +612,30 @@ class GameState:
                 result.append(u)
         return result
 
+    def _give_clue(self, player_id: int, source: str = "artefatto"):
+        p = self.players[player_id]
+        p.clues = getattr(p, "clues", 0) + 1
+        popup = {
+            "type": "clue",
+            "player_id": player_id,
+            "text": "GGWP",
+            "source": source,
+            "clues_total": p.clues,
+        }
+        self.pending_popups.append(popup)
+        self.log_msg(f"[Indizio] {p.name} ottiene un indizio da {source} (totale {p.clues})")
+
+    def _try_pickup_artifact(self, unit: Unit):
+        """Se un'unità giocatore entra su casella con artefatto → raccoglie indizio."""
+        if unit.owner_id not in (0, 1):
+            return
+        tile = self.board.get_tile(unit.row, unit.col)
+        if not tile or not getattr(tile, "has_artifact", False):
+            return
+        tile.has_artifact = False
+        self._give_clue(unit.owner_id, source="artefatto")
+
     def _activate_altar_neutrals(self):
-        """
-        Per ogni neutrale Altare (non Signore – comportamento base):
-        1) Senza bersaglio: passo casuale, poi se vede qualcuno ne sceglie uno a caso.
-        2) Con bersaglio: passo verso di lui; se adiacente tenta di entrare → combattimento.
-        Il Signore (status signore) per ora non si muove: regole BBEG in arrivo.
-        """
         neutrals = [
             u for u in list(self.board.units.values())
             if u.owner_id == -1 and u.is_alive and "altar_neutral" in u.statuses
@@ -560,18 +644,30 @@ class GameState:
             return
 
         for neu in neutrals:
+            # --- SIGNORE: solo vagabondaggio casuale ---
             if "signore" in neu.statuses:
-                self.log_msg(f"[Altare] {neu.card.name} osserva… (regole Signore non ancora attive)")
+                adj = self.board.get_adjacent(neu.row, neu.col)
+                free = [(r, c) for r, c in adj if self.board.get_unit_at(r, c) is None]
+                # Se adiacente a un giocatore, "interazione"
+                for r, c in adj:
+                    other = self.board.get_unit_at(r, c)
+                    if other and other.owner_id in (0, 1) and other.is_alive:
+                        self.log_msg(f"[Signore] interagisce con {other.card.name} ({other.coord})!")
+                        # per ora solo log; effetto da definire
+                if free:
+                    nr, nc = random.choice(free)
+                    # se la casella scelta ha un giocatore non dovrebbe (free filtrato)
+                    self.board.move_unit(neu, nr, nc)
+                    self.log_msg(f"[Signore] vaga verso {neu.coord}")
                 continue
 
+            # --- Neutrale colorato ---
             target = self._neutral_get_target(neu)
-            # Se il bersaglio è morto / sparito, reset
             if target is not None and (not target.is_alive or target.owner_id == -1):
                 target = None
                 self._neutral_set_target(neu, None)
 
             if target is None:
-                # 1) passo casuale
                 adj = self.board.get_adjacent(neu.row, neu.col)
                 free = [(r, c) for r, c in adj if self.board.get_unit_at(r, c) is None]
                 if free:
@@ -579,7 +675,6 @@ class GameState:
                     self.board.move_unit(neu, nr, nc)
                     self.log_msg(f"[Neutrale] {neu.card.name} vaga verso {neu.coord}")
                     self._on_enter_tile(neu)
-                # poi cerca qualcuno in fog
                 seen = self._neutral_visible_enemies(neu)
                 if seen:
                     chosen = random.choice(seen)
@@ -587,27 +682,20 @@ class GameState:
                     self.log_msg(f"[Neutrale] {neu.card.name} aggana {chosen.card.name} ({chosen.coord})")
                 continue
 
-            # 2) ha bersaglio → muovi verso di lui
-            # Se già adiacente (re): combatti
             if max(abs(neu.row - target.row), abs(neu.col - target.col)) <= 1:
                 self.log_msg(f"[Neutrale] {neu.card.name} attacca {target.card.name}!")
-                # Combattimento semplificato (come vecchi neutrali)
-                dmg = neu.current_atk
-                actual = target.take_damage(dmg, neu)
+                actual = target.take_damage(neu.current_atk, neu)
                 self.log_msg(f"  {actual} danni (HP {target.current_hp})")
                 if not target.is_alive:
                     self._destroy_unit(target)
-                    self.log_msg(f"  {target.card.name} eliminato")
                     self._neutral_set_target(neu, None)
                     continue
-                # Contrattacco
                 actual2 = neu.take_damage(target.current_atk, target)
                 self.log_msg(f"  Contrattacco {actual2} (HP neutrale {neu.current_hp})")
                 if not neu.is_alive:
                     self._destroy_unit(neu)
                 continue
 
-            # Passo verso il bersaglio
             best = None
             best_score = 999
             for nr, nc in self.board.get_adjacent(neu.row, neu.col):
@@ -622,10 +710,8 @@ class GameState:
                 br, bc = best
                 occ = self.board.get_unit_at(br, bc)
                 if occ is target:
-                    # Entra sulla casella del bersaglio → combattimento
                     self.log_msg(f"[Neutrale] {neu.card.name} carica {target.card.name}!")
-                    dmg = neu.current_atk
-                    actual = target.take_damage(dmg, neu)
+                    actual = target.take_damage(neu.current_atk, neu)
                     self.log_msg(f"  {actual} danni (HP {target.current_hp})")
                     if not target.is_alive:
                         self._destroy_unit(target)
@@ -640,7 +726,6 @@ class GameState:
                     self.board.move_unit(neu, br, bc)
                     self.log_msg(f"[Neutrale] {neu.card.name} insegue → {neu.coord}")
                     self._on_enter_tile(neu)
-
 
     def end_turn(self):
         p = self.players[self.current_player_id]
@@ -690,6 +775,9 @@ class GameState:
 
         target_unit = self.board.get_unit_at(target_row, target_col)
         if target_unit is not None:
+            if "signore" in target_unit.statuses or "untargetable" in target_unit.statuses:
+                self.log_msg("Il Signore non può essere attaccato.")
+                return False
             # Non si attaccano gli alleati
             if target_unit.owner_id == unit.owner_id:
                 self.log_msg("Non puoi attaccare una creatura alleata.")
@@ -765,6 +853,7 @@ class GameState:
         self.board.remove_unit(unit)
 
     def _on_enter_tile(self, unit: Unit):
+        self._try_pickup_artifact(unit)
         tile = self.board.get_tile(unit.row, unit.col)
         if not tile:
             return

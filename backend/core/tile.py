@@ -19,6 +19,7 @@ class Tile:
     trap_card_id: Optional[int] = None
     wall_hp: int = 0
     owner_id: Optional[int] = None
+    has_artifact: bool = False  # artefatto del Signore (v30)
 
     @property
     def coord(self) -> str:

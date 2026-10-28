@@ -27,6 +27,21 @@
     .cell.wall-left { border-left: 4px solid #94a3b8 !important; }
     .cell.wall-top { border-top: 4px solid #94a3b8 !important; }
     .cell.fog { background: #0a0c10; opacity: 0.55; }
+    .cell.artifact::after { content: "◆"; color: #fbbf24; position: absolute; top: 2px; right: 4px; font-size: 0.75rem; }
+    .cell { position: relative; }
+    .unit.signore { color: #f472b6; text-shadow: 0 0 6px #f472b6; }
+    .unit.col-Bianco { border-left: 3px solid #e8e8e8; padding-left: 2px; }
+    .unit.col-Blu { border-left: 3px solid #60a5fa; padding-left: 2px; }
+    .unit.col-Rosso { border-left: 3px solid #f87171; padding-left: 2px; }
+    .unit.col-Nero { border-left: 3px solid #a78bfa; padding-left: 2px; }
+    .unit.col-Verde { border-left: 3px solid #4ade80; padding-left: 2px; }
+    .unit.col-Giallo { border-left: 3px solid #fbbf24; padding-left: 2px; }
+    #cluePopup { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:100; align-items:center; justify-content:center; }
+    #cluePopup.show { display:flex; }
+    #cluePopup .box { background:#1a1d24; border:1px solid #fbbf24; border-radius:12px; padding:24px 28px; max-width:360px; text-align:center; }
+    #cluePopup .box h2 { margin:0 0 8px; color:#fbbf24; font-size:1.1rem; }
+    #cluePopup .box p { margin:0 0 16px; color:var(--text); }
+
     .cell.fog .tile-label, .cell.fog .coord { color: #3a3f4a; }
     .cell { background: var(--tile); border: 1px solid var(--border); border-radius: 6px; min-height: 52px; padding: 4px; cursor: pointer; font-size: 0.7rem; display: flex; flex-direction: column; justify-content: space-between; }
     .cell:hover { border-color: var(--accent); } .cell.selected { outline: 2px solid var(--accent); }
@@ -116,6 +131,7 @@
   </div>
 
   <!-- ============ GIOCO ============ -->
+  <div id="cluePopup"><div class="box"><h2>Indizio</h2><p id="cluePopupText">GGWP</p><button id="cluePopupOk">OK</button></div></div>
   <div id="gameRoot">
     <div id="authUserBar" class="panel">
       <span>Loggato come <strong id="userEmail">—</strong></span>
@@ -365,6 +381,7 @@
         <span>Mana <strong>${p.mana}/${p.mana_max}</strong></span>
         <span>Frammenti <strong>${p.fragments}/3</strong>${p.next_fragment_cost != null ? ` (prossimo: ${p.next_fragment_cost} mana)` : ""}</span>
         <span>Corona: <strong>${p.has_crown ? "sì" : "NO – piazzala!"}</strong></span>
+        <span>Indizi: <strong>${p.clues != null ? p.clues : 0}</strong></span>
         <span>Colore dominante: <strong>${p.dominant_color || "—"}</strong></span>
         ${state.winner !== null ? `<span style="color:var(--crown)">Vincitore P${state.winner}</span>` : ""}
       `;
@@ -405,12 +422,16 @@
         if (cell.tile && cell.tile.startsWith("Tempio")) cls += " temple";
         if (cell.altar) cls += " altar";
         if (cell.fog) cls += " fog";
+        if (cell.artifact) cls += " artifact";
         div.className = cls;
         let html = `<span class="coord">${cell.coord}</span>`;
         if (cell.unit) {
           const u = cell.unit;
-          const ucls = u.owner === 0 ? "p0" : u.owner === 1 ? "p1" : "neutral";
-          html += `<div class="unit ${ucls}">${u.crown ? '<span class="crown">👑</span>' : ""}${u.evolved ? "✦" : ""}${u.name}<br/>${u.atk}/${u.hp}</div>`;
+          let ucls = u.owner === 0 ? "p0" : u.owner === 1 ? "p1" : "neutral";
+          if (u.signore) ucls += " signore";
+          if (u.color) ucls += " col-" + u.color;
+          const hpShow = u.signore ? "∞" : u.hp;
+          html += `<div class="unit ${ucls}">${u.crown ? '<span class="crown">👑</span>' : ""}${u.evolved ? "✦" : ""}${u.name}<br/>${u.atk}/${hpShow}</div>`;
         } else if (cell.fog) {
           html += `<span class="tile-label">░</span>`;
         } else if (cell.tile !== "Cornice") {
@@ -487,6 +508,14 @@
         }
       } else eld.innerHTML = "";
       document.getElementById("log").textContent = (state.log || []).join("\n");
+      // Popups indizi
+      if (state.pending_popups && state.pending_popups.length) {
+        const pop = state.pending_popups.find(p => p.type === "clue" && p.player_id === playerId) || state.pending_popups[0];
+        if (pop) {
+          document.getElementById("cluePopupText").textContent = pop.text || "GGWP";
+          document.getElementById("cluePopup").classList.add("show");
+        }
+      }
       const inDraft = state.phase === "DRAFT";
       document.getElementById("btnEnd").disabled = inDraft || state.current_player !== playerId || state.phase === "GAME_OVER";
       const me = state.players[playerId] || state.players[0];
@@ -577,6 +606,10 @@
         selectedCoord = null; selectedCard = null; render(); setMsg("Nuova partita vs IA");
         startPolling();
       } catch (e) { setMsg(e.message); }
+    };
+
+    document.getElementById("cluePopupOk").onclick = () => {
+      document.getElementById("cluePopup").classList.remove("show");
     };
 
     function startPolling() {
