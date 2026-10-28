@@ -33,23 +33,32 @@
   #loginBox input { width: 100%; padding: 8px; margin: 6px 0; border-radius: 6px; border: 1px solid var(--border); background: #0f1218; color: var(--text); }
   #hexBoard {
     position: relative; width: 100%; height: min(70vw, 420px); min-height: 320px;
-    background: #0a0e14; border-radius: 12px; border: 1px solid var(--border);
+    background: #1e2836; border-radius: 12px; border: 1px solid var(--border);
     overflow: hidden;
   }
   .hex {
     position: absolute; width: 56px; height: 48px; margin-left: -28px; margin-top: -24px;
     /* flat-top (come hex_to_pixel del backend e l'editor) */
     clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
-    background: #2a3548; border: none; display: flex; flex-direction: column;
+    background: #2f3d52;
+    border: none; display: flex; flex-direction: column;
     align-items: center; justify-content: center; font-size: 0.52rem; cursor: pointer;
     color: #c5d0e0; text-align: center; line-height: 1.1; padding: 3px;
-    box-shadow: inset 0 0 0 1px #3a4a62;
+    box-shadow: inset 0 0 0 1px #44556e;
   }
   .hex.altar { background: #c9a227; color: #1a1400; font-weight: 700; box-shadow: inset 0 0 0 2px #e8c84a; }
-  .hex.frame { background: #1a1f28; color: #3a4a62; opacity: 0.95; cursor: default; box-shadow: inset 0 0 0 1px #252b36; }
+  /* Bordo esterno = montagna (non calpestabile, distinto dal fog) */
+  .hex.frame {
+    background: linear-gradient(160deg, #6b5b4a 0%, #4a3f35 45%, #3a322c 100%);
+    color: #d4c4a8; cursor: default;
+    box-shadow: inset 0 0 0 1px #8a7a65;
+    font-weight: 600;
+  }
+  .hex.frame .fname { font-size: 0.7rem; opacity: 1; }
   .hex.temple { background: #5b8c5a; color: #e8f5e8; box-shadow: inset 0 0 0 2px #7cb87a; font-weight: 700; }
   .hex.selected { outline: 2px solid #fbbf24; z-index: 5; }
-  .hex.fog { background: #12151c; color: #3a3f4a; opacity: 0.85; }
+  /* Fog: più scuro e bluastro, diverso dalle montagne */
+  .hex.fog { background: #151a24; color: #3a4250; opacity: 0.9; box-shadow: inset 0 0 0 1px #1e2530; }
   .hex.artifact::after { content: "◆"; color: #fbbf24; position: absolute; top: 6px; font-size: 0.7rem; }
   .hex .fname { font-size: 0.5rem; opacity: 0.9; max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .unit { font-weight: 700; font-size: 0.62rem; line-height: 1.1; border-radius: 3px; padding: 1px 2px; }
@@ -400,7 +409,7 @@ function render() {
   const scale = Math.min((bw - pad * 2) / dx, (bh - pad * 2) / dy) * 0.92;
   const ox = (bw - dx * scale) / 2;
   const oy = (bh - dy * scale) / 2;
-  const hs = Math.max(30, Math.min(52, scale * 1.05));
+  const hs = Math.max(32, Math.min(56, scale * 1.18)); // leggermente sovrapposti → niente buchi neri
 
   cells.forEach(cell => {
     if (cell.x == null || cell.y == null) return;
@@ -436,7 +445,7 @@ function render() {
       let label;
       if (cell.altar) label = "Altare";
       else if (cell.tile && String(cell.tile).startsWith("Tempio")) label = cell.tile.replace("Tempio", "T");
-      else if (cell.tile === "Cornice") label = "";
+      else if (cell.tile === "Cornice") label = "⛰";
       else label = cell.flavor || cell.coord || "";
       if (label) html += `<span class="fname">${label}</span>`;
     } else {
@@ -451,7 +460,7 @@ function render() {
     boardEl.appendChild(div);
   });
 
-  // Muri rossi SUL BORDO condiviso (non centro-centro)
+  // Ostacoli = creste di montagna sul bordo condiviso (non linee rosse)
   function sharedEdge(c1x, c1y, c2x, c2y, R) {
     const mx = (c1x + c2x) / 2, my = (c1y + c2y) / 2;
     let dx = c2x - c1x, dy = c2y - c1y;
@@ -471,16 +480,33 @@ function render() {
     const cy1 = oy + (ca.y - minY) * scale;
     const cx2 = ox + (cb.x - minX) * scale;
     const cy2 = oy + (cb.y - minY) * scale;
-    // hs = lato esagono ≈ circumradius disegnato
-    const R = hs * 0.92; // distanza centro→lato (flat-top)
+    const R = hs * 0.88;
     const [[x1, y1], [x2, y2]] = sharedEdge(cx1, cy1, cx2, cy2, R);
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", x1); line.setAttribute("y1", y1);
-    line.setAttribute("x2", x2); line.setAttribute("y2", y2);
-    line.setAttribute("stroke", "#e74c3c");
-    line.setAttribute("stroke-width", "5");
-    line.setAttribute("stroke-linecap", "round");
-    wallSvg.appendChild(line);
+    // base scura (roccia)
+    const base = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    base.setAttribute("x1", x1); base.setAttribute("y1", y1);
+    base.setAttribute("x2", x2); base.setAttribute("y2", y2);
+    base.setAttribute("stroke", "#3a322c");
+    base.setAttribute("stroke-width", "9");
+    base.setAttribute("stroke-linecap", "round");
+    wallSvg.appendChild(base);
+    // cresta chiara (montagna)
+    const ridge = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    ridge.setAttribute("x1", x1); ridge.setAttribute("y1", y1);
+    ridge.setAttribute("x2", x2); ridge.setAttribute("y2", y2);
+    ridge.setAttribute("stroke", "#8a7a65");
+    ridge.setAttribute("stroke-width", "5");
+    ridge.setAttribute("stroke-linecap", "round");
+    wallSvg.appendChild(ridge);
+    // highlight sottile
+    const hi = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    hi.setAttribute("x1", x1); hi.setAttribute("y1", y1);
+    hi.setAttribute("x2", x2); hi.setAttribute("y2", y2);
+    hi.setAttribute("stroke", "#c4b49a");
+    hi.setAttribute("stroke-width", "1.5");
+    hi.setAttribute("stroke-linecap", "round");
+    hi.setAttribute("opacity", "0.7");
+    wallSvg.appendChild(hi);
   });
   boardEl.appendChild(wallSvg);
 

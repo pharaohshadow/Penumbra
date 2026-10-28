@@ -1,20 +1,15 @@
-# Architettura – v1.8
+# Architettura – v1.9
 
 ## Stato attuale
 
-Aggiornamento grafico della mappa (28/10/2026) per avvicinarla allo stile dell’editor muri.
+Rifinitura grafica mappa (28/10/2026) su richiesta utente:
 
-### Cosa è cambiato in `backend/static/index.html`
-- Esagoni **flat-top** (come `hex_to_pixel` del backend e l’editor), non più pointy-top
-- Colori scuri blu/grigio come nello screenshot “figo”
-- Altare giallo, templi verdi, cornice scura senza alberi
-- Muri rossi più spessi e allineati ai bordi
+1. **Niente buchi neri** tra le tessere → esagoni leggermente più grandi / sovrapposti, sfondo del board del colore del terreno.
+2. **Muri = montagne** → non più linee rosse, ma creste rocciose (marrone/beige) sul bordo tra caselle.
+3. **Bordo esterno (Cornice)** → aspetto montagna, distinto dal fog of war (che resta blu-scuro).
 
 ### File toccati
-- `backend/static/index.html` (solo CSS + pezzi del render mappa)
-
-### Mappa / muri
-- `backend/data/map.json` (invariato da v1.7)
+- `backend/static/index.html` (solo aspetto mappa)
 
 ### Supabase
 - URL: `https://favrmxwyaxklfiruyvqz.supabase.co`
