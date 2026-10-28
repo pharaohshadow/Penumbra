@@ -31,6 +31,9 @@ class GameState:
         self.eldrazi_pool: List[Card] = []
         self.event_deck: List[str] = []  # nomi tessere evento
         self.winner: Optional[int] = None
+        # Neutrali dall'Altare (v29)
+        self.neutral_tier: int = 0          # ultimo spawn: 0 = nessuno ancora, poi 1..6
+        self.neutral_units: list = []       # Unit owner_id == -1 gestite dal sistema Altare
         self._init_eldrazi_pool()
         self._init_event_deck()
 
@@ -289,7 +292,7 @@ class GameState:
         # Spawn gratuito 1/1
         self._spawn_free_1_1(p)
 
-        # Neutrales rimossi (v28.3)
+        # Neutrali: spawn/attivazione a FINE turno (v29), non a inizio
 
         # Effetti a inizio turno (Santuario, Fenditura, Growth, ecc.)
         self._apply_start_of_turn_effects(p)
@@ -452,66 +455,192 @@ class GameState:
         self.log_msg(f"{player.name}: Tempio occupato, spawn 1/1 fallito")
 
     def _spawn_neutral(self):
-        # Trova casella libera
-        free = [(r, c) for r in range(GRID_SIZE) for c in range(GRID_SIZE)
-                if self.board.get_unit_at(r, c) is None and self.board.is_walkable(r, c)]
-        if not free:
-            return
-        r, c = random.choice(free)
-        x = max(0, self.turn // 2)
-        atk = x
-        hp = max(1, x)
-        from .card import Card
-        from .constants import CardType, Color
-        neut = Card(id=8000 + self.turn, name=f"Neutrale {atk}/{hp}", cost=0,
-                    card_type=CardType.NEUTRAL, color=Color.GRAY, atk=atk, hp=hp)
-        unit = Unit(neut, -1, r, c, hp, atk)  # owner -1 = neutrale
-        self.board.place_unit(unit)
-        self.log_msg(f"Mostro Neutrale {atk}/{hp} appare su {unit.coord}")
+        """Deprecato v29 – usare _spawn_altar_neutral."""
+        pass
 
     def _activate_neutrals(self):
-        """Ogni Neutrale si muove di 1 passo (re) verso il bersaglio più vicino e attacca se adiacente."""
-        neutrals = [u for u in list(self.board.units.values()) if u.owner_id == -1 and u.is_alive]
+        """Deprecato v29 – usare _activate_altar_neutrals."""
+        pass
+
+
+    # ------------------------------------------------------------------
+    # Neutrali dall'Altare (v29)
+    # ------------------------------------------------------------------
+    def _spawn_altar_neutral(self):
+        """
+        A fine turno: spawna sull'Altare una creatura neutrale.
+        Stats = tier corrente + 1 (1/1, 2/2, … 6/6 = Signore).
+        Dopo il Signore (6) si riparte da 1/1.
+        Se Altare occupato, non spawna (log).
+        """
+        from .card import Card
+        from .constants import CardType, Color, ALTAR_POS
+        from .unit import Unit
+
+        # Progressione: 0→1, 1→2, … 5→6, 6→1
+        next_tier = 1 if self.neutral_tier >= 6 else self.neutral_tier + 1
+        is_signore = next_tier == 6
+
+        ar, ac = ALTAR_POS
+        if self.board.get_unit_at(ar, ac) is not None:
+            self.log_msg(f"[Altare] spawn {next_tier}/{next_tier} fallito: casella occupata")
+            return
+        if not self.board.is_walkable(ar, ac):
+            self.log_msg("[Altare] spawn fallito: Altare non camminabile")
+            return
+
+        name = "Il Signore" if is_signore else f"Neutrale {next_tier}/{next_tier}"
+        card = Card(
+            id=8000 + next_tier + self.turn * 10,
+            name=name,
+            cost=0,
+            card_type=CardType.NEUTRAL,
+            color=Color.GRAY,
+            atk=next_tier,
+            hp=next_tier,
+            text="Creatura dell'Altare." + (" BBEG – regole speciali." if is_signore else ""),
+        )
+        unit = Unit(card, -1, ar, ac, next_tier, next_tier)
+        unit.statuses.add("altar_neutral")
+        if is_signore:
+            unit.statuses.add("signore")
+        # Bersaglio corrente (None finché non ne sceglie uno)
+        unit.statuses.add("target:none")
+        if not self.board.place_unit(unit):
+            self.log_msg("[Altare] place_unit fallito")
+            return
+        self.neutral_tier = next_tier
+        self.log_msg(f"[Altare] compare {name} ({next_tier}/{next_tier}) su {unit.coord}")
+
+    def _neutral_get_target(self, unit) -> Optional[Unit]:
+        """Legge il bersaglio salvato nello status target:coord oppure None."""
+        for s in unit.statuses:
+            if s.startswith("target:") and s != "target:none":
+                coord = s.split(":", 1)[1]
+                if coord == "none":
+                    return None
+                try:
+                    r, c = coord_to_pos(coord)
+                    u = self.board.get_unit_at(r, c)
+                    if u and u.is_alive and u.owner_id != -1:
+                        return u
+                except Exception:
+                    return None
+        return None
+
+    def _neutral_set_target(self, unit: Unit, target: Optional[Unit]):
+        unit.statuses = {s for s in unit.statuses if not s.startswith("target:")}
+        if target is None:
+            unit.statuses.add("target:none")
+        else:
+            unit.statuses.add(f"target:{target.coord}")
+
+    def _neutral_visible_enemies(self, neu: Unit):
+        """Nemici (non neutrali) visibili al neutrale con fog raggio 2 dal neutrale stesso."""
+        result = []
+        for u in list(self.board.units.values()):
+            if not u.is_alive or u.owner_id == -1:
+                continue
+            if max(abs(u.row - neu.row), abs(u.col - neu.col)) <= 2:
+                result.append(u)
+        return result
+
+    def _activate_altar_neutrals(self):
+        """
+        Per ogni neutrale Altare (non Signore – comportamento base):
+        1) Senza bersaglio: passo casuale, poi se vede qualcuno ne sceglie uno a caso.
+        2) Con bersaglio: passo verso di lui; se adiacente tenta di entrare → combattimento.
+        Il Signore (status signore) per ora non si muove: regole BBEG in arrivo.
+        """
+        neutrals = [
+            u for u in list(self.board.units.values())
+            if u.owner_id == -1 and u.is_alive and "altar_neutral" in u.statuses
+        ]
         if not neutrals:
             return
+
         for neu in neutrals:
-            # Bersaglio: creatura non neutrale più vicina
-            targets = [u for u in self.board.units.values() if u.owner_id != -1 and u.is_alive]
-            if not targets:
+            if "signore" in neu.statuses:
+                self.log_msg(f"[Altare] {neu.card.name} osserva… (regole Signore non ancora attive)")
                 continue
-            targets.sort(key=lambda t: abs(t.row - neu.row) + abs(t.col - neu.col))
-            prey = targets[0]
-            # Se già adiacente (re: max 1 in riga e colonna, non stessa casella) → combatti
-            if max(abs(prey.row - neu.row), abs(prey.col - neu.col)) == 1:
-                self.log_msg(f"Neutrale attacca {prey.card.name} su {prey.coord}")
-                # Combattimento semplificato senza spendere mana
+
+            target = self._neutral_get_target(neu)
+            # Se il bersaglio è morto / sparito, reset
+            if target is not None and (not target.is_alive or target.owner_id == -1):
+                target = None
+                self._neutral_set_target(neu, None)
+
+            if target is None:
+                # 1) passo casuale
+                adj = self.board.get_adjacent(neu.row, neu.col)
+                free = [(r, c) for r, c in adj if self.board.get_unit_at(r, c) is None]
+                if free:
+                    nr, nc = random.choice(free)
+                    self.board.move_unit(neu, nr, nc)
+                    self.log_msg(f"[Neutrale] {neu.card.name} vaga verso {neu.coord}")
+                    self._on_enter_tile(neu)
+                # poi cerca qualcuno in fog
+                seen = self._neutral_visible_enemies(neu)
+                if seen:
+                    chosen = random.choice(seen)
+                    self._neutral_set_target(neu, chosen)
+                    self.log_msg(f"[Neutrale] {neu.card.name} aggana {chosen.card.name} ({chosen.coord})")
+                continue
+
+            # 2) ha bersaglio → muovi verso di lui
+            # Se già adiacente (re): combatti
+            if max(abs(neu.row - target.row), abs(neu.col - target.col)) <= 1:
+                self.log_msg(f"[Neutrale] {neu.card.name} attacca {target.card.name}!")
+                # Combattimento semplificato (come vecchi neutrali)
                 dmg = neu.current_atk
-                actual = prey.take_damage(dmg, neu)
-                self.log_msg(f"  Neutrale infligge {actual} (HP preda: {prey.current_hp})")
-                if not prey.is_alive:
-                    self._destroy_unit(prey)
-                    self.log_msg(f"  {prey.card.name} eliminato dal Neutrale")
+                actual = target.take_damage(dmg, neu)
+                self.log_msg(f"  {actual} danni (HP {target.current_hp})")
+                if not target.is_alive:
+                    self._destroy_unit(target)
+                    self.log_msg(f"  {target.card.name} eliminato")
+                    self._neutral_set_target(neu, None)
                     continue
                 # Contrattacco
-                actual2 = neu.take_damage(prey.current_atk, prey)
-                self.log_msg(f"  Contrattacco {actual2} (HP neutrale: {neu.current_hp})")
+                actual2 = neu.take_damage(target.current_atk, target)
+                self.log_msg(f"  Contrattacco {actual2} (HP neutrale {neu.current_hp})")
                 if not neu.is_alive:
                     self._destroy_unit(neu)
                 continue
-            # Altrimenti muovi 1 passo (re) verso la preda
+
+            # Passo verso il bersaglio
             best = None
             best_score = 999
             for nr, nc in self.board.get_adjacent(neu.row, neu.col):
-                if self.board.get_unit_at(nr, nc) is not None:
+                occ = self.board.get_unit_at(nr, nc)
+                if occ is not None and occ is not target:
                     continue
-                score = abs(nr - prey.row) + abs(nc - prey.col)
+                score = max(abs(nr - target.row), abs(nc - target.col))
                 if score < best_score:
                     best_score = score
                     best = (nr, nc)
             if best:
-                self.board.move_unit(neu, best[0], best[1])
-                self.log_msg(f"Neutrale si muove verso {prey.card.name} → {neu.coord}")
-                self._on_enter_tile(neu)
+                br, bc = best
+                occ = self.board.get_unit_at(br, bc)
+                if occ is target:
+                    # Entra sulla casella del bersaglio → combattimento
+                    self.log_msg(f"[Neutrale] {neu.card.name} carica {target.card.name}!")
+                    dmg = neu.current_atk
+                    actual = target.take_damage(dmg, neu)
+                    self.log_msg(f"  {actual} danni (HP {target.current_hp})")
+                    if not target.is_alive:
+                        self._destroy_unit(target)
+                        self.board.move_unit(neu, br, bc)
+                        self._neutral_set_target(neu, None)
+                    else:
+                        actual2 = neu.take_damage(target.current_atk, target)
+                        self.log_msg(f"  Contrattacco {actual2}")
+                        if not neu.is_alive:
+                            self._destroy_unit(neu)
+                else:
+                    self.board.move_unit(neu, br, bc)
+                    self.log_msg(f"[Neutrale] {neu.card.name} insegue → {neu.coord}")
+                    self._on_enter_tile(neu)
+
 
     def end_turn(self):
         p = self.players[self.current_player_id]
@@ -527,6 +656,10 @@ class GameState:
                 self.phase = Phase.GAME_OVER
                 self.log_msg(f"*** {p.name} ha perso! Nessun Frammento in campo. ***")
                 return
+
+        # v29: a fine turno di ogni giocatore → attivazione neutrali + spawn Altare
+        self._activate_altar_neutrals()
+        self._spawn_altar_neutral()
 
         # Passa al giocatore successivo
         self.current_player_id = 1 - self.current_player_id

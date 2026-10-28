@@ -1,25 +1,18 @@
-# Architettura – v28.3
+# Architettura – v29
 
-## Mappa 7×7
-- Griglia 7×7 (A–G / 0–6), zona giocabile 5×5 interna
-- Cornice FRAME non camminabile
-- Templi: P0 = A6 (6,0), P1 = G0 (0,6)
-- Altare D3 (3,3)
-- Spawn solo sul Tempio
-- Muri = edge walls (non celle)
+## Consegne
+Cartelle `penumbra_vXX` progressive; non sovrascrivere versioni precedenti.
 
-## Fog of War
-- Raggio Chebyshev 2 da creature del giocatore + Tempio
-- `GameState.is_visible_to(player_id, row, col)`
-- `serialize_state(..., viewer_id)` nasconde unità/tile fuori visione
-- Maledizioni a bersaglio nemico: bloccate se `not can_target_unit`
+## Neutrali Altare
+- `GameState.neutral_tier` (0..6): ultimo tier spawnato
+- A `end_turn`: `_activate_altar_neutrals()` poi `_spawn_altar_neutral()`
+- Spawn su `ALTAR_POS` se libera
+- Unit `owner_id == -1`, status `altar_neutral`; tier 6 → anche `signore`
+- Bersaglio in status `target:COORD` / `target:none`
+- Visione neutrali: Chebyshev ≤ 2 dalla propria posizione
 
-## Neutrali
-- Rimossi: niente `_spawn_neutral` / `_activate_neutrals` a inizio turno
+## Fog of War / Mappa
+Come v28.3 (raggio 2, edge walls, 7×7, templi angoli).
 
 ## Corona
-- Carta FRAGMENT in mano, costo 0/3/6
-- `_sync_fragment_card` mantiene la carta in mano aggiornata
-
-## Auth
-- JWT obbligatorio
+`_sync_fragment_card` mantiene carta Frammento in mano.
