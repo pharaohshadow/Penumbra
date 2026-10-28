@@ -1,20 +1,17 @@
-# Architettura – v1.10
+# Architettura – v1.11
 
 ## Stato attuale
 
-### Fix Fog of War (bug visioni “doppie”)
-In `game_state.py` la funzione `is_visible_to` controllava la distanza **due volte** con le coordinate invertite.
-Effetto: oltre alla tua zona (basso a sinistra, Tempio 1) si “accendeva” anche un’area in alto a destra vicino al Tempio 2.
+### Montagne irregolari (roadmap 3.1)
+In `backend/static/index.html` gli ostacoli non sono più linee:
+- ogni muro è un **poligono SVG** a cresta dentellata
+- altezza e numero di picchi variano in modo stabile (seed dalle coordinate)
+- colori roccia: base scura, corpo marrone, cresta chiara
 
-**Fix v28.4:** le fonti di visione sono solo `(q, r)` del tuo tempio + delle tue creature. Nessun doppio check invertito.
+Fog of War: ok (fix v1.10).
 
-### Grafica mappa (stato intermedio)
-- Esagoni flat-top, colori scuri
-- Ostacoli ancora disegnati come linee (creste) → da sostituire con montagne irregolari (vedi roadmap §3)
-- Bordo esterno stile montagna, distinto dal fog
-
-### File toccati in questa consegna
-- `backend/core/game_state.py` (solo Fog of War)
+### File toccati
+- `backend/static/index.html` (solo disegno ostacoli)
 
 ### Supabase
 - URL: `https://favrmxwyaxklfiruyvqz.supabase.co`

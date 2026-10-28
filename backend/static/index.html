@@ -460,14 +460,34 @@ function render() {
     boardEl.appendChild(div);
   });
 
-  // Ostacoli = creste di montagna sul bordo condiviso (non linee rosse)
-  function sharedEdge(c1x, c1y, c2x, c2y, R) {
+  // Montagne irregolari sul bordo condiviso (poligoni SVG, non linee)
+  function sharedEdgeEnds(c1x, c1y, c2x, c2y, R) {
     const mx = (c1x + c2x) / 2, my = (c1y + c2y) / 2;
     let dx = c2x - c1x, dy = c2y - c1y;
     const len = Math.hypot(dx, dy) || 1;
     dx /= len; dy /= len;
     const px = -dy, py = dx, half = R / 2;
-    return [[mx + px * half, my + py * half], [mx - px * half, my - py * half]];
+    return {
+      x1: mx + px * half, y1: my + py * half,
+      x2: mx - px * half, y2: my - py * half,
+      nx: px, ny: py, // normale (verso un lato del bordo)
+      tx: dx, ty: dy  // tangente lungo il bordo
+    };
+  }
+  // seed stabile da coordinate → ogni montagna diversa ma fissa
+  function wallSeed(a, b) {
+    const s = String(a) + "|" + String(b);
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
   }
   const byQr = {};
   cells.forEach(c => { if (c.qr) byQr[c.qr] = c; });
@@ -480,33 +500,75 @@ function render() {
     const cy1 = oy + (ca.y - minY) * scale;
     const cx2 = ox + (cb.x - minX) * scale;
     const cy2 = oy + (cb.y - minY) * scale;
-    const R = hs * 0.88;
-    const [[x1, y1], [x2, y2]] = sharedEdge(cx1, cy1, cx2, cy2, R);
-    // base scura (roccia)
-    const base = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    base.setAttribute("x1", x1); base.setAttribute("y1", y1);
-    base.setAttribute("x2", x2); base.setAttribute("y2", y2);
-    base.setAttribute("stroke", "#3a322c");
-    base.setAttribute("stroke-width", "9");
-    base.setAttribute("stroke-linecap", "round");
-    wallSvg.appendChild(base);
-    // cresta chiara (montagna)
-    const ridge = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    ridge.setAttribute("x1", x1); ridge.setAttribute("y1", y1);
-    ridge.setAttribute("x2", x2); ridge.setAttribute("y2", y2);
-    ridge.setAttribute("stroke", "#8a7a65");
-    ridge.setAttribute("stroke-width", "5");
-    ridge.setAttribute("stroke-linecap", "round");
-    wallSvg.appendChild(ridge);
-    // highlight sottile
-    const hi = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    hi.setAttribute("x1", x1); hi.setAttribute("y1", y1);
-    hi.setAttribute("x2", x2); hi.setAttribute("y2", y2);
-    hi.setAttribute("stroke", "#c4b49a");
-    hi.setAttribute("stroke-width", "1.5");
-    hi.setAttribute("stroke-linecap", "round");
-    hi.setAttribute("opacity", "0.7");
-    wallSvg.appendChild(hi);
+    const R = hs * 0.90;
+    const e = sharedEdgeEnds(cx1, cy1, cx2, cy2, R);
+    const len = Math.hypot(e.x2 - e.x1, e.y2 - e.y1) || 1;
+    const rnd = mulberry32(wallSeed(w.a_qr, w.b_qr));
+    // numero di picchi lungo la cresta (3–5)
+    const nPeaks = 3 + Math.floor(rnd() * 3);
+    const peakH = hs * (0.22 + rnd() * 0.12); // altezza montagna
+    const baseW = hs * 0.08; // spessore base
+
+    // punti lungo la cresta (lato "alto" irregolare)
+    const topPts = [];
+    for (let i = 0; i <= nPeaks + 1; i++) {
+      const t = i / (nPeaks + 1);
+      const bx = e.x1 + (e.x2 - e.x1) * t;
+      const by = e.y1 + (e.y2 - e.y1) * t;
+      let h;
+      if (i === 0 || i === nPeaks + 1) h = peakH * 0.15;
+      else h = peakH * (0.45 + rnd() * 0.55);
+      // leggera oscillazione laterale
+      const jitter = (rnd() - 0.5) * len * 0.04;
+      topPts.push([
+        bx + e.nx * h + e.tx * jitter,
+        by + e.ny * h + e.ty * jitter
+      ]);
+    }
+    // base (lato opposto, più piatta)
+    const botPts = [];
+    for (let i = nPeaks + 1; i >= 0; i--) {
+      const t = i / (nPeaks + 1);
+      const bx = e.x1 + (e.x2 - e.x1) * t;
+      const by = e.y1 + (e.y2 - e.y1) * t;
+      const h = baseW * (0.6 + rnd() * 0.5);
+      botPts.push([bx - e.nx * h, by - e.ny * h]);
+    }
+
+    const all = topPts.concat(botPts);
+    const d = all.map((p, i) => (i === 0 ? "M" : "L") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ") + " Z";
+
+    // ombra / base scura
+    const shadow = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    shadow.setAttribute("d", d);
+    shadow.setAttribute("fill", "#2a241f");
+    shadow.setAttribute("opacity", "0.85");
+    wallSvg.appendChild(shadow);
+
+    // corpo roccia
+    const body = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    body.setAttribute("d", d);
+    body.setAttribute("fill", "#6b5b4a");
+    body.setAttribute("stroke", "#4a3f35");
+    body.setAttribute("stroke-width", "1");
+    wallSvg.appendChild(body);
+
+    // cresta chiara (solo i picchi superiori)
+    if (topPts.length >= 2) {
+      let ridgeD = "M" + topPts[0][0].toFixed(1) + "," + topPts[0][1].toFixed(1);
+      for (let i = 1; i < topPts.length; i++) {
+        ridgeD += " L" + topPts[i][0].toFixed(1) + "," + topPts[i][1].toFixed(1);
+      }
+      const ridge = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      ridge.setAttribute("d", ridgeD);
+      ridge.setAttribute("fill", "none");
+      ridge.setAttribute("stroke", "#c4b49a");
+      ridge.setAttribute("stroke-width", "1.6");
+      ridge.setAttribute("stroke-linejoin", "round");
+      ridge.setAttribute("stroke-linecap", "round");
+      ridge.setAttribute("opacity", "0.9");
+      wallSvg.appendChild(ridge);
+    }
   });
   boardEl.appendChild(wallSvg);
 
